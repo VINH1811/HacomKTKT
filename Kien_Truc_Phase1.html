@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kiến trúc Phase 1 (Web-only) — So sánh thầu KL & Đơn giá</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:Arial,Helvetica,sans-serif}
+body{background:#f1f5f9;color:#1e293b;padding:16px;line-height:1.45}
+.head-title{font-size:16px;font-weight:800}
+.head-sub{font-size:10.5px;color:#64748b;margin-top:1px}
+.scope{display:inline-block;margin-top:8px;background:#ecfdf5;border:1px solid #6ee7b7;color:#047857;font-size:10px;font-weight:700;padding:4px 10px;border-radius:8px}
+.scope.cut{background:#fef2f2;border-color:#fca5a5;color:#b91c1c;margin-left:6px}
+
+.tabs{display:flex;gap:6px;margin:14px 0 12px;flex-wrap:wrap}
+.tab{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #e2e8f0;background:#fff;color:#475569;transition:.15s}
+.tab.active{background:#1e293b;color:#fff;border-color:#1e293b}
+.view{display:none}.view.active{display:block}
+
+.layer{border-radius:11px;padding:11px 13px;margin-bottom:8px;border:1.5px solid}
+.layer-label{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px;display:flex;align-items:center;gap:7px}
+.layer-num{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;color:#fff}
+.boxes{display:flex;gap:7px;flex-wrap:wrap}
+.box{border-radius:7px;padding:8px 10px;flex:1;min-width:120px;border:1.5px solid #e2e8f0;background:#fff}
+.box-title{font-size:10px;font-weight:700;margin-bottom:3px}
+.box-sub{font-size:9px;color:#64748b;line-height:1.5}
+.badge{display:inline-block;padding:1px 6px;border-radius:8px;font-size:8px;font-weight:700;margin-left:4px;vertical-align:middle}
+.b-core{background:#fff7ed;color:#9a3412}
+.b-new{background:#ede9fe;color:#6d28d9}
+.b-web{background:#dbeafe;color:#1d4ed8}
+.b-async{background:#dcfce7;color:#166534}
+
+.conn{text-align:center;margin:3px 0;display:flex;align-items:center;justify-content:center;gap:7px}
+.conn span{color:#94a3b8;font-size:11px}
+.conn-label{font-size:8.5px;color:#64748b;background:#fff;padding:2px 8px;border-radius:8px;border:1px solid #e2e8f0}
+
+.pipeline-wrap{background:rgba(255,255,255,.65);border-radius:8px;padding:9px 11px;margin-top:8px;border:1.5px dashed #fb923c}
+.pipeline-label{font-size:9px;font-weight:700;color:#9a3412;margin-bottom:7px}
+.pipe-flow{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding-bottom:3px}
+.pstep{background:#fff;border:1.5px solid #fed7aa;border-radius:6px;padding:6px 8px;min-width:120px;flex-shrink:0}
+.pstep-n{font-size:7.5px;font-weight:700;color:#9a3412}
+.pstep-name{font-size:9.5px;font-weight:700;color:#1e293b;margin:1px 0 3px}
+.pstep-io{font-size:8px;color:#475569;line-height:1.45}
+.parr{display:flex;align-items:center;font-size:14px;color:#fb923c;margin:0 3px;flex-shrink:0}
+
+.note{border-radius:6px;padding:7px 10px;margin-top:8px;font-size:9px;line-height:1.55}
+.note-blue{background:#e0f2fe;color:#0c4a6e;border:1px solid #bae6fd}
+.note-amber{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+.note-green{background:#dcfce7;color:#166534;border:1px solid #86efac}
+
+.dm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dm-card{background:#fff;border-radius:8px;padding:9px 11px;border:1.5px solid #e2e8f0}
+.dm-card.hot{border-color:#a78bfa;background:#faf5ff}
+.dm-card h3{font-size:10px;font-weight:700;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center}
+.field{font-size:9px;color:#475569;padding:1.5px 0}
+.field b{color:#7c3aed}
+.field .nw{color:#c026d3;font-weight:700}
+.rel{font-size:8.5px;color:#0ea5e9;margin-top:4px}
+
+.tl{display:flex;flex-direction:column;gap:8px}
+.wk{display:flex;gap:10px;align-items:stretch}
+.wk-tag{flex-shrink:0;width:62px;background:#1e293b;color:#fff;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;font-size:11px;padding:6px 0}
+.wk-tag small{font-size:7.5px;font-weight:600;opacity:.8}
+.wk-body{flex:1;background:#fff;border:1.5px solid #e2e8f0;border-radius:7px;padding:8px 11px}
+.wk-body h4{font-size:10.5px;font-weight:700;margin-bottom:3px}
+.wk-body p{font-size:9px;color:#64748b;line-height:1.55}
+.wk-out{display:inline-block;margin-top:5px;font-size:8px;font-weight:700;color:#047857;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:6px;padding:2px 7px}
+
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:8.5px;color:#64748b}
+.legend span{display:flex;align-items:center;gap:5px}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+</style>
+</head>
+<body>
+
+<div class="head-title">Kiến trúc &amp; Luồng triển khai — Phase 1 (Web-only)</div>
+<div class="head-sub">Công cụ So sánh thầu · Chỉ Khối lượng &amp; Đơn giá · Rule-based · Web app nội bộ · Client–Server</div>
+<div>
+  <span class="scope">✓ Giữ: Web App + FastAPI + PostgreSQL + Engine</span>
+  <span class="scope cut">✕ Bỏ: Desktop/Electron · SQLite local · Sync Engine · Brand check</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('arch',this)">Kiến trúc Phase 1</div>
+  <div class="tab" onclick="show('dm',this)">Data Model</div>
+  <div class="tab" onclick="show('flow',this)">Luồng triển khai</div>
+</div>
+
+<!-- ============ ARCH ============ -->
+<div class="view active" id="arch">
+
+  <!-- L1 -->
+  <div class="layer" style="background:#e0f2fe;border-color:#7dd3fc">
+    <div class="layer-label" style="color:#0369a1"><div class="layer-num" style="background:#0ea5e9">1</div>Lớp giao diện — Web App trên trình duyệt, luồng 3 bước</div>
+    <div class="boxes">
+      <div class="box" style="border-color:#0ea5e9"><div class="box-title" style="color:#0369a1">Web UI <span class="badge b-web">BROWSER</span></div><div class="box-sub">React (Vite) hoặc Streamlit<br>Đăng nhập · phân quyền phòng ban</div></div>
+      <div class="box" style="border-color:#0ea5e9"><div class="box-title" style="color:#0369a1">① Tải lên</div><div class="box-sub">Kéo-thả KLMT + nhiều HSDT<br>(.xlsx/.xlsb) · chọn cột KLMT</div></div>
+      <div class="box" style="border-color:#0ea5e9"><div class="box-title" style="color:#0369a1">② Xem &amp; xác nhận</div><div class="box-sub">Bảng tô màu 🔴🟡🟢 + Lý do<br>Thanh ngưỡng · xác nhận ghép</div></div>
+      <div class="box" style="border-color:#0ea5e9"><div class="box-title" style="color:#0369a1">③ Xuất Excel</div><div class="box-sub">Tải báo cáo tô màu<br>+ ma trận giá + draft làm rõ</div></div>
+    </div>
+    <div class="note note-blue">💡 Một codebase web duy nhất, người dùng chỉ mở trình duyệt — không cài đặt gì. Không còn Electron/PyInstaller/desktop.</div>
+  </div>
+
+  <div class="conn"><span>▼</span><span class="conn-label">HTTP REST / JSON (HTTPS nội bộ)</span><span>▼</span></div>
+
+  <!-- L2 API -->
+  <div class="layer" style="background:#f0fdf4;border-color:#86efac">
+    <div class="layer-label" style="color:#15803d"><div class="layer-num" style="background:#22c55e">2</div>Lớp API — FastAPI (server nội bộ)</div>
+    <div class="boxes">
+      <div class="box" style="border-color:#4ade80"><div class="box-title" style="color:#15803d">Auth API</div><div class="box-sub">POST /login (JWT)<br>Phân quyền theo vai trò</div></div>
+      <div class="box" style="border-color:#4ade80"><div class="box-title" style="color:#15803d">Project / Upload</div><div class="box-sub">/projects · /packages<br>POST /upload → lưu file server</div></div>
+      <div class="box" style="border-color:#16a34a"><div class="box-title" style="color:#15803d">Compare API <span class="badge b-async">ASYNC</span></div><div class="box-sub">POST /compare → job_id<br>GET /compare/{id}/status (poll)<br>GET /result · /flags</div></div>
+      <div class="box" style="border-color:#4ade80"><div class="box-title" style="color:#15803d">Export API</div><div class="box-sub">POST /export/excel<br>GET /download/{id}</div></div>
+    </div>
+    <div class="note note-green"><b>Async hợp lý cho web:</b> nhiều người dùng + file vài nghìn dòng → POST /compare trả <b>job_id</b> ngay, Pipeline chạy nền (BackgroundTasks), UI poll <b>/status</b> (bước 3/5, 60%…) tới khi xong.</div>
+  </div>
+
+  <div class="conn"><span>▼</span><span class="conn-label">Pipeline.run(job_id, files, master_boq) — chạy nền</span><span>▼</span></div>
+
+  <!-- L3 PROCESSING -->
+  <div class="layer" style="background:#fff7ed;border-color:#fb923c">
+    <div class="layer-label" style="color:#c2410c"><div class="layer-num" style="background:#f97316">3</div>Lớp xử lý — Python Engine · Rule-based · Không LLM · Không GPU</div>
+    <div class="boxes">
+      <div class="box" style="border-color:#fed7aa"><div class="box-title" style="color:#c2410c">FileIngester</div><div class="box-sub">calamine (.xlsx) · pyxlsb (.xlsb)<br>Header nhiều tầng · ô gộp<br><b>Bắt #REF! / hàng ẩn</b></div></div>
+      <div class="box" style="border-color:#fed7aa"><div class="box-title" style="color:#c2410c">Normalizer</div><div class="box-sub"><b>Căn Stt/Mã trước</b> → fuzzy sau<br>Chuẩn chuỗi ĐVT (m²↔m2)<br>Một–một · ghép tay khi cần</div></div>
+      <div class="box" style="border-color:#f97316"><div class="box-title" style="color:#c2410c">ComparisonEngine <span class="badge b-core">CORE</span></div><div class="box-sub">KL: thừa/thiếu/bỏ sót/phát sinh<br><b>Đơn giá 5 thành phần</b> · Σ=tổng hợp<br>Ngưỡng kép %+tuyệt đối · median &amp; dự toán</div></div>
+      <div class="box" style="border-color:#fed7aa"><div class="box-title" style="color:#c2410c">QualityAuditor</div><div class="box-sub"><b>Tính lại từ giá trị</b>: KL×ĐG=TT<br>(không phụ thuộc formula string)<br>Ô trống · định dạng số</div></div>
+      <div class="box" style="border-color:#fed7aa"><div class="box-title" style="color:#c2410c">ReportBuilder</div><div class="box-sub">openpyxl ghi Excel tô màu<br>Ma trận giá + tổng hợp<br>Draft làm rõ HSCG</div></div>
+    </div>
+
+    <div class="pipeline-wrap">
+      <div class="pipeline-label">🔀 Pipeline Orchestrator — 5 bước, emit tiến trình về job để UI poll</div>
+      <div class="pipe-flow">
+        <div class="pstep"><div class="pstep-n">BƯỚC 1</div><div class="pstep-name">FileIngester</div><div class="pstep-io">IN: file đã upload<br>OUT: {NT: DataFrame}</div></div>
+        <div class="parr">→</div>
+        <div class="pstep"><div class="pstep-n">BƯỚC 2</div><div class="pstep-name">Normalizer</div><div class="pstep-io">IN: {NT: DF}<br>OUT: {NT: DF chuẩn}</div></div>
+        <div class="parr">→</div>
+        <div class="pstep"><div class="pstep-n">BƯỚC 3</div><div class="pstep-name">Comparison</div><div class="pstep-io">IN: DF chuẩn + MasterBOQ<br>OUT: CompareResult</div></div>
+        <div class="parr">→</div>
+        <div class="pstep"><div class="pstep-n">BƯỚC 4</div><div class="pstep-name">QualityAuditor</div><div class="pstep-io">IN: giá trị các ô<br>OUT: List[Flag]</div></div>
+        <div class="parr">→</div>
+        <div class="pstep"><div class="pstep-n">BƯỚC 5</div><div class="pstep-name">ReportBuilder</div><div class="pstep-io">IN: result + flags<br>OUT: file .xlsx + ghi DB</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="conn"><span>▼</span><span class="conn-label">đọc / ghi</span><span>▼</span></div>
+
+  <!-- L4 DATA -->
+  <div class="layer" style="background:#f5f3ff;border-color:#c4b5fd">
+    <div class="layer-label" style="color:#5b21b6"><div class="layer-num" style="background:#8b5cf6">4</div>Lớp dữ liệu — Server tập trung (1 nguồn duy nhất, không sync)</div>
+    <div class="boxes">
+      <div class="box" style="border-color:#7c3aed"><div class="box-title" style="color:#5b21b6">PostgreSQL <span class="badge b-web">SERVER</span></div><div class="box-sub">Users · Projects · Packages<br>BOQItem · Results · Flags</div></div>
+      <div class="box" style="border-color:#8b5cf6"><div class="box-title" style="color:#5b21b6">File Storage</div><div class="box-sub">File gốc + báo cáo .xlsx<br>Đĩa server / S3 nội bộ · theo hash</div></div>
+      <div class="box" style="border-color:#8b5cf6"><div class="box-title" style="color:#5b21b6">Cache kết quả parse</div><div class="box-sub">Key = hash nội dung file<br>Redis / Parquet · tránh đọc lại</div></div>
+      <div class="box" style="border-color:#8b5cf6"><div class="box-title" style="color:#5b21b6">Config / Rules (JSON)</div><div class="box-sub">thresholds.json (% &amp; tuyệt đối)<br>unit_aliases.json · sửa từ UI</div></div>
+    </div>
+    <div class="note note-green">✓ Web-only loại bỏ hẳn <b>Sync Engine + SQLite local</b> (phần rủi ro nhất): chỉ 1 cơ sở dữ liệu, không xung đột, không last-write-wins.</div>
+    <div class="note note-blue">🔒 Triển khai trên <b>server NỘI BỘ công ty</b> (intranet/VPN), HTTPS, không phải SaaS công cộng — hồ sơ thầu không rời hạ tầng doanh nghiệp.</div>
+  </div>
+
+</div>
+
+<!-- ============ DATA MODEL ============ -->
+<div class="view" id="dm">
+  <div class="note note-amber" style="margin-bottom:10px">⚙️ Trường <span class="nw" style="color:#c026d3;font-weight:700">màu hồng</span> = phần khớp dữ liệu thật (giá 5 thành phần, phân cấp dòng, nhiều phiên bản KLMT). Web-only thêm <b>User</b> cho đăng nhập; <b>file_key</b> trỏ tới File Storage trên server.</div>
+  <div class="dm-grid">
+
+    <div class="dm-card hot">
+      <h3 style="color:#1d4ed8">👤 User <span class="badge b-web">WEB</span></h3>
+      <div class="field"><b>id</b> UUID</div>
+      <div class="field"><b>username</b> · <b>email</b></div>
+      <div class="field"><b>role</b> chuyên viên|trưởng nhóm|admin</div>
+      <div class="field"><b>password_hash</b></div>
+      <div class="rel">↳ 1:N Project (owner)</div>
+    </div>
+
+    <div class="dm-card">
+      <h3 style="color:#0369a1">📁 Project</h3>
+      <div class="field"><b>id</b> UUID</div>
+      <div class="field"><b>name</b> string</div>
+      <div class="field"><b>owner_id</b> FK → User</div>
+      <div class="field"><b>created_at</b> datetime</div>
+      <div class="rel">↳ 1:N BiddingPackage</div>
+    </div>
+
+    <div class="dm-card">
+      <h3 style="color:#15803d">📦 BiddingPackage</h3>
+      <div class="field"><b>id</b> UUID · <b>project_id</b> FK</div>
+      <div class="field"><b>name</b> "Gói 08 Cơ điện"</div>
+      <div class="field"><b>status</b> draft|comparing|done</div>
+      <div class="rel">↳ 1:1 MasterBOQ · 1:N ContractorBid</div>
+    </div>
+
+    <div class="dm-card hot">
+      <h3 style="color:#c2410c">📋 MasterBOQ</h3>
+      <div class="field"><b>id</b> · <b>package_id</b> FK</div>
+      <div class="field nw">file_key (File Storage) · file_hash</div>
+      <div class="field nw">qty_versions[] — "Lần 1","BIM","Lần 2"</div>
+      <div class="field nw">active_qty_version — cột KLMT chuẩn</div>
+      <div class="rel">↳ 1:N BOQItem</div>
+    </div>
+
+    <div class="dm-card">
+      <h3 style="color:#0891b2">🏗 ContractorBid</h3>
+      <div class="field"><b>id</b> · <b>package_id</b> FK</div>
+      <div class="field"><b>contractor_name</b> string</div>
+      <div class="field"><b>round</b> int <span style="color:#94a3b8">(vòng chào giá)</span></div>
+      <div class="field nw">file_key · file_hash</div>
+      <div class="rel">↳ 1:N BOQItem</div>
+    </div>
+
+    <div class="dm-card hot">
+      <h3 style="color:#7c3aed">📊 BOQItem</h3>
+      <div class="field"><b>id</b> · <b>source_id</b> FK (Master|Bid)</div>
+      <div class="field nw">parent_id — phân cấp A→I→1→1.1</div>
+      <div class="field nw">row_type — header | priced | component</div>
+      <div class="field"><b>stt</b> "I.1" · <b>code</b> mã hiệu</div>
+      <div class="field"><b>description</b> · <b>unit</b> (chuẩn hóa)</div>
+      <div class="field"><b>quantity</b> float</div>
+      <div class="field nw">p_vl_chinh · p_vl_phu · p_nc_may</div>
+      <div class="field nw">p_quanly · p_loinhuan</div>
+      <div class="field nw">unit_price_total — = Σ 5 thành phần</div>
+      <div class="field"><b>total</b> float (KL×ĐG)</div>
+      <div class="field"><b>brand</b> string|null <span style="color:#94a3b8">(lưu, chưa kiểm)</span></div>
+    </div>
+
+    <div class="dm-card hot">
+      <h3 style="color:#dc2626">🚩 Flag</h3>
+      <div class="field"><b>id</b> · <b>contractor_id</b> FK · <b>item_stt</b></div>
+      <div class="field"><b>type</b>:</div>
+      <div class="field" style="padding-left:8px">KL_DEVIATION · ITEM_MISSING</div>
+      <div class="field" style="padding-left:8px">EXTRA_ITEM · PRICE_HIGH · PRICE_LOW</div>
+      <div class="field nw" style="padding-left:8px">REF_ERROR · MISSING_DATA</div>
+      <div class="field nw" style="padding-left:8px">ARITHMETIC_ERROR · UNIT_CHANGED</div>
+      <div class="field nw" style="padding-left:8px">PRICE_COMPONENT_MISMATCH</div>
+      <div class="field"><b>severity</b> HIGH|MED|LOW · <b>delta_pct</b></div>
+      <div class="field"><b>delta_abs</b> · <b>message</b> · <b>resolved</b></div>
+    </div>
+
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:#dc2626"></span>🔴 HIGH: #REF!, thiếu dữ liệu, sai số học, bỏ sót/phát sinh, lệch lớn (cả % &amp; tuyệt đối)</span>
+    <span><span class="dot" style="background:#f59e0b"></span>🟡 MED: lệch giá vượt %, đổi ĐVT, tên lệch nhẹ</span>
+    <span><span class="dot" style="background:#16a34a"></span>🟢 LOW: khớp trong ngưỡng</span>
+  </div>
+</div>
+
+<!-- ============ FLOW ============ -->
+<div class="view" id="flow">
+
+  <div class="note note-blue" style="margin-bottom:12px">Hai luồng: (A) <b>luồng chạy thực tế</b> trên web (trình duyệt ↔ server); (B) <b>trình tự xây dựng</b> giai đoạn đầu.</div>
+
+  <div style="font-size:11px;font-weight:800;color:#1e293b;margin:0 0 7px">A. Luồng chạy thực tế (web runtime)</div>
+  <div class="pipe-flow" style="margin-bottom:16px">
+    <div class="pstep" style="border-color:#7dd3fc;min-width:104px"><div class="pstep-n" style="color:#0369a1">TRÌNH DUYỆT</div><div class="pstep-name">Tải file lên</div><div class="pstep-io">KLMT + HSDT<br>chọn cột KLMT</div></div>
+    <div class="parr">→</div>
+    <div class="pstep" style="min-width:104px"><div class="pstep-n" style="color:#15803d">SERVER</div><div class="pstep-name">Đọc + vệ sinh</div><div class="pstep-io">parse, bắt #REF!,<br>ô trống</div></div>
+    <div class="parr">→</div>
+    <div class="pstep" style="min-width:104px"><div class="pstep-n" style="color:#15803d">SERVER</div><div class="pstep-name">Căn dòng</div><div class="pstep-io">Stt/Mã → fuzzy<br>gợi ý ghép</div></div>
+    <div class="parr">→</div>
+    <div class="pstep" style="border-color:#7dd3fc;min-width:104px"><div class="pstep-n" style="color:#0369a1">TRÌNH DUYỆT</div><div class="pstep-name">Xác nhận ghép</div><div class="pstep-io">duyệt dòng fuzzy<br>(chỉ khi cần)</div></div>
+    <div class="parr">→</div>
+    <div class="pstep" style="min-width:104px"><div class="pstep-n" style="color:#15803d">SERVER (job nền)</div><div class="pstep-name">So &amp; chấm cờ</div><div class="pstep-io">KL · giá 5 t/p<br>UI poll tiến trình</div></div>
+    <div class="parr">→</div>
+    <div class="pstep" style="border-color:#7dd3fc;min-width:104px"><div class="pstep-n" style="color:#0369a1">TRÌNH DUYỆT</div><div class="pstep-name">Duyệt &amp; tải</div><div class="pstep-io">xem 🔴🟡 · tải<br>Excel + làm rõ</div></div>
+  </div>
+
+  <div style="font-size:11px;font-weight:800;color:#1e293b;margin:0 0 8px">B. Trình tự xây dựng giai đoạn đầu (~6–7 tuần)</div>
+  <div class="tl">
+    <div class="wk"><div class="wk-tag">T1<small>Tuần 1</small></div><div class="wk-body"><h4>FileIngester + vệ sinh dữ liệu</h4><p>Đọc .xlsx/.xlsb, header nhiều tầng, ô gộp; bắt #REF! / ô trống / định dạng số.</p><span class="wk-out">✓ Bắt đủ 59 lỗi #REF! của bộ Hacom Mall</span></div></div>
+    <div class="wk"><div class="wk-tag">T2<small>Tuần 2</small></div><div class="wk-body"><h4>Mô hình dữ liệu + Normalizer</h4><p>BOQItem (5 thành phần giá, parent_id, row_type); căn Stt/Mã, một–một, fuzzy fallback.</p><span class="wk-out">✓ Đã xong &amp; test trên dữ liệu thật</span></div></div>
+    <div class="wk"><div class="wk-tag">T3<small>Tuần 3</small></div><div class="wk-body"><h4>ComparisonEngine + QualityAuditor</h4><p>So KL (thừa/thiếu/bỏ sót/phát sinh); giá 5 t/p + Σ=tổng hợp; ngưỡng kép + dự toán; tính lại KL×ĐG=TT.</p><span class="wk-out">✓ Không báo nhiễu dòng cấu thành</span></div></div>
+    <div class="wk"><div class="wk-tag">T4<small>Tuần 4</small></div><div class="wk-body"><h4>FastAPI + PostgreSQL + Auth</h4><p>REST: upload, compare (async job + poll), export; SQLAlchemy + Alembic; đăng nhập JWT, phân quyền.</p><span class="wk-out">✓ Backend web chạy được, có docs /openapi</span></div></div>
+    <div class="wk"><div class="wk-tag">T5<small>Tuần 5</small></div><div class="wk-body"><h4>Web UI 3 bước + xuất Excel</h4><p>React (Vite) hoặc Streamlit phục vụ qua trình duyệt; bảng tô màu + Lý do; poll tiến trình; tải báo cáo.</p><span class="wk-out">✓ Người dùng dùng thử end-to-end trên web</span></div></div>
+    <div class="wk"><div class="wk-tag">T6<small>Tuần 6</small></div><div class="wk-body"><h4>So chéo nhiều nhà thầu + ma trận giá</h4><p>Ghép 4 nhà thầu theo từng hệ, median + MAD/Robust Z-score, sheet thiếu &amp; ngoài danh mục.</p><span class="wk-out">✓ Tái tạo file tổng hợp V2 tự động</span></div></div>
+    <div class="wk"><div class="wk-tag">T7<small>Tuần 7</small></div><div class="wk-body"><h4>Đóng gói &amp; triển khai nội bộ</h4><p>Docker Compose (web + API + PostgreSQL) · Nginx reverse proxy + HTTPS · deploy server intranet · nghiệm thu.</p><span class="wk-out">✓ Khớp định tính kết quả làm tay</span></div></div>
+  </div>
+
+</div>
+
+<script>
+function show(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

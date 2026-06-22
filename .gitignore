@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+so_sanh_nhap.xlsx
+*.log
+.system_generated/
+*.xlsx.tmp

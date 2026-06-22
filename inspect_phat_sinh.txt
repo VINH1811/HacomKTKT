@@ -1,0 +1,13 @@
+
+==================================================
+File: 1. 2025.12.08 Chao gia ME Hacom Mall Linh Anh V2.xlsx
+  Sheet: 1. HT điện | Row 2680 | STT: B | Value: Phát sinh ngoài KLMT Nhà thầu bổ sung
+  Sheet: 2. HT điện nhẹ | Row 48 | STT: B | Value: Phát sinh ngoài KLMT Nhà thầu bổ sung
+  Sheet: 3. HT CTN | Row 812 | STT: B | Value: Phát sinh ngoài KLMT Nhà thầu bổ sung
+  Sheet: 4.1 ĐH VRV | Row 47 | STT: B | Value: Phát sinh ngoài KLMT Nhà thầu bổ sung
+  Sheet: 4.3 DHKK & TG | Row 1108 | STT: B | Value: Phát sinh ngoài KLMT Nhà thầu bổ sung
+  Sheet: 5. Ngăn cháy lan | Row 23 | STT: B | Value: Phát sinh ngoài KLMT Nhà thầu bổ sung
+
+==================================================
+File: 4. 2025.12.08 Chao gia ME Hacom Mall Van Khanh V2.xlsx
+  Sheet: BoQ chi tiet | Row 4823 | STT: B | Value: ĐẦU MỤC CÔNG VIỆC PHÁT SINH NGOÀI KLMT

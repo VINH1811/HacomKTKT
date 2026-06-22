@@ -1,0 +1,360 @@
+
+==================================================
+File: 1. 2025.12.08 Chao gia ME Hacom Mall Linh Anh V2.xlsx
+
+Sheet: ĐIỀU KHOẢN
+Using description column: Unnamed: 1
+  Row 3 | STT: I | Header: ĐIỀU KIỆN THƯƠNG MẠI
+
+Sheet: 1. HT điện
+Using description column: Unnamed: 1
+  Row 7 | STT: A | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 58 | STT: nan | Header: ATS 4P 400A
+  Row 85 | STT: nan | Header: ATS 4P 250A
+  Row 199 | STT: nan | Header: ATS 4P 400A
+  Row 222 | STT: nan | Header: ATS 4P 400A
+  Row 364 | STT: 1 | Header: HDPE 160/125
+  Row 1138 | STT: nan | Header: ATS 4P 320A
+  Row 1384 | STT: nan | Header: ATS 4P 630A
+  Row 1480 | STT: nan | Header: ATS 4P 500A
+  Row 2397 | STT: nan | Header: TỦ ĐIỆN CĂN HỘ
+  Row 2398 | STT: 1 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 3 PHÒNG NGỦ CH-A, CH-01
+  Row 2407 | STT: 2 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 2 PHÒNG NGỦ (M1) CH-B1, CH-B3.1, CH-B3.2, CH-B3.4
+  Row 2416 | STT: 3 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 2 PHÒNG NGỦ (M2) CH-B2.1, CH-B2.2, CH-B2.3, CH-B3.3, CH-B4
+  Row 2425 | STT: 4 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 2 PHÒNG NGỦ (M3) CH-02, CH-03
+  Row 2434 | STT: 5 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 1 PHÒNG NGỦ (M1) CH-04, CH-05
+  Row 2443 | STT: 6 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 1 PHÒNG NGỦ (M2) CH-06A.1, CH-06A.2, CH-06A.3, CH-06B, CH-06C, CH-07A.1, CH-07A.2, CH-07B
+  Row 2452 | STT: 7 | Header: TỦ ĐIỆN CĂN HỘ LOẠI PENHOUSE 4 PHÒNG NGỦ P-01, P-03, P-04
+  Row 2464 | STT: 8 | Header: TỦ ĐIỂN CĂN HỘ LOẠI PENHOUSE 3PN (M1) P-02
+  Row 2474 | STT: 9 | Header: TỦ ĐIỂN CĂN HỘ LOẠI PENHOUSE 3PN (M2) P-05
+  Row 2484 | STT: nan | Header: CHIẾU SÁNG VÀ Ổ CẮM
+  Row 2493 | STT: 2 | Header: CÔNG TẮC, THIẾT BỊ
+  Row 2508 | STT: nan | Header: DÂY CÁP ĐIỆN
+  Row 2532 | STT: nan | Header: ĐÈN CHIẾU SÁNG
+  Row 2632 | STT: nan | Header: HỆ THỐNG BUSDUCT
+  Row 2685 | STT: C | Header: TỔNG CỘNG TRƯỚC VAT: C = A + B
+
+Sheet: 2. HT điện nhẹ
+Using description column: Unnamed: 1
+  Row 7 | STT: A | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 11 | STT: II | Header: PHẦN VẬT TƯ THIẾT BỊ ĐẦU TƯ CHO CĂN HỘ
+  Row 53 | STT: C | Header: TỔNG CỘNG TRƯỚC VAT: C = A + B
+
+Sheet: 3. HT CTN
+Using description column: Unnamed: 1
+  Row 7 | STT: A | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 303 | STT: nan | Header: D140 - HDPE
+  Row 430 | STT: nan | Header: D140 - HDPE
+  Row 472 | STT: 16 | Header: Hạng mục khác
+  Row 487 | STT: VI | Header: CHI TIẾT CĂN HỘ
+  Row 488 | STT: a | Header: KHỐI LƯỢNG CẤP NƯỚC
+  Row 531 | STT: b | Header: KHỐI LƯỢNG THOÁT NƯỚC
+  Row 590 | STT: c | Header: KHỐI LƯỢNG THIẾT BỊ VỆ SINH
+  Row 667 | STT: a | Header: KHỐI LƯỢNG CẤP NƯỚC
+  Row 711 | STT: b | Header: KHỐI LƯỢNG THOÁT NƯỚC
+  Row 799 | STT: c | Header: KHỐI LƯỢNG THIẾT BỊ VỆ SINH
+  Row 813 | STT: A1 | Header: PHẦN CẤP NƯỚC MẶT BẰNG, TRỤC ĐỨNG
+  Row 827 | STT: D | Header: PHẦN BỂ BƠI
+  Row 831 | STT: nan | Header: PHẠM VI KHÁC
+  Row 842 | STT: C | Header: TỔNG CỘNG TRƯỚC VAT: C = A + B
+
+Sheet: 4.1 ĐH VRV
+Using description column: Unnamed: 1
+  Row 7 | STT: A | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 8 | STT: nan | Header: THIẾT BỊ ĐIỀU HOÀ KHÔNG KHÍ
+  Row 52 | STT: C | Header: TỔNG CỘNG TRƯỚC VAT: C = A + B
+
+Sheet: 4.2 Quạt
+Using description column: Unnamed: 18
+  Row 4 | STT: STT | Header: THÔNG TIN VỀ VẬT LIỆU CHÍNH
+
+Sheet: 4.3 DHKK & TG
+Using description column: Unnamed: 1
+  Row 7 | STT: A | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 8 | STT: nan | Header: THIẾT BỊ & VẬT TƯ LẮP ĐẶT ĐIỀU HÒA KHÔNG KHÍ & THÔNG GIÓ PHẦN CHUNG
+  Row 9 | STT: A1 | Header: PHÂN VẬT TƯ LẮP ĐẶT ỐNG GIÓ
+  Row 10 | STT: I | Header: HỆ THỐNG THÔNG GIÓ SỰ CỐ
+  Row 11 | STT:  1.  | Header: HỆ THỐNG THÔNG GIÓ HÚT TẦNG HẦM
+  Row 86 | STT: 2.  | Header: HỆ THỐNG HÚT KHÓI CÁC KHÔNG GIAN CÔNG CỘNG  CÓ DIỆN TÍCH LỚN HƠN 200M2
+  Row 189 | STT: 3.  | Header: HỆ THỐNG HÚT KHÓI HÀNH LANG
+  Row 245 | STT: 4.  | Header: HỆ THỐNG TĂNG ÁP THANG BỘ, THANG MÁY, PHÒNG ĐỆM THANG BỘ
+  Row 453 | STT: II | Header: HỆ THỐNG THÔNG GIÓ CHUNG
+  Row 454 | STT: 1.  | Header: HỆ THỐNG THÔNG GIÓ CẤP TẦNG HẦM
+  Row 517 | STT:  2.  | Header: HỆ THỐNG  THÔNG GIÓ HÚT MÙI, HÚT MÙI VỆ SINH + PHÒNG KỸ THUẬT
+  Row 643 | STT: 3 | Header: HỆ THỐNG ỐNG GIÓ LẠNH ĐIỀU HÒA
+  Row 683 | STT: 4 | Header: HỆ THỐNG ỐNG GIÓ TƯƠI (OA)
+  Row 886 | STT: 5 | Header: HỆ THỐNG HÚT BẾP
+  Row 901 | STT: A.2 | Header: PHÂN VẬT TƯ LẮP ĐẶT ỐNG ĐỒNG, NƯỚC NGƯNG
+  Row 902 | STT: I | Header: HỆ THỐNG GAS/DỊCH, NƯỚC NGƯNG KHỐI THƯƠNG MẠI
+  Row 903 | STT: 1 | Header: VẬT TƯ PHẦN ỐNG GAS/DỊCH
+  Row 921 | STT: 2 | Header: VẬT TƯ PHẦN ỐNG THOÁT NƯỚC NGƯNG ĐIỀU HÒA
+  Row 935 | STT: 3 | Header: VẬT TƯ PHẦN CÁP ĐIỆN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 941 | STT: II | Header: THIẾT BỊ & VẬT TƯ LẮP ĐẶT ĐIỀU HÒA KHÔNG KHÍ & THÔNG GIÓ PHẦN CĂN HỘ
+  Row 942 | STT: 1 | Header: PHẦN THIẾT BỊ ĐIỀU HÒA CỤC BỘ
+  Row 946 | STT: 2 | Header: PHẦN THIẾT BỊ ĐIỀU HÒA MULTI
+  Row 947 | STT: a | Header: PHẦN DÀN LẠNH
+  Row 951 | STT: b | Header: PHẦN DÀN NÓNG
+  Row 956 | STT: 3 | Header: PHẦN THIẾT BỊ THÔNG GIÓ
+  Row 959 | STT: 4 | Header: PHẦN VẬT TƯ LẮP ĐẶT
+  Row 960 | STT: a | Header: PHẦN ỐNG GIÓ
+  Row 977 | STT: b | Header: PHẦN ỐNG GAS/DỊCH ĐIỀU HÒA
+  Row 989 | STT: d | Header: PHẦN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 993 | STT: III | Header: THIẾT BỊ & VẬT TƯ LẮP ĐẶT ĐIỀU HÒA KHÔNG KHÍ & THÔNG GIÓ PHẦN CĂN HỘ PENTHOUSE
+  Row 995 | STT: a | Header: PHẦN DÀN LẠNH
+  Row 1004 | STT: b | Header: PHẦN DÀN NÓNG
+  Row 1009 | STT: 2 | Header: PHẦN THIẾT BỊ THÔNG GIÓ
+  Row 1013 | STT: 3 | Header: PHẦN VẬT TƯ LẮP ĐẶT
+  Row 1014 | STT: a | Header: PHẦN ỐNG GIÓ
+  Row 1087 | STT: b | Header: PHẦN ỐNG GAS/DỊCH ĐIỀU HÒA
+  Row 1103 | STT: d | Header: PHẦN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 1109 | STT: I | Header: HỆ THỐNG THÔNG GIÓ SỰ CỐ
+  Row 1110 | STT:  1.  | Header: HỆ THỐNG THÔNG GIÓ HÚT TẦNG HẦM
+  Row 1133 | STT: 2.  | Header: HỆ THỐNG HÚT KHÓI CÁC KHÔNG GIAN CÔNG CỘNG  CÓ DIỆN TÍCH LỚN HƠN 200M2
+  Row 1190 | STT: 3.  | Header: HỆ THỐNG HÚT KHÓI HÀNH LANG
+  Row 1229 | STT: 4.  | Header: HỆ THỐNG TĂNG ÁP THANG BỘ, THANG MÁY, PHÒNG ĐỆM THANG BỘ
+  Row 1390 | STT: II | Header: HỆ THỐNG THÔNG GIÓ CHUNG
+  Row 1391 | STT: 1.  | Header: HỆ THỐNG THÔNG GIÓ CẤP TẦNG HẦM
+  Row 1397 | STT:  2.  | Header: HỆ THỐNG  THÔNG GIÓ HÚT MÙI, HÚT MÙI VỆ SINH + PHÒNG KỸ THUẬT
+  Row 1438 | STT: 3 | Header: HỆ THỐNG ỐNG GIÓ LẠNH ĐIỀU HÒA
+  Row 1454 | STT: 4 | Header: HỆ THỐNG ỐNG GIÓ TƯƠI (OA)
+  Row 1531 | STT: 5 | Header: HỆ THỐNG HÚT BẾP
+  Row 1535 | STT: 3 | Header: VẬT TƯ PHẦN CÁP ĐIỆN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 1537 | STT: E | Header: THIẾT BỊ & VẬT TƯ LẮP ĐẶT ĐIỀU HÒA KHÔNG KHÍ & THÔNG GIÓ PHẦN CĂN HỘ
+  Row 1538 | STT: IV | Header: PHẦN VẬT TƯ LẮP ĐẶT
+  Row 1539 | STT: d | Header: PHẦN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 1541 | STT: F | Header: THIẾT BỊ & VẬT TƯ LẮP ĐẶT ĐIỀU HÒA KHÔNG KHÍ & THÔNG GIÓ PHẦN CĂN HỘ PENTHOUSE
+  Row 1542 | STT: III | Header: PHẦN VẬT TƯ LẮP ĐẶT
+  Row 1543 | STT: D | Header: PHẦN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 1546 | STT: C | Header: TỔNG CỘNG TRƯỚC VAT: C = A + B
+
+Sheet: 5. Ngăn cháy lan
+Using description column: Unnamed: 1
+  Row 7 | STT: A | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 28 | STT: C | Header: TỔNG CỘNG TRƯỚC VAT: C = A + B
+
+==================================================
+File: 4. 2025.12.08 Chao gia ME Hacom Mall Van Khanh V2.xlsx
+
+Sheet: BoQ chi tiet
+Using description column: Unnamed: 1
+  Row 7 | STT: A | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 8 | STT: nan | Header: HẠNG MỤC: ĐIỆN
+  Row 59 | STT: nan | Header: ATS 4P 400A
+  Row 86 | STT: nan | Header: ATS 4P 250A
+  Row 200 | STT: nan | Header: ATS 4P 400A
+  Row 223 | STT: nan | Header: ATS 4P 400A
+  Row 365 | STT: 1 | Header: HDPE 160/125
+  Row 1139 | STT: nan | Header: ATS 4P 320A
+  Row 1385 | STT: nan | Header: ATS 4P 630A
+  Row 1481 | STT: nan | Header: ATS 4P 500A
+  Row 2318 | STT: IV | Header: PHẦN CÁP NHÁNH
+  Row 2397 | STT: G | Header: PHẦN CĂN HỘ
+  Row 2398 | STT: I | Header: TỦ ĐIỆN CĂN HỘ
+  Row 2399 | STT: 1 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 3 PHÒNG NGỦ CH-A, CH-01
+  Row 2408 | STT: 2 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 2 PHÒNG NGỦ (M1) CH-B1, CH-B3.1, CH-B3.2, CH-B3.4
+  Row 2417 | STT: 3 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 2 PHÒNG NGỦ (M2) CH-B2.1, CH-B2.2, CH-B2.3, CH-B3.3, CH-B4
+  Row 2426 | STT: 4 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 2 PHÒNG NGỦ (M3) CH-02, CH-03
+  Row 2435 | STT: 5 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 1 PHÒNG NGỦ (M1) CH-04, CH-05
+  Row 2444 | STT: 6 | Header: TỦ ĐIỆN CĂN HỘ LOẠI 1 PHÒNG NGỦ (M2) CH-06A.1, CH-06A.2, CH-06A.3, CH-06B, CH-06C, CH-07A.1, CH-07A.2, CH-07B
+  Row 2453 | STT: 7 | Header: TỦ ĐIỆN CĂN HỘ LOẠI PENHOUSE 4 PHÒNG NGỦ P-01, P-03, P-04
+  Row 2465 | STT: 8 | Header: TỦ ĐIỂN CĂN HỘ LOẠI PENHOUSE 3PN (M1) P-02
+  Row 2475 | STT: 9 | Header: TỦ ĐIỂN CĂN HỘ LOẠI PENHOUSE 3PN (M2) P-05
+  Row 2485 | STT: III | Header: CHIẾU SÁNG VÀ Ổ CẮM
+  Row 2494 | STT: 2 | Header: CÔNG TẮC, THIẾT BỊ
+  Row 2533 | STT: I | Header: ĐÈN CHIẾU SÁNG
+  Row 2633 | STT: II | Header: HỆ THỐNG BUSDUCT
+  Row 2665 | STT: VIII | Header: HỆ THỐNG CHỐNG SÉT - NỐI ĐẤT
+  Row 2681 | STT: nan | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 2682 | STT: nan | Header: HẠNG MỤC: ĐIỆN NHẸ
+  Row 2719 | STT: IV | Header: PHẦN VẬT TƯ THIẾT BỊ ĐẦU TƯ CHO CĂN HỘ
+  Row 2725 | STT: A | Header: ĐẦU MỤC CÔNG VIỆC THEO KLMT
+  Row 3021 | STT: nan | Header: D140 - HDPE
+  Row 3148 | STT: nan | Header: D140 - HDPE
+  Row 3190 | STT: 16 | Header: Hạng mục khác
+  Row 3205 | STT: VI | Header: CHI TIẾT CĂN HỘ
+  Row 3206 | STT: a | Header: KHỐI LƯỢNG CẤP NƯỚC
+  Row 3249 | STT: b | Header: KHỐI LƯỢNG THOÁT NƯỚC
+  Row 3308 | STT: c | Header: KHỐI LƯỢNG THIẾT BỊ VỆ SINH
+  Row 3385 | STT: a | Header: KHỐI LƯỢNG CẤP NƯỚC
+  Row 3429 | STT: b | Header: KHỐI LƯỢNG THOÁT NƯỚC
+  Row 3517 | STT: III | Header: KHỐI LƯỢNG THIẾT BỊ VỆ SINH
+  Row 3532 | STT: IV | Header: HẠNG MỤC: HVAC
+  Row 3533 | STT: A | Header: THIẾT BỊ ĐIỀU HOÀ KHÔNG KHÍ
+  Row 3534 | STT: I.  | Header: THIẾT BỊ ĐIỀU HÒA VRV (VRF)
+  Row 3535 | STT: nan | Header: 1. DÀN LẠNH ĐIỀU HÒA VRV, VRF
+  Row 3548 | STT: nan | Header: 2. DÀN NÓNG ĐIỀU HÒA VRV, VRF
+  Row 3563 | STT: nan | Header: II. THIẾT BỊ ĐIỀU HÒA CỤC BỘ
+  Row 3564 | STT: nan | Header: 1. HỆ THỐNG ĐIỀU HÒA CỤC BỘ
+  Row 3569 | STT: nan | Header: III. THIẾT BỊ ĐIỀU KHIỂN
+  Row 3571 | STT: B | Header: QUẠT THÔNG GIÓ CẤP, HÚT TẦNG HẦM - TUM
+  Row 3573 | STT: 1 | Header: QUẠT HÚT PHÒNG QUẠT HÚT 1
+  Row 3574 | STT: 2 | Header: QUẠT HÚT PHÒNG QUẠT HÚT 2
+  Row 3575 | STT: 3 | Header: QUẠT HÚT PHÒNG QUẠT HÚT 3
+  Row 3576 | STT: 4 | Header: QUẠT HÚT PHÒNG QUẠT CẤP
+  Row 3577 | STT: 6 | Header: QUẠT HÚT KHO 1
+  Row 3578 | STT: 7 | Header: QUẠT HÚT KHO 2
+  Row 3579 | STT: 8 | Header: QUẠT HÚT KHO 3
+  Row 3580 | STT: 9 | Header: QUẠT HÚT KHO 4
+  Row 3581 | STT: 10 | Header: QUẠT CẤP GIÓ TẦNG HẦM ZONE 1
+  Row 3582 | STT: 11 | Header: QUẠT CẤP GIÓ TẦNG HẦM ZONE 2
+  Row 3584 | STT: 12 | Header: QUẠT HÚT PHÒNG QUẠT HÚT 1
+  Row 3585 | STT: 13 | Header: QUẠT HÚT PHÒNG QUẠT HÚT 2
+  Row 3586 | STT: 14 | Header: QUẠT HÚT PHÒNG QUẠT HÚT 3
+  Row 3587 | STT: 15 | Header: QUẠT HÚT PHÒNG QUẠT CẤP
+  Row 3588 | STT: 16 | Header: QUẠT HÚT PHÒNG BƠM PCCC
+  Row 3589 | STT: 17 | Header: QUẠT HÚT PHÒNG HẠ THẾ
+  Row 3590 | STT: 18 | Header: QUẠT HÚT PHÒNG KĨ THUẬT
+  Row 3591 | STT: 19 | Header: QUẠT HÚT NHÀ ĐIỀU HÀNH XLNT
+  Row 3592 | STT: 20 | Header: QUẠT HÚT PHÒNG BƠM SINH HOẠT
+  Row 3593 | STT: 21 | Header: QUẠT HÚT PHÒNG RÁC THÁP A
+  Row 3594 | STT: 22 | Header: QUẠT CẤP GIÓ TẦNG HẦM ZONE 1
+  Row 3595 | STT: 23 | Header: QUẠT CẤP GIÓ TẦNG HẦM ZONE 2
+  Row 3597 | STT: 24 | Header: QUẠT HÚT KHO HÀNG
+  Row 3598 | STT: 25 | Header: QUẠT HÚT MÙI WC
+  Row 3599 | STT: 26 | Header: QUẠT HÚT MÙI WC TM
+  Row 3600 | STT: 27 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 1
+  Row 3601 | STT: 28 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 1
+  Row 3602 | STT: 29 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 1
+  Row 3603 | STT: 30 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 1
+  Row 3605 | STT: 29 | Header: QUẠT HÚT MÙI WC
+  Row 3606 | STT: 30 | Header: QUẠT HÚT MÙI KHO+QUẦY CHẾ BIẾN
+  Row 3607 | STT: 31 | Header: QUẠT HÚT KHO
+  Row 3608 | STT: 32 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 2
+  Row 3609 | STT: 33 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 2
+  Row 3610 | STT: 34 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 2
+  Row 3611 | STT: 35 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 2
+  Row 3612 | STT: 36 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 2
+  Row 3613 | STT: 36 | Header: QUẠT CẤP GIÓ TƯƠI PHÒNG NHÂN VIÊN
+  Row 3615 | STT: 37 | Header: QUẠT HÚT MÙI WC
+  Row 3616 | STT: 38 | Header: QUẠT HÚT KHO
+  Row 3617 | STT: 39 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 3
+  Row 3618 | STT: 40 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 3
+  Row 3619 | STT: 41 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 3
+  Row 3620 | STT: 42 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 3
+  Row 3621 | STT: 43 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 3
+  Row 3622 | STT: 44 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 3
+  Row 3624 | STT: 45 | Header: QUẠT HÚT MÙI WC 1
+  Row 3625 | STT: 46 | Header: QUẠT HÚT MÙI WC 2
+  Row 3626 | STT: 47 | Header: QUẠT HÚT KHO
+  Row 3627 | STT: 48 | Header: QUẠT HÚT KHO
+  Row 3628 | STT: 49 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 4
+  Row 3629 | STT: 50 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 4
+  Row 3630 | STT: 51 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 4
+  Row 3631 | STT: 52 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 4
+  Row 3632 | STT: 53 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 4
+  Row 3634 | STT: 50 | Header: QUẠT HÚT MÙI WC 1
+  Row 3635 | STT: 51 | Header: QUẠT HÚT MÙI WC 2
+  Row 3636 | STT: 52 | Header: QUẠT HÚT MÙI WC 3
+  Row 3637 | STT: 53 | Header: QUẠT HÚT MÙI KHU SƠ CHẾ
+  Row 3638 | STT: 54 | Header: QUẠT HÚT MÙI WC 4
+  Row 3639 | STT: 55 | Header: QUẠT HÚT MÙI KHU NHÀ HÀNG
+  Row 3640 | STT: 56 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 5
+  Row 3641 | STT: 57 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 5
+  Row 3642 | STT: 58 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 5
+  Row 3643 | STT: 59 | Header: QUẠT CẤP GIÓ TƯƠI TẦNG 5
+  Row 3644 | STT: 60 | Header: QUẠT CẤP GIÓ TƯƠI BẾP TẦNG 5
+  Row 3646 | STT: 61 | Header: QUẠT HÚT PHÒNG KT
+  Row 3647 | STT: 62 | Header: QUẠT CẤP KHÍ TƯƠI CF
+  Row 3648 | STT: 63 | Header: QUẠT HÚT WC
+  Row 3650 | STT: 64 | Header: QUẠT HÚT PHÒNG KTTM
+  Row 3652 | STT: 65 | Header: QUẠT HÚT MÙI PHÒNG RÁC
+  Row 3654 | STT: 66 | Header: QUẠT HÚT PHÒNG KT1
+  Row 3655 | STT: 67 | Header: QUẠT HÚT PHÒNG KT2
+  Row 3656 | STT: 68 | Header: QUẠT HÚT PHÒNG KTTM
+  Row 3657 | STT: 69 | Header: QUẠT HÚT MÙI BẾP THƯƠNG MẠI T5
+  Row 3659 | STT: 70 | Header: QUẠT HÚT MÙI BẾP ẨM THỰC T3
+  Row 3660 | STT: 71 | Header: QUẠT HÚT MÙI PHÒNG RÁC
+  Row 3661 | STT: C | Header: QUẠT TĂNG ÁP - HÚT KHÓI TẦNG HẦM - MÁI
+  Row 3663 | STT: 1 | Header: QUẠT THÔNG GIÓ TẦNG HẦM (02 CẤP TỐC ĐỘ, TỐC ĐỘ CAO KHI CÓ CHÁY)
+  Row 3664 | STT: 2 | Header: QUẠT THÔNG GIÓ TẦNG HẦM (02 CẤP TỐC ĐỘ, TỐC ĐỘ CAO KHI CÓ CHÁY)
+  Row 3665 | STT: 3 | Header: QUẠT TĂNG ÁP BUỒNG ĐỆM
+  Row 3667 | STT: 1 | Header: QUẠT THÔNG GIÓ TẦNG HẦM (02 CẤP TỐC ĐỘ, TỐC ĐỘ CAO KHI CÓ CHÁY)
+  Row 3668 | STT: 2 | Header: QUẠT THÔNG GIÓ TẦNG HẦM (02 CẤP TỐC ĐỘ, TỐC ĐỘ CAO KHI CÓ CHÁY)
+  Row 3669 | STT: 3 | Header: QUẠT HÚT KHÓI HÀNH LANG KHỐI ĐẾ
+  Row 3670 | STT: 4 | Header: QUẠT TĂNG ÁP SẢNH CĂN HỘ
+  Row 3671 | STT: 5 | Header: QUẠT TĂNG ÁP SẢNH TM
+  Row 3672 | STT: 6 | Header: QUẠT TĂNG ÁP SẢNH CĂN HỘ
+  Row 3674 | STT: 9 | Header: QUẠT TĂNG ÁP RAM DỐC TẦNG HẦM
+  Row 3676 | STT: 10 | Header: QUẠT TĂNG ÁP CẦU THANG BỘ
+  Row 3677 | STT: 11 | Header: QUẠT TĂNG ÁP GIẾNG THANG MÁY
+  Row 3678 | STT: 12 | Header: QUẠT TĂNG ÁP GIẾNG THANG MÁY
+  Row 3679 | STT: 13 | Header: QUẠT TĂNG ÁP BUỒNG ĐỆM THANG PCCC
+  Row 3680 | STT: 14 | Header: QUẠT HÚT KHÓI KHU CINEMA VÀ SHCD
+  Row 3681 | STT: 15 | Header: QUẠT HÚT KHÓI KHU DVTM
+  Row 3683 | STT: 16 | Header: QUẠT TĂNG ÁP CẦU THANG BỘ
+  Row 3684 | STT: 17 | Header: QUẠT TĂNG ÁP PHÒNG ĐỆM
+  Row 3685 | STT: 18 | Header: QUẠT TĂNG ÁP PHÒNG ĐỆM + THANG BỘ
+  Row 3686 | STT: 19 | Header: QUẠT HÚT KHÓI HÀNH LANG KHỐI THÁP
+  Row 3688 | STT: 20 | Header: QUẠT TĂNG ÁP BUỒNG ĐỆM THANG PCCC
+  Row 3689 | STT: 21 | Header: QUẠT TĂNG ÁP GIẾNG THANG MÁY
+  Row 3690 | STT: 22 | Header: QUẠT TĂNG ÁP GIẾNG THANG MÁY
+  Row 3691 | STT: 23 | Header: QUẠT TĂNG ÁP SẢNG THANG MÁY
+  Row 3692 | STT: 24 | Header: QUẠT HÚT KHÓI HÀNH LANG KHỐI THÁP
+  Row 3694 | STT: 25 | Header: QUẠT TĂNG ÁP GIẾNG THANG MÁY
+  Row 3695 | STT: 26 | Header: QUẠT TĂNG ÁP SẢNG THANG MÁY
+  Row 3696 | STT: 27 | Header: QUẠT HÚT KHÓI HÀNH LANG KHỐI THÁP
+  Row 3698 | STT: 28 | Header: QUẠT TĂNG ÁP BUỒNG THANG BỘ
+  Row 3699 | STT: 29 | Header: QUẠT TĂNG ÁP PHÒNG ĐỆM
+  Row 3700 | STT: 30 | Header: QUẠT TĂNG ÁP BUỒNG ĐỆM THANG PCCC
+  Row 3701 | STT: 31 | Header: QUẠT TĂNG ÁP GIẾNG THANG MÁY
+  Row 3702 | STT: 32 | Header: QUẠT TĂNG ÁP BUỒNG THANG BỘ + PHÒNG ĐỆM
+  Row 3703 | STT: 33 | Header: QUẠT HÚT KHÓI HÀNH LANG KHỐI THÁP
+  Row 3704 | STT: 34 | Header: QUẠT HÚT KHÓI THƯƠNG MẠI
+  Row 3705 | STT: D | Header: THIẾT BỊ & VẬT TƯ LẮP ĐẶT ĐIỀU HÒA KHÔNG KHÍ & THÔNG GIÓ PHẦN CHUNG
+  Row 3706 | STT: nan | Header: I.PHÂN VẬT TƯ LẮP ĐẶT ỐNG GIÓ
+  Row 3707 | STT: nan | Header: II. - HỆ THỐNG THÔNG GIÓ SỰ CỐ
+  Row 3708 | STT: nan | Header: 1. HỆ THỐNG THÔNG GIÓ HÚT TẦNG HẦM
+  Row 3783 | STT: nan | Header: HỆ THỐNG HÚT KHÓI CÁC KHÔNG GIAN CÔNG CỘNG  CÓ DIỆN TÍCH LỚN HƠN 200M2
+  Row 3886 | STT: 3 | Header: HỆ THỐNG HÚT KHÓI HÀNH LANG
+  Row 3942 | STT: nan | Header: HỆ THỐNG TĂNG ÁP THANG BỘ, THANG MÁY, PHÒNG ĐỆM THANG BỘ
+  Row 4150 | STT: nan | Header: HỆ THỐNG THÔNG GIÓ CHUNG
+  Row 4151 | STT: nan | Header: HỆ THỐNG THÔNG GIÓ CẤP TẦNG HẦM
+  Row 4214 | STT: nan | Header: HỆ THỐNG  THÔNG GIÓ HÚT MÙI, HÚT MÙI VỆ SINH + PHÒNG KỸ THUẬT
+  Row 4340 | STT: nan | Header: HỆ THỐNG ỐNG GIÓ LẠNH ĐIỀU HÒA
+  Row 4380 | STT: nan | Header: HỆ THỐNG ỐNG GIÓ TƯƠI (OA)
+  Row 4583 | STT: 5 | Header: HỆ THỐNG HÚT BẾP
+  Row 4598 | STT: A.2 | Header: PHÂN VẬT TƯ LẮP ĐẶT ỐNG ĐỒNG, NƯỚC NGƯNG
+  Row 4599 | STT: I | Header: HỆ THỐNG GAS/DỊCH, NƯỚC NGƯNG KHỐI THƯƠNG MẠI
+  Row 4600 | STT: 1 | Header: VẬT TƯ PHẦN ỐNG GAS/DỊCH
+  Row 4618 | STT: 2 | Header: VẬT TƯ PHẦN ỐNG THOÁT NƯỚC NGƯNG ĐIỀU HÒA
+  Row 4632 | STT: 3 | Header: VẬT TƯ PHẦN CÁP ĐIỆN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 4638 | STT: E | Header: THIẾT BỊ & VẬT TƯ LẮP ĐẶT ĐIỀU HÒA KHÔNG KHÍ & THÔNG GIÓ PHẦN CĂN HỘ
+  Row 4639 | STT: I | Header: PHẦN THIẾT BỊ ĐIỀU HÒA CỤC BỘ
+  Row 4643 | STT: II | Header: PHẦN THIẾT BỊ ĐIỀU HÒA MULTI
+  Row 4644 | STT: a | Header: PHẦN DÀN LẠNH
+  Row 4648 | STT: b | Header: PHẦN DÀN NÓNG
+  Row 4653 | STT: III | Header: PHẦN THIẾT BỊ THÔNG GIÓ
+  Row 4656 | STT: IV | Header: PHẦN VẬT TƯ LẮP ĐẶT
+  Row 4657 | STT: a | Header: PHẦN ỐNG GIÓ
+  Row 4674 | STT: b | Header: PHẦN ỐNG GAS/DỊCH ĐIỀU HÒA
+  Row 4686 | STT: d | Header: PHẦN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 4690 | STT: F | Header: THIẾT BỊ & VẬT TƯ LẮP ĐẶT ĐIỀU HÒA KHÔNG KHÍ & THÔNG GIÓ PHẦN CĂN HỘ PENTHOUSE
+  Row 4692 | STT: A | Header: PHẦN DÀN LẠNH
+  Row 4701 | STT: B | Header: PHẦN DÀN NÓNG
+  Row 4706 | STT: II | Header: PHẦN THIẾT BỊ THÔNG GIÓ
+  Row 4710 | STT: III | Header: PHẦN VẬT TƯ LẮP ĐẶT
+  Row 4711 | STT: A | Header: PHẦN ỐNG GIÓ
+  Row 4784 | STT: B | Header: PHẦN ỐNG GAS/DỊCH ĐIỀU HÒA
+  Row 4800 | STT: D | Header: PHẦN ĐIỀU KHIỂN ĐIỀU HÒA
+  Row 4806 | STT: V | Header: HẠNG MỤC: NGĂN CHÁY LAN
+  Row 4823 | STT: B | Header: ĐẦU MỤC CÔNG VIỆC PHÁT SINH NGOÀI KLMT
+  Row 4824 | STT: nan | Header: HỆ THỐNG ĐIỆN
+  Row 4835 | STT: nan | Header: HỆ THỐNG CẤP THOÁT NƯỚC
+  Row 4844 | STT: nan | Header: HỆ THỐNG BỂ BƠI
+  Row 4853 | STT: IV | Header: HẠNG MỤC: HVAC
+  Row 4862 | STT: C | Header: TỔNG CỘNG GIÁ CHÀO TRƯỚC THUẾ: (C = A + B)
+  Row 4864 | STT: D | Header: TỔNG CỘNG GIÁ CHÀO SAU THUẾ
+
+Sheet: Phạm vi tính toán
+Using description column: Unnamed: 1
+
+Sheet: DMVT
+Using description column: PHỤ LỤC 02: BẢNG DANH MỤC VẬT TƯ THIẾT BỊ
+Dự án: TOÀ NHÀ HỖN HỢP HACOM MALL
+Gói thầu: CUNG CẤP VTTB VÀ THI CÔNG LẮP ĐẶT HỆ THỐNG CƠ ĐIỆN
+  Row 0 | STT: STT | Header: VẬT TƯ THIẾT BỊ
+  Row 2 | STT: I | Header: HỆ THỐNG ĐIỆN
+  Row 14 | STT: II | Header: HỆ THỐNG ĐIỆN NHẸ
+  Row 17 | STT: III | Header: HỆ THỐNG CẤP THOÁT NƯỚC
+  Row 29 | STT: IV | Header: HỆ THỐNG ĐHKK
+  Row 48 | STT: V | Header: NGĂN CHÁY LAN
