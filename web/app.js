@@ -53,10 +53,26 @@ function fileSize(bytes) {
 
 function notify(message, type = "info") {
   const toast = $("#toast");
-  toast.textContent = message;
+  if (type === "error") {
+    toast.innerHTML = `
+      <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px; color: #ffc14a;">⚠️ CẢNH BÁO LỖI FILE</div>
+      <div style="font-size: 15px; margin-bottom: 14px; text-align: left; line-height: 1.5; font-weight: 500;">${escapeHtml(message)}</div>
+      <div style="font-size: 11px; opacity: 0.8; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 10px; cursor: pointer; user-select: none;">[ Click vào thông báo này để đóng ]</div>
+    `;
+  } else {
+    toast.textContent = message;
+  }
   toast.className = `toast show${type === "error" ? " error" : ""}`;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.className = "toast", 3500);
+  
+  toast.onclick = () => {
+    toast.className = "toast";
+  };
+  
+  const duration = type === "error" ? 15000 : 3500;
+  toastTimer = setTimeout(() => {
+    toast.className = "toast";
+  }, duration);
 }
 
 function setMode(nextMode) {

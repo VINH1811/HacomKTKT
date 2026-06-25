@@ -1024,15 +1024,40 @@ tbody tr:hover { background: #fff8f8; }
   transform: translateY(15px);
   pointer-events: none;
   transition: .25s;
-  z-index: 20;
+  z-index: 2000;
 }
 .toast.show {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto;
 }
 .toast.error {
   background: var(--danger);
   border-left-color: #ffc14a;
+}
+
+@media (min-width: 0px) {
+  .toast.error {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    right: auto;
+    bottom: auto;
+    transform: translate(-50%, -50%) scale(0.95);
+    max-width: 550px;
+    width: 90%;
+    padding: 24px 28px;
+    border: 2px solid #ffc14a;
+    border-left: 10px solid #ffc14a;
+    border-radius: 12px;
+    box-shadow: 0 15px 45px rgba(0,0,0,0.6);
+    text-align: center;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease-out;
+  }
+  .toast.error.show {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
 }
 
 @media (max-width: 1180px) {
