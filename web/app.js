@@ -55,9 +55,9 @@ function notify(message, type = "info") {
   const toast = $("#toast");
   if (type === "error") {
     toast.innerHTML = `
-      <div style="font-size: 26px; font-weight: bold; margin-bottom: 12px; color: #ffc14a; letter-spacing: 0.5px;">⚠️ CẢNH BÁO LỖI PHÂN TÍCH FILE</div>
-      <div style="font-size: 18px; margin-bottom: 20px; text-align: left; line-height: 1.6; font-weight: 500;">${escapeHtml(message)}</div>
-      <div style="font-size: 13px; opacity: 0.9; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 12px; cursor: pointer; user-select: none; font-weight: bold; color: #ffc14a;">[ Nhấp chuột vào đây để đóng thông báo ]</div>
+      <div class="toast-error-title">⚠️ CẢNH BÁO LỖI PHÂN TÍCH FILE</div>
+      <div class="toast-error-body">${escapeHtml(message)}</div>
+      <div class="toast-error-close">[ Nhấp chuột vào đây để đóng thông báo ]</div>
     `;
   } else {
     toast.textContent = message;
