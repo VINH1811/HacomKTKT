@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+runtime/jobs/*
+!runtime/jobs/.gitkeep
+reports/*.xlsx
+models/*
+!models/.gitkeep

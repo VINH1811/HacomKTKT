@@ -1,0 +1,9 @@
+-r requirements-core.txt
+PyMuPDF>=1.24,<2
+opencv-python-headless>=4.10,<5
+Pillow>=10.4,<13
+pytesseract>=0.3.13,<1
+paddleocr[doc-parser]>=3.3,<4
+
+# Cài paddlepaddle-gpu phù hợp CUDA của máy trước khi chạy file này.
+# Không ghim paddlepaddle-gpu tại đây vì phiên bản phụ thuộc CUDA/cuDNN thực tế.

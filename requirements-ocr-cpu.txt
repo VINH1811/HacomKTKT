@@ -1,0 +1,9 @@
+-r requirements-core.txt
+PyMuPDF>=1.24,<2
+opencv-python-headless>=4.10,<5
+Pillow>=10.4,<13
+pytesseract>=0.3.13,<1
+
+# OCR nâng cao cục bộ. Gói này lớn; có thể bỏ dòng dưới nếu chỉ dùng Tesseract.
+paddleocr[doc-parser]>=3.3,<4
+paddlepaddle>=3.2.1,<4

@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hsmt-enterprise-ai"
+version = "8.3.0"
+description = "Local HSMT/HSDT comparison, anomaly reporting, annotated workbooks and scanned PDF OCR"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+pythonpath = ["."]

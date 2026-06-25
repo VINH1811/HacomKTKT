@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Kiểm tra hồ sơ mời thầu, so sánh hồ sơ dự thầu và số hóa PDF scan sang Excel.">
+  <title>Hệ thống kiểm tra hồ sơ đấu thầu</title>
+  <link rel="icon" type="image/png" href="/images/Logodung.png">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="/images/Logodung.png" alt="Logo Hacom Holdings">
+        </div>
+        <div>
+          <strong>Hệ thống đánh giá HSDT</strong>
+          <span>Hacom Holdings</span>
+        </div>
+      </div>
+
+      <nav class="main-nav" aria-label="Chức năng chính">
+        <button class="nav-item active" data-mode="package" type="button">
+          <span class="nav-icon">01</span><span><b>Phụ lục & nhà thầu</b><small>Đối chiếu PL01, PL02 và HSDT</small></span>
+        </button>
+        <button class="nav-item" data-mode="bidders" type="button">
+          <span class="nav-icon">02</span><span><b>So sánh nhà thầu</b><small>So sánh ngang nhiều HSDT</small></span>
+        </button>
+        <button class="nav-item" data-mode="tender" type="button">
+          <span class="nav-icon">03</span><span><b>HSMT với HSDT</b><small>Kiểm tra đáp ứng yêu cầu</small></span>
+        </button>
+        <button class="nav-item" data-mode="ocr" type="button">
+          <span class="nav-icon">04</span><span><b>Quét PDF scan</b><small>Chuyển PDF hoặc ảnh sang Excel</small></span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">TRUNG TÂM KIỂM TRA HỒ SƠ</p>
+          <h1 id="pageTitle">Đối chiếu phụ lục và hồ sơ nhà thầu</h1>
+          <p id="pageDescription"></p>
+        </div>
+      </header>
+
+      <section class="content-grid">
+        <div class="primary-column">
+          <form id="workForm" class="surface" novalidate>
+            <div class="section-heading">
+              <div><span class="section-number">01</span><div><h2 id="formTitle">Tài liệu cần đối chiếu</h2><p id="formHelp">Các file Excel phải có định dạng .xlsx.</p></div></div>
+            </div>
+
+            <div id="comparisonFields">
+              <div id="packageFields" class="form-section">
+                <div class="two-columns">
+                  <label class="upload-box" for="pl1">
+                    <input id="pl1" type="file" accept=".xlsx">
+                    <span class="upload-icon">+</span>
+                    <b>Phụ lục 01</b>
+                    <small>Không bắt buộc khi đã có Phụ lục 02</small>
+                    <em id="pl1Name">Chưa chọn file</em>
+                  </label>
+                  <label class="upload-box" for="pl2">
+                    <input id="pl2" type="file" accept=".xlsx">
+                    <span class="upload-icon">+</span>
+                    <b>Phụ lục 02</b>
+                    <small>Không bắt buộc khi đã có Phụ lục 01</small>
+                    <em id="pl2Name">Chưa chọn file</em>
+                  </label>
+                </div>
+              </div>
+
+              <div id="tenderFields" class="form-section hidden">
+                <label class="upload-box single" for="hsmt">
+                  <input id="hsmt" type="file" accept=".xlsx">
+                  <span class="upload-icon">+</span>
+                  <b>Hồ sơ mời thầu</b>
+                  <small>File yêu cầu dùng làm căn cứ đối chiếu</small>
+                  <em id="hsmtName">Chưa chọn file</em>
+                </label>
+              </div>
+
+              <div class="form-section divider-top">
+                <div class="field-header"><div><h3>Hồ sơ của nhà thầu</h3><p id="bidderHint">Có thể chọn một file để đối chiếu riêng với phụ lục, hoặc nhiều file để so sánh thêm về giá.</p></div><span class="required">Bắt buộc</span></div>
+                <label class="file-picker" for="bidderFiles">
+                  <input id="bidderFiles" type="file" accept=".xlsx" multiple>
+                  <span>Thêm file Excel</span><small>Có thể thêm từng file hoặc chọn nhiều file cùng lúc</small>
+                </label>
+                <div id="bidderList" class="selected-list empty-state">Chưa có hồ sơ nhà thầu nào được chọn.</div>
+                <div id="packageBehavior" class="mode-note">
+                  Chọn 1 file: kiểm tra hạng mục, mã, đơn vị, khối lượng và yêu cầu trong phụ lục. Chọn từ 2 file: hệ thống bổ sung so sánh giá giữa các nhà thầu.
+                </div>
+              </div>
+
+              <details class="advanced-settings">
+                <summary>Thiết lập mức cảnh báo</summary>
+                <p>Giữ nguyên giá trị mặc định nếu bạn chưa có quy định riêng.</p>
+                <div class="threshold-grid">
+                  <label>Cảnh báo giá (%)<input id="priceWarn" type="number" value="10" min="0" max="100" step="1"></label>
+                  <label>Bất thường giá (%)<input id="priceCritical" type="number" value="25" min="0" max="500" step="1"></label>
+                  <label>Cảnh báo khối lượng (%)<input id="quantityWarn" type="number" value="5" min="0" max="100" step="1"></label>
+                  <label>Bất thường khối lượng (%)<input id="quantityCritical" type="number" value="15" min="0" max="500" step="1"></label>
+                </div>
+              </details>
+            </div>
+
+            <div id="ocrFields" class="hidden">
+              <div class="form-section">
+                <div class="field-header"><div><h3>PDF hoặc ảnh scan</h3><p>Có thể chọn nhiều tài liệu. Mỗi tài liệu sẽ được xuất thành một file Excel riêng.</p></div><span class="required">Bắt buộc</span></div>
+                <label class="file-picker large" for="ocrFiles">
+                  <input id="ocrFiles" type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.webp,.bmp" multiple>
+                  <span>Chọn PDF hoặc ảnh scan</span><small>PDF, PNG, JPG, TIFF, WEBP hoặc BMP</small>
+                </label>
+                <div id="ocrFileList" class="selected-list empty-state">Chưa có tài liệu scan nào được chọn.</div>
+              </div>
+
+              <div class="form-section divider-top">
+                <div class="field-header"><div><h3>Cách nhận dạng</h3><p>Chọn theo độ rõ và cấu trúc của tài liệu.</p></div></div>
+                <div class="ocr-options">
+                  <label><span>Mức xử lý</span><select id="accuracyMode"><option value="fast">Nhanh</option><option value="balanced" selected>Cân bằng</option><option value="high">Chính xác cao</option><option value="ultra">Tối đa</option></select></label>
+                  <label><span>Loại tài liệu</span><select id="documentProfile"><option value="dense_boq" selected>Bảng khối lượng dày</option><option value="generic_table">Bảng thông thường</option><option value="document">Văn bản có bảng</option></select></label>
+                </div>
+                <label class="check-row"><input id="saveReviewImages" type="checkbox" checked><span><b>Chèn ảnh ô cần kiểm tra vào Excel</b><small>Giúp đối chiếu nhanh các ô có độ tin cậy thấp.</small></span></label>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button id="resetButton" class="button ghost" type="button">Xóa lựa chọn</button>
+              <button id="startButton" class="button primary" type="submit"><span id="startButtonText">Bắt đầu kiểm tra</span><span class="button-arrow">→</span></button>
+            </div>
+          </form>
+
+          <section id="progressPanel" class="surface progress-panel hidden" aria-live="polite">
+            <div class="progress-head"><div><span class="section-number">02</span><div><h2>Đang xử lý tài liệu</h2><p id="progressMessage">Đang tiếp nhận file...</p></div></div><b id="progressPercent">0%</b></div>
+            <div class="progress-track"><div id="progressBar"></div></div>
+            <div class="progress-meta"><span id="progressMode">Tác vụ đang chạy</span><span>Bạn có thể giữ nguyên trang này cho đến khi hoàn tất.</span></div>
+          </section>
+
+          <section id="resultPanel" class="surface result-panel hidden">
+            <div class="result-title-row"><div><span class="result-check">✓</span><div><h2 id="resultTitle">Đã hoàn tất kiểm tra</h2><p id="resultSubtitle">Kết quả đã sẵn sàng để xem và tải xuống.</p></div></div><button id="newTaskButton" class="button ghost small" type="button">Tạo tác vụ mới</button></div>
+            <div id="resultActions" class="result-actions"></div>
+            <div id="metrics" class="metrics"></div>
+            <div id="documentResults" class="document-results"></div>
+            <div id="warningsBlock" class="warnings-block hidden"><div class="block-title"><h3>Cảnh báo cần lưu ý</h3><span id="warningCount"></span></div><div id="warnings"></div></div>
+            <div id="anomalyBlock" class="table-block hidden"><div class="block-title"><h3>Danh sách cần kiểm tra</h3><span id="anomalyCount"></span></div><div class="table-wrap"><table><thead><tr><th>Mức độ</th><th>Nhà thầu</th><th>Sheet</th><th>STT</th><th>Hạng mục</th><th>Lý do</th></tr></thead><tbody id="anomalyRows"></tbody></table></div></div>
+          </section>
+        </div>
+
+        <!-- <aside class="secondary-column">
+          <section class="surface recent-card"><div class="side-heading"><h2>Tác vụ gần đây</h2><button id="clearHistory" type="button">Xóa</button></div><div id="recentJobs" class="recent-jobs empty-state">Chưa có tác vụ nào trên trình duyệt này.</div></section>
+        </aside> -->
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
