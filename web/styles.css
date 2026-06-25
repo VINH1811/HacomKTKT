@@ -1044,9 +1044,9 @@ tbody tr:hover { background: #fff8f8; }
     right: auto;
     bottom: auto;
     transform: translate(-50%, -50%) scale(0.95);
-    max-width: 550px;
+    max-width: 680px;
     width: 90%;
-    padding: 24px 28px;
+    padding: 32px 36px;
     border: 2px solid #ffc14a;
     border-left: 10px solid #ffc14a;
     border-radius: 12px;

@@ -55,9 +55,9 @@ function notify(message, type = "info") {
   const toast = $("#toast");
   if (type === "error") {
     toast.innerHTML = `
-      <div style="font-size: 20px; font-weight: bold; margin-bottom: 8px; color: #ffc14a;">⚠️ CẢNH BÁO LỖI FILE</div>
-      <div style="font-size: 15px; margin-bottom: 14px; text-align: left; line-height: 1.5; font-weight: 500;">${escapeHtml(message)}</div>
-      <div style="font-size: 11px; opacity: 0.8; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 10px; cursor: pointer; user-select: none;">[ Click vào thông báo này để đóng ]</div>
+      <div style="font-size: 26px; font-weight: bold; margin-bottom: 12px; color: #ffc14a; letter-spacing: 0.5px;">⚠️ CẢNH BÁO LỖI PHÂN TÍCH FILE</div>
+      <div style="font-size: 18px; margin-bottom: 20px; text-align: left; line-height: 1.6; font-weight: 500;">${escapeHtml(message)}</div>
+      <div style="font-size: 13px; opacity: 0.9; border-top: 1px solid rgba(255,255,255,0.25); padding-top: 12px; cursor: pointer; user-select: none; font-weight: bold; color: #ffc14a;">[ Nhấp chuột vào đây để đóng thông báo ]</div>
     `;
   } else {
     toast.textContent = message;
@@ -69,7 +69,7 @@ function notify(message, type = "info") {
     toast.className = "toast";
   };
   
-  const duration = type === "error" ? 15000 : 3500;
+  const duration = type === "error" ? 20000 : 3500;
   toastTimer = setTimeout(() => {
     toast.className = "toast";
   }, duration);
