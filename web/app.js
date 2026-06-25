@@ -55,7 +55,7 @@ function notify(message, type = "info") {
   const toast = $("#toast");
   if (type === "error") {
     toast.innerHTML = `
-      <div class="toast-error-title"><span class="toast-error-icon">⚠️</span>CẢNH BÁO LỖI PHÂN TÍCH FILE</div>
+      <div class="toast-error-title">CẢNH BÁO LỖI PHÂN TÍCH FILE</div>
       <div class="toast-error-body">${escapeHtml(message)}</div>
       <button class="toast-error-close" type="button">Đóng</button>
     `;
