@@ -821,6 +821,11 @@ form.surface { padding: 24px 28px; }
   align-items: center;
   gap: 16px;
   min-height: 0;
+  animation: none;
+}
+
+.bidder-list-container .selected-file::after {
+  display: none !important;
 }
 
 .bidder-list-container .selected-file:hover {

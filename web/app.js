@@ -271,7 +271,6 @@ function renderBidderFiles() {
   const filesHtml = bidderFiles.map((item, index) => `
     <div class="selected-file" data-index="${index}">
       <div class="selected-file-left">
-        <span class="upload-badge success-badge">ĐÃ TẢI LÊN</span>
         <b class="file-name" title="${escapeHtml(item.file.name)}">${escapeHtml(item.file.name)}</b>
       </div>
       <div class="selected-file-right">
