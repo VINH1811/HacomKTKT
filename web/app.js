@@ -131,16 +131,13 @@ function notify(message, type = "info") {
   if (type === "error") {
     document.body.classList.add("modal-open");
     document.addEventListener("keydown", handleEsc);
+    let displayMessage = message;
+    if (message === "Không đúng định dạng.") {
+      displayMessage = "Không đúng định dạng. Vui lòng tải lên file Excel (.xlsx).";
+    }
     toast.innerHTML = `
-      <div class="toast-error-icon-container">
-        <svg class="toast-error-svg" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#F44336" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-          <line x1="12" y1="9" x2="12" y2="13"></line>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
-      </div>
       <h3 class="toast-error-title">CẢNH BÁO LỖI PHÂN TÍCH FILE</h3>
-      <div class="toast-error-body">${escapeHtml(message)}</div>
+      <div class="toast-error-body">${escapeHtml(displayMessage)}</div>
       <button class="toast-error-close" type="button">Đóng</button>
     `;
     const closeBtn = toast.querySelector(".toast-error-close");
