@@ -116,16 +116,30 @@ function notify(message, type = "info") {
   
   toast.onclick = null;
   
+  const closeToast = () => {
+    toast.className = "toast";
+    document.body.classList.remove("modal-open");
+    document.removeEventListener("keydown", handleEsc);
+  };
+  
+  const handleEsc = (e) => {
+    if (e.key === "Escape") {
+      closeToast();
+    }
+  };
+
   if (type === "error") {
+    document.body.classList.add("modal-open");
+    document.addEventListener("keydown", handleEsc);
     toast.innerHTML = `
-      <div class="toast-error-title">
-        <svg class="toast-error-svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#FFC107" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <div class="toast-error-icon-container">
+        <svg class="toast-error-svg" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#F44336" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
           <line x1="12" y1="9" x2="12" y2="13"></line>
           <line x1="12" y1="17" x2="12.01" y2="17"></line>
         </svg>
-        <span>CẢNH BÁO LỖI PHÂN TÍCH FILE</span>
       </div>
+      <h3 class="toast-error-title">CẢNH BÁO LỖI PHÂN TÍCH FILE</h3>
       <div class="toast-error-body">${escapeHtml(message)}</div>
       <button class="toast-error-close" type="button">Đóng</button>
     `;
@@ -133,10 +147,11 @@ function notify(message, type = "info") {
     if (closeBtn) {
       closeBtn.onclick = (e) => {
         e.stopPropagation();
-        toast.className = "toast";
+        closeToast();
       };
     }
   } else {
+    document.body.classList.remove("modal-open");
     // Normal toast, can support HTML text for undo link
     toast.innerHTML = message;
     const undoLink = toast.querySelector("#undoBtn");
@@ -154,14 +169,12 @@ function notify(message, type = "info") {
   
   toast.onclick = (e) => {
     if (e.target.id !== "undoBtn") {
-      toast.className = "toast";
+      closeToast();
     }
   };
   
   const duration = type === "error" ? 20000 : (message.includes("undoBtn") ? 8000 : 3500);
-  toastTimer = setTimeout(() => {
-    toast.className = "toast";
-  }, duration);
+  toastTimer = setTimeout(closeToast, duration);
 }
 
 function setMode(nextMode) {
