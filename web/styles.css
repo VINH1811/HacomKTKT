@@ -663,13 +663,19 @@ form.surface { padding: 24px 28px; }
   margin-bottom: 12px;
 }
 
+.bidder-section-header h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333333;
+}
+
 .bidder-list-container {
   position: relative;
   background: #FFFFFF;
   border: 1px solid #FFCDD2;
-  border-radius: 10px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  padding: 24px 16px 16px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  padding: 20px;
   min-height: 124px;
   display: flex;
   flex-direction: column;
@@ -729,16 +735,25 @@ form.surface { padding: 24px 28px; }
   user-select: none;
 }
 
-.bidder-list-empty-content .folder-icon {
+.bidder-list-empty-content .upload-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #D32F2F;
+  border: 1px solid #FFCDD2;
   display: grid;
   place-items: center;
-  animation: pulseFolder 2.5s infinite ease-in-out;
+  margin-bottom: 12px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
 }
 
-@keyframes pulseFolder {
-  0% { transform: scale(1); opacity: 0.9; }
-  50% { transform: scale(1.08); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.9; }
+.bidder-list-container.empty-state:hover .upload-icon {
+  background: #FFF5F5;
+  color: #F44336;
+  border-color: rgba(244, 67, 54, 0.3);
+  transform: scale(1.05);
 }
 
 .bidder-list-empty-content .empty-text {
@@ -751,7 +766,7 @@ form.surface { padding: 24px 28px; }
 .bidder-list-files {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   width: 100%;
   align-items: stretch;
 }
@@ -763,6 +778,33 @@ form.surface { padding: 24px 28px; }
 .bidder-list-files:has(> .selected-file:first-child:last-child) > .selected-file {
   width: 100%;
   max-width: 550px;
+}
+
+.bidder-list-files .selected-file {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  border: 1px solid #FFCDD2;
+  border-radius: 10px;
+  background: #FFF5F5;
+  box-shadow: none;
+  gap: 8px;
+  min-height: 120px;
+  animation: selectedFileFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bidder-list-files .selected-file:hover {
+  border-color: #F44336;
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.08);
+}
+
+.bidder-list-files .selected-file .remove-single-file {
+  display: inline-flex;
 }
 
 .required.success-badge {

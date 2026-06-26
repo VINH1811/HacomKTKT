@@ -246,11 +246,15 @@ function renderBidderFiles() {
         </svg>
       </label>
       <div class="bidder-list-empty-content">
-        <span class="folder-icon">
-          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#D32F2F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-          </svg>
-        </span>
+        <label class="bidder-list-empty-upload-icon-wrapper" for="bidderFiles" style="cursor: pointer; display: grid; place-items: center;">
+          <span class="upload-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </span>
+        </label>
         <span class="empty-text">Chưa có hồ sơ nhà thầu nào được chọn</span>
       </div>
     `;
@@ -266,11 +270,10 @@ function renderBidderFiles() {
   
   const filesHtml = bidderFiles.map((item, index) => `
     <div class="selected-file" data-index="${index}">
-      <div class="file-info"><b>${escapeHtml(item.file.name)}</b></div>
-      <div class="file-meta">
-        <span class="file-size">${fileSize(item.file.size)}</span>
-        <button class="remove-file" type="button" data-remove-bidder="${index}" aria-label="Bỏ file">×</button>
-      </div>
+      <button class="remove-single-file" type="button" data-remove-bidder="${index}" aria-label="Xóa file">×</button>
+      <span class="upload-badge success-badge" style="background: #4CAF50; color: #FFFFFF; display: inline-block;">ĐÃ TẢI LÊN</span>
+      <b class="file-name" style="color: #333333; font-weight: bold; font-size: 14px; margin-bottom: 4px; display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(item.file.name)}</b>
+      <span class="file-size" style="color: #757575; font-size: 11px;">${fileSize(item.file.size)}</span>
     </div>
   `).join("");
   
