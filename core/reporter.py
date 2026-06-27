@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 from statistics import median
@@ -50,6 +51,14 @@ def _formats(wb):
         "warning": wb.add_format({"font_name": "Arial", "bg_color": "#FCE4D6", "font_color": "#C65911"}),
         "critical": wb.add_format({"font_name": "Arial", "bg_color": "#F4CCCC", "font_color": "#9C0006", "bold": True}),
         "mono": wb.add_format({"font_name": "Consolas", "font_size": 9, "text_wrap": True, "valign": "top"}),
+        # Tiền tệ kèm nền cảnh báo — dùng cho ô giá lệch nhiều trong sheet tổng hợp.
+        "money_warn": wb.add_format({"font_name": "Arial", "num_format": "#,##0;[Red]-#,##0", "valign": "top", "bg_color": "#FCE4D6", "font_color": "#C65911"}),
+        "money_crit": wb.add_format({"font_name": "Arial", "num_format": "#,##0;[Red]-#,##0", "valign": "top", "bg_color": "#F4CCCC", "font_color": "#9C0006", "bold": True}),
+        # Tiêu đề nhiều tầng cho bảng tổng hợp chào giá (block từng nhà thầu).
+        "grp_klmt": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#7F7F7F", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
+        "grp_bidder": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#2E75B6", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
+        "grp_sub": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#1F3864", "bg_color": "#DDEBF7", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
+        "leaf": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#1F4E78", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
     }
 
 
@@ -173,6 +182,21 @@ def _comparison_sheet(wb, result: ComparisonResult, f, anomalies_only: bool) -> 
     _stream(wb, "Bất thường" if anomalies_only else "So sánh chi tiết", rows, _DETAIL_HEADERS, count, f, "#C00000" if anomalies_only else "#4472C4")
 
 
+def _deviation_comment(bidder_name: str, value: float, med: float, delta_pct: float, critical: bool) -> str:
+    """Ghi chú đơn giản đính kèm trực tiếp vào ô giá/khối lượng bị lệch.
+
+    Hiển thị khi người dùng rê chuột vào ô trong Excel — không chiếm thêm cột.
+    """
+    direction = "cao hơn" if delta_pct > 0 else "thấp hơn"
+    severity_word = "RẤT NHIỀU" if critical else "khá nhiều"
+    return (
+        f"{bidder_name} {direction} mặt bằng chung của các nhà thầu {severity_word}.\n"
+        f"Giá trị này: {value:,.0f}\n"
+        f"Trung vị các nhà thầu: {med:,.0f}\n"
+        f"Mức lệch: {delta_pct:+.0%} so với trung vị."
+    )
+
+
 def _matrix(wb, result: ComparisonResult, f, field: str, sheet_name: str) -> None:
     ws = wb.add_worksheet(sheet_name)
     ws.set_tab_color("#70AD47" if field == "price" else "#5B9BD5")
@@ -185,6 +209,12 @@ def _matrix(wb, result: ComparisonResult, f, field: str, sheet_name: str) -> Non
             columns.insert(0, baseline)
     elif field == "quantity":
         columns.insert(0, "PL01 - KLMT")
+
+    thresholds = result.audit.get("thresholds") or {}
+    warn_pct = float(thresholds.get(f"{field}_warn_pct", 0.10 if field == "price" else 0.05))
+    critical_pct = float(thresholds.get(f"{field}_critical_pct", 0.25 if field == "price" else 0.15))
+    # Cột PL01-KLMT không phải một nhà thầu nên không tham gia tính chênh lệch.
+    skip_baseline_col = package_mode and field == "quantity"
 
     grouped: dict[str, dict[str, Any]] = defaultdict(dict)
     meta: dict[str, tuple[str, str, str, str]] = {}
@@ -205,6 +235,7 @@ def _matrix(wb, result: ComparisonResult, f, field: str, sheet_name: str) -> Non
                 grouped[row.canonical_id][row.bidder] = row.candidate.unit_price_total if field == "price" else row.candidate.quantity
 
     headers = ["Mã chuẩn", "Sheet", "STT", "Tên hạng mục", "ĐVT"] + columns + ["Thấp nhất", "Trung vị", "Cao nhất", "Chênh đối xứng %"]
+    bidder_start_col = 5
     _header(ws, headers, f); ws.freeze_panes(1, 5)
     ws.set_column(0, 0, 24); ws.set_column(1, 2, 18); ws.set_column(3, 3, 48); ws.set_column(4, len(headers)-1, 17)
     for r_idx, cid in enumerate(sorted(grouped), 1):
@@ -216,14 +247,270 @@ def _matrix(wb, result: ComparisonResult, f, field: str, sheet_name: str) -> Non
         mn = min(valid) if valid else None; mx = max(valid) if valid else None; med = median(valid) if valid else None
         denom = ((abs(mx) + abs(mn)) / 2) if mn is not None and mx is not None else 0
         spread = abs(mx - mn) / denom if denom else (0.0 if mn == mx and mn is not None else None)
+
+        # Mỗi ô giá/khối lượng lệch nhiều so với trung vị các nhà thầu được tô
+        # màu VÀ gắn ghi chú (comment) ngay trên chính ô đó — không dùng cột riêng.
+        cell_comments: dict[int, tuple[str, str]] = {}
+        for col_idx, (bidder_name, value) in enumerate(zip(columns, vals)):
+            if skip_baseline_col and col_idx == 0:
+                continue
+            if not isinstance(value, (int, float)) or med is None or med == 0:
+                continue
+            delta_pct = (value - med) / abs(med)
+            if abs(delta_pct) >= critical_pct:
+                cell_comments[col_idx] = ("critical", _deviation_comment(bidder_name, value, med, delta_pct, True))
+            elif abs(delta_pct) >= warn_pct:
+                cell_comments[col_idx] = ("warning", _deviation_comment(bidder_name, value, med, delta_pct, False))
+
         record = [cid, sheet, stt, name, unit] + vals + [mn, med, mx, spread]
         for col, value in enumerate(record):
-            style = f["long"] if col == 3 else (f["text"] if col < 5 else (f["pct"] if headers[col] == "Chênh đối xứng %" else (f["money"] if field == "price" else f["num"])))
+            bidder_col_idx = col - bidder_start_col
+            if col == 3:
+                style = f["long"]
+            elif col < bidder_start_col:
+                style = f["text"]
+            elif headers[col] == "Chênh đối xứng %":
+                style = f["pct"]
+            elif bidder_start_col <= col < bidder_start_col + len(columns) and bidder_col_idx in cell_comments:
+                style = f[cell_comments[bidder_col_idx][0]]
+            else:
+                style = f["money"] if field == "price" else f["num"]
             _write(ws, r_idx, col, value, style)
+            if bidder_start_col <= col < bidder_start_col + len(columns) and bidder_col_idx in cell_comments:
+                ws.write_comment(r_idx, col, cell_comments[bidder_col_idx][1], {"author": "HSMT Enterprise AI", "width": 260, "height": 90})
     if grouped:
         ws.autofilter(0, 0, len(grouped), len(headers)-1)
-        col = len(headers)-1
+        col = headers.index("Chênh đối xứng %")
         ws.conditional_format(1, col, len(grouped), col, {"type":"3_color_scale","min_color":"#63BE7B","mid_color":"#FFEB84","max_color":"#F8696B"})
+
+
+# --- Sheet "Tổng hợp chào giá" (các nhà thầu xếp cạnh nhau theo block) --------
+# Mỗi nhà thầu là một block 14 cột, mô phỏng đúng format bảng chào giá tổng hợp.
+# Ô "ĐG tổng hợp" và "Thành tiền NT chào" lệch nhiều so với mặt bằng các nhà
+# thầu sẽ được tô màu + gắn ghi chú trực tiếp lên chính ô đó.
+_BLOCK_LEAVES = [
+    ("KL\nNT chào", "num"),
+    ("Mô tả/ Quy cách", "long"),
+    ("Mã hiệu", "text"),
+    ("Thương hiệu", "text"),
+    ("Xuất xứ", "text"),
+    ("VL chính", "money"),
+    ("VL phụ", "money"),
+    ("NC&M", "money"),
+    ("CF quản lý", "money"),
+    ("Lợi nhuận", "money"),
+    ("ĐG tổng hợp", "money"),
+    ("Thành tiền\nKLMT", "money"),
+    ("Thành tiền\nNT chào", "money"),
+    ("Ghi chú", "long"),
+]
+_BLOCK_GROUPS = [
+    (None, 0, 0),
+    ("THÔNG TIN VỀ VẬT LIỆU CHÍNH", 1, 4),
+    ("ĐƠN GIÁ (chưa gồm VAT)", 5, 10),
+    ("THÀNH TIỀN", 11, 12),
+    (None, 13, 13),
+]
+_BLOCK_WIDTHS = [10, 30, 14, 16, 13, 14, 14, 14, 14, 14, 16, 18, 18, 26]
+_UNIT_PRICE_IDX = 10
+_BID_AMOUNT_IDX = 12
+_KLMT_LEAVES = ["STT", "Mã hiệu", "Diễn giải", "ĐVT", "KL\nMời thầu"]
+_KLMT_WIDTHS = [6, 16, 46, 9, 13]
+_KLMT_COLS = len(_KLMT_LEAVES)
+_BLOCK_COLS = len(_BLOCK_LEAVES)
+
+
+def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, Any]], dict[str, tuple]]:
+    """Gom các dòng so sánh theo từng hạng mục (canonical_id).
+
+    Mỗi nhóm giữ lại bản tham chiếu (PL01/đồng thuận) và bản chào của từng nhà
+    thầu, kèm metadata để dựng khối KLMT bên trái.
+    """
+    grouped: dict[str, dict[str, Any]] = defaultdict(lambda: {"ref": None, "bidders": {}})
+    meta: dict[str, tuple] = {}
+    for row in result.rows:
+        item = row.reference or row.candidate
+        if not item or item.row_type is not RowType.DETAIL:
+            continue
+        cid = row.canonical_id
+        if row.reference is not None and grouped[cid]["ref"] is None:
+            grouped[cid]["ref"] = row.reference
+        if row.candidate is not None:
+            grouped[cid]["bidders"][row.bidder] = row.candidate
+        if cid not in meta:
+            ref = row.reference
+            anchor = ref or row.candidate
+            meta[cid] = (anchor.sheet, anchor.row_number, anchor.stt,
+                         (ref.item_code if ref else anchor.item_code),
+                         (ref.item_name if ref else anchor.item_name),
+                         (ref.unit if ref else anchor.unit),
+                         (ref.reference_quantity if ref else None))
+    return grouped, meta
+
+
+def _write_quote_header(ws, f, bidders: list[str], title: str) -> None:
+    """Dựng tiêu đề 3 tầng đúng format bảng chào giá tổng hợp.
+
+    constant_memory yêu cầu ghi theo thứ tự dòng tăng dần, nên chỉ merge ngang
+    trong từng dòng (không merge dọc).
+    """
+    total_cols = _KLMT_COLS + _BLOCK_COLS * len(bidders)
+    for idx in range(_KLMT_COLS):
+        ws.set_column(idx, idx, _KLMT_WIDTHS[idx])
+    for b_idx in range(len(bidders)):
+        base = _KLMT_COLS + b_idx * _BLOCK_COLS
+        for j, width in enumerate(_BLOCK_WIDTHS):
+            ws.set_column(base + j, base + j, width)
+
+    ws.merge_range(0, 0, 0, total_cols - 1, title, f["title"])
+    ws.set_row(0, 28)
+
+    ws.merge_range(1, 0, 1, _KLMT_COLS - 1, "KHỐI LƯỢNG MỜI THẦU", f["grp_klmt"])
+    for b_idx, bidder in enumerate(bidders):
+        base = _KLMT_COLS + b_idx * _BLOCK_COLS
+        ws.merge_range(1, base, 1, base + _BLOCK_COLS - 1, f"NHÀ THẦU: {bidder}", f["grp_bidder"])
+    ws.set_row(1, 26)
+
+    for idx in range(_KLMT_COLS):
+        ws.write_blank(2, idx, None, f["grp_klmt"])
+    for b_idx in range(len(bidders)):
+        base = _KLMT_COLS + b_idx * _BLOCK_COLS
+        for label, start, end in _BLOCK_GROUPS:
+            if label is None:
+                ws.write_blank(2, base + start, None, f["grp_sub"])
+            elif start == end:
+                ws.write(2, base + start, label, f["grp_sub"])
+            else:
+                ws.merge_range(2, base + start, 2, base + end, label, f["grp_sub"])
+    ws.set_row(2, 22)
+
+    for idx, name in enumerate(_KLMT_LEAVES):
+        ws.write(3, idx, name, f["leaf"])
+    for b_idx in range(len(bidders)):
+        base = _KLMT_COLS + b_idx * _BLOCK_COLS
+        for j, (name, _kind) in enumerate(_BLOCK_LEAVES):
+            ws.write(3, base + j, name, f["leaf"])
+    ws.set_row(3, 30)
+    ws.freeze_panes(4, _KLMT_COLS)
+
+
+def _write_quote_row(ws, f, r: int, bidders: list[str], cid: str,
+                     grouped: dict, meta: dict, warn_pct: float, critical_pct: float) -> None:
+    """Ghi một dòng hạng mục: khối KLMT + block từng nhà thầu, đánh dấu ô lệch."""
+    _sheet, _row, stt, code, name, unit, ref_qty = meta[cid]
+    for col, value in enumerate([stt, code, name, unit, ref_qty]):
+        style = f["long"] if col == 2 else (f["num"] if col == 4 else f["text"])
+        _write(ws, r, col, value, style)
+
+    bidder_cands = grouped[cid]["bidders"]
+    prices = [c.unit_price_total for c in bidder_cands.values() if isinstance(c.unit_price_total, (int, float))]
+    amounts = [c.bid_amount for c in bidder_cands.values() if isinstance(c.bid_amount, (int, float))]
+    price_med = median(prices) if len(prices) >= 2 else None
+    amount_med = median(amounts) if len(amounts) >= 2 else None
+
+    for b_idx, bidder in enumerate(bidders):
+        base = _KLMT_COLS + b_idx * _BLOCK_COLS
+        cand = bidder_cands.get(bidder)
+        leaf_values = [
+            cand.bid_quantity if cand else None,
+            cand.material if cand else "",
+            cand.item_code if cand else "",
+            cand.brand if cand else "",
+            cand.origin if cand else "",
+            cand.price_main if cand else None,
+            cand.price_aux if cand else None,
+            cand.price_labor if cand else None,
+            cand.price_management if cand else None,
+            cand.price_profit if cand else None,
+            cand.unit_price_total if cand else None,
+            cand.reference_amount if cand else None,
+            cand.bid_amount if cand else None,
+            cand.note if cand else "",
+        ]
+        comments: dict[int, str] = {}
+        styles: dict[int, str] = {}
+        for leaf_idx, med, value in (
+            (_UNIT_PRICE_IDX, price_med, leaf_values[_UNIT_PRICE_IDX]),
+            (_BID_AMOUNT_IDX, amount_med, leaf_values[_BID_AMOUNT_IDX]),
+        ):
+            if med is None or med == 0 or not isinstance(value, (int, float)):
+                continue
+            delta = (value - med) / abs(med)
+            if abs(delta) >= critical_pct:
+                styles[leaf_idx] = "money_crit"
+                comments[leaf_idx] = _deviation_comment(bidder, value, med, delta, True)
+            elif abs(delta) >= warn_pct:
+                styles[leaf_idx] = "money_warn"
+                comments[leaf_idx] = _deviation_comment(bidder, value, med, delta, False)
+        for j, value in enumerate(leaf_values):
+            kind = _BLOCK_LEAVES[j][1]
+            style = f[styles[j]] if j in styles else f[kind]
+            _write(ws, r, base + j, value, style)
+            if j in comments:
+                ws.write_comment(r, base + j, comments[j], {"author": "HSMT Enterprise AI", "width": 260, "height": 96})
+
+
+_INVALID_SHEET = re.compile(r"[\[\]:*?/\\]")
+
+
+def _safe_sheet_name(name: str, used: set[str]) -> str:
+    clean = _INVALID_SHEET.sub(" ", str(name or "")).strip() or "Hạng mục"
+    clean = clean[:31]
+    base = clean
+    suffix = 2
+    while clean.lower() in used:
+        tail = f" ({suffix})"
+        clean = base[:31 - len(tail)] + tail
+        suffix += 1
+    used.add(clean.lower())
+    return clean
+
+
+def export_consolidated_summary(result: ComparisonResult, output_path: str | Path) -> str:
+    """Xuất file tổng hợp độc lập theo đúng format bảng chào giá tổng hợp.
+
+    Mỗi hạng mục (sheet gốc) là một worksheet riêng; các nhà thầu xếp cạnh nhau
+    theo block; ô "ĐG tổng hợp"/"Thành tiền NT chào" lệch nhiều được tô màu và
+    gắn ghi chú trực tiếp. File KHÔNG chứa cột phân tích (Mức độ, Điểm bất thường).
+    """
+    output_path = str(output_path)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    wb = xlsxwriter.Workbook(output_path, {
+        "constant_memory": True,
+        "strings_to_formulas": False,
+        "strings_to_urls": False,
+        "nan_inf_to_errors": True,
+    })
+    f = _formats(wb)
+    try:
+        bidders = list((result.audit.get("bidder_sha256") or {}).keys())
+        thresholds = result.audit.get("thresholds") or {}
+        warn_pct = float(thresholds.get("price_warn_pct", 0.10))
+        critical_pct = float(thresholds.get("price_critical_pct", 0.25))
+        grouped, meta = _build_quote_groups(result)
+
+        if not bidders or not grouped:
+            ws = wb.add_worksheet("Tổng hợp chào giá")
+            ws.write(0, 0, "Không có dữ liệu hạng mục để tổng hợp.", f["text"])
+            return output_path
+
+        # Gom hạng mục theo từng sheet gốc, giữ thứ tự xuất hiện theo dòng.
+        by_sheet: dict[str, list[str]] = defaultdict(list)
+        for cid in sorted(grouped, key=lambda c: (meta[c][0], meta[c][1])):
+            by_sheet[meta[cid][0]].append(cid)
+
+        used_names: set[str] = set()
+        for sheet_name, cids in by_sheet.items():
+            ws = wb.add_worksheet(_safe_sheet_name(sheet_name, used_names))
+            ws.set_tab_color("#1F4E78")
+            _write_quote_header(ws, f, bidders, f"BẢNG CHÀO GIÁ TỔNG HỢP — {sheet_name}")
+            r = 4
+            for cid in cids:
+                _write_quote_row(ws, f, r, bidders, cid, grouped, meta, warn_pct, critical_pct)
+                r += 1
+    finally:
+        wb.close()
+    return output_path
 
 
 _DIFF_HEADERS = ["Mức độ", "Nhà thầu", "Sheet", "STT", "Tên hạng mục", "Thông số", "Giá trị chuẩn", "Giá trị đối chiếu", "Sai lệch", "Sai lệch (%)", "Độ tương đồng", "Nhận xét", "Mã chuẩn"]

@@ -6,6 +6,7 @@ import shutil
 import threading
 import time
 import uuid
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Annotated, Any
@@ -25,6 +26,7 @@ configure_offline_environment()
 from core.config import EnterpriseConfig
 from core.models import CompareThresholds
 from core.pipeline import compare_bidder_files, compare_tender_files
+from core.reporter import export_consolidated_summary
 from core.tender_package import compare_pl1_pl2_with_bidders
 from ocr.config import OCRConfig
 from ocr.pipeline import create_ocr_package, run_ocr_batch
@@ -361,6 +363,20 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                 raise ValueError(f"Chế độ không hỗ trợ: {mode}")
 
         _update(job_id, progress=92, message="Đang hoàn thiện báo cáo và file đánh dấu")
+
+        # File tổng hợp riêng theo đúng format bảng chào giá tổng hợp: các nhà
+        # thầu xếp cạnh nhau, ô giá lệch nhiều được đánh dấu trực tiếp. Không có
+        # cột phân tích (Mức độ, Điểm bất thường).
+        if mode in {"package", "bidders", "tender"}:
+            summary_path = folder / "Bang_tong_hop_chao_gia_da_danh_dau.xlsx"
+            export_consolidated_summary(result, summary_path)
+            files = {**files, "summary_file": summary_path.name}
+            extra_status = {**extra_status, "summary_file": summary_path.name}
+            package_name = str(extra_status.get("package", ""))
+            if package_name and (folder / package_name).exists():
+                with zipfile.ZipFile(folder / package_name, "a", compression=zipfile.ZIP_DEFLATED) as archive:
+                    archive.write(summary_path, summary_path.name)
+
         preview = _result_preview(result, files)
         _atomic_json(folder / "result.json", preview)
         elapsed = time.perf_counter() - started
@@ -673,7 +689,7 @@ def job_download_file(job_id: str, filename: str):
     if status.get("state") != "done":
         raise HTTPException(409, "Tác vụ chưa hoàn tất")
     safe = Path(filename).name
-    allowed = {str(status.get("report", "")), str(status.get("package", ""))}
+    allowed = {str(status.get("report", "")), str(status.get("package", "")), str(status.get("summary_file", ""))}
     allowed.update((status.get("annotated_files") or {}).values())
     allowed.update((status.get("ocr_files") or {}).values())
     if safe not in allowed:

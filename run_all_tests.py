@@ -620,6 +620,390 @@ KNOWN_GUIDES: dict[str, Guide] = {
         "Ngăn ghép nhầm vật tư.",
         "Giá và khối lượng của hai loại thiết bị khác nhau có thể bị so sánh với nhau.",
     ),
+
+    # -------------------------------------------------------------------------
+    # Negative cases - thông báo lỗi thân thiện cho người dùng
+    # -------------------------------------------------------------------------
+    "test_format_job_error_message_non_xlsx_extension": G(
+        "Báo lỗi dễ hiểu khi file thực ra là .xls/.xlsb đổi tên",
+        "Người dùng đổi đuôi file Excel cũ (.xls/.xlsb) thành .xlsx rồi tải lên.",
+        "Ví dụ tải “Bảng KLMT của Hacom.xls” đã đổi tên thành .xlsx.",
+        "Thông báo cho người dùng phải nêu đúng tên file gốc và hướng dẫn Save As sang .xlsx thật.",
+        "Người dùng biết chính xác cần làm gì (Save As) thay vì đọc lỗi kỹ thuật khó hiểu.",
+        "Người dùng nhận một thông báo lỗi mơ hồ và không biết file nào, phải làm gì để sửa.",
+    ),
+    "test_format_job_error_message_bad_zip_file": G(
+        "Báo lỗi dễ hiểu khi file không phải là Excel thật",
+        "Người dùng đổi đuôi một file bất kỳ (txt, pdf...) thành .xlsx rồi tải lên.",
+        "Ví dụ “Chào giá Nhà Thầu A Gốc.xlsx” thực chất là file không phải Excel.",
+        "Thông báo phải nói rõ '...không phải là file Excel' và nêu đúng tên file gốc người dùng đã chọn.",
+        "Người dùng phát hiện ngay nguyên nhân tải nhầm file.",
+        "Người dùng tưởng hệ thống lỗi và không biết file nào cần kiểm tra lại.",
+    ),
+    "test_format_job_error_message_corrupt_format": G(
+        "Báo lỗi dễ hiểu khi file Excel bị hỏng nội dung",
+        "File có đuôi .xlsx hợp lệ nhưng cấu trúc bên trong bị hỏng (do tải lên bị lỗi, bị sửa tay...).",
+        "Ví dụ file 'NhaThauB_BaoGia.xlsx' báo lỗi cấu trúc sheet khi đọc.",
+        "Thông báo phải nói '...không đúng định dạng Excel' kèm tên file gốc, không lộ chi tiết kỹ thuật nội bộ.",
+        "Người dùng biết cần tải lại file gốc thay vì gửi yêu cầu hỗ trợ vô ích.",
+        "Người dùng nhận thông báo lỗi kỹ thuật khó hiểu (ví dụ traceback Python) gây hoang mang.",
+    ),
+    "test_format_job_error_message_backend_error": G(
+        "Lỗi nội bộ của hệ thống không được hiển thị chi tiết kỹ thuật cho người dùng",
+        "Một lỗi lập trình (ví dụ thiếu dữ liệu, sai kiểu) xảy ra bất ngờ trong quá trình xử lý.",
+        "Ví dụ lỗi AttributeError/TypeError/KeyError phát sinh trong code xử lý.",
+        "Người dùng chỉ nhận thông báo chung 'lỗi file', không thấy traceback hay tên biến nội bộ.",
+        "Bảo vệ người dùng khỏi thông tin kỹ thuật vô nghĩa và tránh lộ chi tiết mã nguồn.",
+        "Người dùng hoảng vì thấy thông báo lỗi kỹ thuật như 'NoneType object has no attribute' mà không hiểu gì.",
+    ),
+    "test_package_pipeline_with_corrupt_files": G(
+        "Toàn luồng xử lý gói thầu phải dừng đúng cách khi cả PL01 và file nhà thầu đều hỏng",
+        "Cả file Phụ lục 01 và file nhà thầu được tải lên đều là file giả (không phải Excel thật).",
+        "Ví dụ 'PL01_Gốc_Hacom.xlsx' và 'BaoGia_NhaThauA.xlsx' đều là dữ liệu rác.",
+        "Hệ thống phải dừng xử lý, nêu rõ tên file gốc nào bị lỗi và thông báo '...không phải là file Excel.'",
+        "Không tạo báo cáo giả từ dữ liệu rác; người dùng biết chính xác file nào cần tải lại.",
+        "Hệ thống có thể tạo ra báo cáo sai lệch hoàn toàn từ dữ liệu rác mà không ai biết.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Negative cases mở rộng - file giả mạo / sai định dạng
+    # -------------------------------------------------------------------------
+    "test_txt_renamed_to_xlsx_is_rejected_not_silently_parsed": G(
+        "File văn bản đổi đuôi thành .xlsx phải bị từ chối, không được đọc nhầm",
+        "Một file .txt chứa nội dung lung tung được đổi đuôi thành .xlsx rồi tải lên.",
+        "Ví dụ file ghi 'nội dung linh tinh không liên quan gì đến excel cả' nhưng đặt tên .xlsx.",
+        "Hệ thống phải báo lỗi (vì không phải file ZIP/Excel thật), không được coi đó là workbook hợp lệ.",
+        "Ngăn người dùng (vô tình hoặc cố ý) đưa dữ liệu rác vào hệ thống so sánh.",
+        "Hệ thống có thể bị treo, lỗi ngầm, hoặc tạo báo cáo vô nghĩa từ nội dung text ngẫu nhiên.",
+    ),
+    "test_zero_byte_file_with_xlsx_extension_is_rejected": G(
+        "File .xlsx rỗng (0 byte) phải bị từ chối",
+        "File tải lên bị lỗi giữa đường, kết quả là một file .xlsx hoàn toàn trống.",
+        "Ví dụ file 'empty.xlsx' có kích thước 0 byte.",
+        "Hệ thống phải báo lỗi khi cố đọc file, không được trả về một workbook giả vờ hợp lệ.",
+        "Phát hiện sớm sự cố tải file thay vì xử lý tiếp với dữ liệu trống.",
+        "Hệ thống có thể chạy tiếp với workbook trống và tạo báo cáo sai mà không cảnh báo.",
+    ),
+    "test_uppercase_extension_is_still_accepted": G(
+        "Đuôi file viết hoa (.XLSX) vẫn phải được chấp nhận như .xlsx",
+        "Người dùng tải file có đuôi viết hoa, ví dụ do hệ điều hành hoặc thiết bị khác đặt tên.",
+        "Ví dụ file 'valid.XLSX' (chữ hoa) chứa dữ liệu hợp lệ.",
+        "Hệ thống phải đọc được file này giống như đuôi '.xlsx' viết thường.",
+        "Người dùng không bị từ chối oan chỉ vì cách viết hoa/thường của tên file.",
+        "Người dùng dùng máy/thiết bị đặt tên đuôi hoa sẽ bị từ chối file hợp lệ một cách vô lý.",
+    ),
+    "test_xls_extension_gives_clear_vietnamese_error": G(
+        "File .xls (Excel đời cũ) phải báo lỗi tiếng Việt rõ ràng, hướng dẫn cách sửa",
+        "Người dùng tải file Excel theo định dạng cũ .xls (chưa chuyển sang .xlsx).",
+        "Ví dụ file 'old.xls'.",
+        "Thông báo lỗi phải nhắc đến '.xlsx' để người dùng biết cần Save As sang định dạng mới.",
+        "Người dùng tự sửa được vấn đề mà không cần hỏi hỗ trợ kỹ thuật.",
+        "Người dùng nhận lỗi mơ hồ và không biết phải làm gì với file Excel đời cũ của mình.",
+    ),
+    "test_zip_bomb_style_wrong_internal_structure_does_not_crash_silently": G(
+        "File là ZIP hợp lệ nhưng không phải cấu trúc Excel thì phải báo lỗi, không được bỏ qua",
+        "File có đuôi .xlsx và đúng là một file ZIP, nhưng bên trong không phải dữ liệu Excel (OOXML) thật.",
+        "Ví dụ file ZIP chỉ chứa một văn bản 'hello.txt', không có cấu trúc bảng tính nào.",
+        "Hệ thống phải phát hiện thiếu cấu trúc Excel và báo lỗi, không được trả về kết quả rỗng coi như thành công.",
+        "Tránh trường hợp file giả dạng tinh vi (ZIP đúng nhưng nội dung sai) lọt qua kiểm tra.",
+        "Một file ZIP giả mạo có thể đi qua các bước kiểm tra cơ bản và làm hỏng luồng xử lý phía sau.",
+    ),
+    "test_truncated_xlsx_raises_clear_error_not_garbage_data": G(
+        "File Excel bị đứt giữa đường khi tải lên phải báo lỗi rõ ràng",
+        "Quá trình tải file lên bị ngắt giữa đường (mất mạng, đóng tab...), file lưu lại chỉ có một nửa.",
+        "Ví dụ file gốc đầy đủ bị cắt còn lại 50% dữ liệu byte.",
+        "Hệ thống phải phát hiện file hỏng và báo lỗi, không được đọc ra dữ liệu thiếu rồi coi là kết quả đúng.",
+        "Người dùng được yêu cầu tải lại file thay vì nhận một báo cáo thiếu sót mà không biết.",
+        "Báo cáo có thể chỉ chứa một phần dữ liệu thật, dẫn đến kết luận sai về hồ sơ nhà thầu.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Negative cases mở rộng - file hợp lệ nhưng nội dung vô nghĩa
+    # -------------------------------------------------------------------------
+    "test_completely_empty_sheet_does_not_crash": G(
+        "Sheet hoàn toàn trống không được làm crash hệ thống",
+        "Nhà thầu tải lên một file Excel hợp lệ nhưng sheet bên trong không có bất kỳ dữ liệu nào.",
+        "Ví dụ file chỉ có một sheet rỗng tên 'Sheet1'.",
+        "Hệ thống đọc xong và trả về danh sách hạng mục rỗng kèm cảnh báo 'không đọc được hạng mục dữ liệu nào'.",
+        "Hệ thống xử lý êm các file rỗng thay vì dừng đột ngột giữa quy trình của nhiều nhà thầu khác.",
+        "Một file trống của một nhà thầu có thể làm toàn bộ tác vụ so sánh (gồm cả các nhà thầu khác) bị lỗi.",
+    ),
+    "test_random_text_without_any_header_keyword_yields_no_items_not_garbage": G(
+        "Nội dung không liên quan gì đến hồ sơ thầu không được bịa ra hạng mục giả",
+        "File Excel hợp lệ nhưng nội dung là những câu chữ ngẫu nhiên, không phải bảng khối lượng/giá thầu.",
+        "Ví dụ các ô ghi 'con mèo', 'con chó', 'hôm nay trời đẹp'...",
+        "Hệ thống không tìm thấy tiêu đề bảng hợp lệ nên phải trả về danh sách hạng mục rỗng, không tự suy diễn dữ liệu.",
+        "Tránh tạo ra một báo cáo so sánh từ dữ liệu hoàn toàn không liên quan đến đấu thầu.",
+        "Hệ thống có thể hiểu nhầm các ô chữ ngẫu nhiên là tên hạng mục/khối lượng và tạo báo cáo vô nghĩa.",
+    ),
+    "test_header_only_no_data_rows": G(
+        "File chỉ có dòng tiêu đề, chưa có dữ liệu thì không được báo có hạng mục",
+        "Nhà thầu tải lên file đã đặt đúng tiêu đề cột nhưng chưa kịp điền số liệu nào.",
+        "Ví dụ dòng tiêu đề 'STT, Mã hiệu, Tên hạng mục...' nhưng không có dòng dữ liệu nào theo sau.",
+        "Hệ thống phải nhận diện đúng tiêu đề nhưng trả về 0 hạng mục, không bịa thêm dữ liệu.",
+        "Phân biệt rõ giữa 'chưa có dữ liệu' và 'có lỗi đọc file'.",
+        "Hệ thống có thể báo lỗi sai hoặc tạo hạng mục ảo từ dòng tiêu đề.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Negative cases mở rộng - đọc số liệu bất thường
+    # -------------------------------------------------------------------------
+    "test_garbage_returns_none_not_exception": G(
+        "Ô chứa chữ rác lẫn số không được hiểu nhầm thành một con số",
+        "Một ô khối lượng/đơn giá vô tình bị nhập text rác hoặc mã hàng có lẫn chữ số.",
+        "Ví dụ ô ghi 'abc123xyz' hoặc 'lung tung beng' thay vì một con số thật.",
+        "Hàm đọc số phải trả về 'không có giá trị' (None), không được tự suy ra số 123 từ chuỗi chữ đó.",
+        "Tránh lấy nhầm một đoạn số vô nghĩa trong text rác làm khối lượng/giá thật.",
+        "Khối lượng hoặc đơn giá của một hạng mục có thể bị tính sai hoàn toàn mà không ai phát hiện (lỗi đã tìm thấy và sửa).",
+    ),
+    "test_math_error_detects_klxdg_mismatch": G(
+        "Phải phát hiện khi Khối lượng × Đơn giá không khớp với Thành tiền ghi trong file",
+        "File nhà thầu tự ghi cột 'thành tiền' nhưng số liệu không khớp với khối lượng nhân đơn giá.",
+        "Ví dụ 10 (khối lượng) × 1.000 (đơn giá) = 10.000, nhưng cột thành tiền lại ghi 5.000.",
+        "Hệ thống phải tính ra mức chênh lệch và gắn cờ cảnh báo sai phép tính.",
+        "Phát hiện lỗi tính toán hoặc gian lận số liệu trong hồ sơ chào giá.",
+        "Một khoản tiền sai có thể lọt vào báo cáo tổng hợp mà không bị phát hiện.",
+    ),
+    "test_math_error_none_when_any_input_missing": G(
+        "Không được báo lỗi phép tính khi thiếu dữ liệu để tính",
+        "Một trong ba giá trị (khối lượng, đơn giá, thành tiền) bị bỏ trống.",
+        "Ví dụ chỉ có khối lượng và đơn giá, không có thành tiền để so sánh.",
+        "Hệ thống phải trả về 'không xác định được lỗi' thay vì báo sai phép tính một cách giả tạo.",
+        "Tránh tạo cảnh báo sai (báo động giả) khi đơn giản là thiếu dữ liệu để kiểm tra.",
+        "Báo cáo có thể tràn ngập cảnh báo giả, làm người kiểm tra mất niềm tin vào hệ thống.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Negative cases mở rộng - luồng so sánh phụ lục/nhà thầu (tender_package)
+    # -------------------------------------------------------------------------
+    "test_no_bidder_files_raises_value_error": G(
+        "Không cho phép chạy so sánh khi chưa có file nhà thầu nào",
+        "Người dùng bấm chạy chức năng so sánh phụ lục nhưng chưa tải lên file nhà thầu nào.",
+        "Ví dụ chỉ có file PL01, danh sách hồ sơ nhà thầu để trống.",
+        "Hệ thống phải dừng ngay và báo 'Cần ít nhất 1 hồ sơ nhà thầu để đối chiếu phụ lục'.",
+        "Tránh chạy một tác vụ vô nghĩa (không có gì để so sánh) gây lãng phí thời gian xử lý.",
+        "Hệ thống có thể chạy treo, lỗi mơ hồ, hoặc tạo báo cáo trống không rõ nguyên nhân.",
+    ),
+    "test_no_appendix_at_all_raises_value_error": G(
+        "Không cho phép chạy so sánh khi không có Phụ lục 01 lẫn Phụ lục 02",
+        "Người dùng chỉ tải lên hồ sơ nhà thầu mà quên tải phụ lục làm căn cứ đối chiếu.",
+        "Ví dụ chỉ có file 'bidder.xlsx', không có PL01 và PL02.",
+        "Hệ thống phải dừng ngay và báo 'Cần tải lên ít nhất một phụ lục: Phụ lục 01 hoặc Phụ lục 02'.",
+        "Người dùng biết ngay cần bổ sung phụ lục, tránh chờ kết quả của một tác vụ vô nghĩa.",
+        "Hệ thống không có cơ sở pháp lý/kỹ thuật nào để đối chiếu nhưng vẫn cố chạy, dẫn đến lỗi khó hiểu hoặc kết quả sai.",
+    ),
+    "test_missing_pl2_file_on_disk_raises_clear_error": G(
+        "Báo lỗi rõ ràng khi file Phụ lục 02 bị thiếu trên đĩa khi xử lý",
+        "Đường dẫn tới file Phụ lục 02 được truyền vào nhưng file thực tế không tồn tại (ví dụ do lỗi lưu file tạm).",
+        "Ví dụ hệ thống được yêu cầu đọc 'khong_ton_tai.xlsx' nhưng file này không có thật trên đĩa.",
+        "Lỗi trả về phải nêu rõ đang xảy ra ở bước đọc PHỤ LỤC 02, không phải lỗi chung mơ hồ.",
+        "Người vận hành/hỗ trợ xác định nhanh đúng bước nào trong quy trình bị lỗi.",
+        "Lỗi tệp tin chung chung khiến khó xác định do thiếu PL01, PL02 hay file nhà thầu.",
+    ),
+    "test_pl2_without_recognizable_headers_does_not_crash_but_warns": G(
+        "Khi file Phụ lục 02 không đúng mẫu (thiếu cột Thương hiệu/Xuất xứ), hệ thống vẫn phải chạy xong và cảnh báo rõ",
+        "Người dùng tải nhầm một file Excel khác vào ô Phụ lục 02, không có cột yêu cầu vật tư/thương hiệu/xuất xứ.",
+        "Ví dụ file chỉ có 'Cột A, Cột B, Cột C' không liên quan gì đến yêu cầu vật tư.",
+        "Báo cáo vẫn phải được tạo ra, nhưng phải có cảnh báo rõ là không đọc được yêu cầu nào từ Phụ lục 02.",
+        "Người dùng biết ngay là đã tải nhầm file, không lầm tưởng rằng việc kiểm tra thương hiệu/xuất xứ đã được thực hiện đầy đủ.",
+        "Người dùng có thể tưởng nhầm hồ sơ đã được kiểm tra đầy đủ thương hiệu/xuất xứ, trong khi thực tế bước đó chưa từng chạy.",
+    ),
+    "test_single_bidder_with_zero_items_produces_empty_but_valid_report": G(
+        "Khi nhà thầu nộp file trống (không có hạng mục nào), hệ thống phải báo đầy đủ các hạng mục đó là 'thiếu'",
+        "Có Phụ lục 01 quy định rõ các hạng mục cần chào giá, nhưng file nhà thầu hoàn toàn trống.",
+        "Ví dụ PL01 yêu cầu 2 hạng mục, nhưng nhà thầu nộp file Excel có sheet trống không một dòng dữ liệu.",
+        "Báo cáo phải đếm đủ 2 hạng mục đó ở trạng thái 'thiếu' (MISSING), không được bỏ qua.",
+        "Phát hiện ngay trường hợp nhà thầu nộp nhầm/thiếu hồ sơ chào giá.",
+        "Một hồ sơ thực chất trống rỗng có thể bị đánh giá nhầm là 'không có vấn đề gì' vì không có dữ liệu để so sánh.",
+    ),
+    "test_single_bidder_disables_peer_price_comparison": G(
+        "Khi chỉ có một nhà thầu duy nhất, hệ thống không được tự so sánh giá của họ với ai",
+        "Chỉ có đúng một hồ sơ nhà thầu được nộp, không có nhà thầu thứ hai để đối chiếu giá.",
+        "Ví dụ chỉ một nhà thầu 'NT duy nhất' chào giá cho các hạng mục trong PL01.",
+        "Audit của báo cáo phải ghi rõ 'không so sánh giá ngang hàng' kèm lý do, vì không có đối tượng thứ hai để so.",
+        "Tránh đưa ra nhận định 'giá cao/giá thấp' khi không có cơ sở để so sánh, gây hiểu nhầm cho người đánh giá thầu.",
+        "Một mức giá hợp lý có thể bị gắn nhãn bất thường một cách vô căn cứ chỉ vì so sánh sai logic.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Negative cases mở rộng - đọc Phụ lục 02 (pl2_reader)
+    # -------------------------------------------------------------------------
+    "test_pl2_wrong_extension_raises": G(
+        "Phụ lục 02 sai định dạng (.xls) phải bị từ chối ngay từ đầu",
+        "Người dùng tải file Phụ lục 02 ở định dạng Excel cũ chưa chuyển sang .xlsx.",
+        "Ví dụ file 'pl2.xls'.",
+        "Hệ thống phải báo lỗi yêu cầu định dạng .xlsx, không cố đọc tiếp.",
+        "Tránh xử lý một file mà hệ thống chắc chắn không đọc đúng được.",
+        "Hệ thống có thể cố đọc và trả về kết quả rác hoặc lỗi không rõ nguyên nhân.",
+    ),
+    "test_pl2_empty_workbook_returns_empty_with_warning": G(
+        "Phụ lục 02 trống phải trả về danh sách yêu cầu rỗng kèm cảnh báo rõ ràng",
+        "File Phụ lục 02 hợp lệ về định dạng nhưng không có nội dung gì bên trong.",
+        "Ví dụ file chỉ có một sheet trống.",
+        "Hệ thống trả về danh sách yêu cầu vật tư rỗng và một cảnh báo 'Không đọc được yêu cầu vật tư nào từ Phụ lục 02'.",
+        "Người dùng biết chính xác lý do không có kiểm tra thương hiệu/xuất xứ nào được áp dụng.",
+        "Việc thiếu Phụ lục 02 thực chất có thể bị hiểu lầm thành 'đã kiểm tra và không có vấn đề gì'.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Negative cases mở rộng - tải file lên ở tầng giao diện (app.py)
+    # -------------------------------------------------------------------------
+    "test_sanitize_strips_path_traversal": G(
+        "Tên file độc hại kiểu '../../etc/passwd' phải bị làm sạch, không được ghi ra ngoài thư mục cho phép",
+        "Người dùng (hoặc kẻ tấn công) đặt tên file tải lên chứa các ký tự '..' và '/' để cố thoát khỏi thư mục lưu file.",
+        "Ví dụ tên file '../../../etc/passwd.xlsx'.",
+        "Tên file sau khi xử lý không còn chứa '..' hay dấu '/'.",
+        "Ngăn chặn kiểu tấn công Path Traversal ghi đè file hệ thống ngoài ý muốn.",
+        "Kẻ tấn công có thể lợi dụng tên file để ghi đè hoặc truy cập file ngoài phạm vi cho phép của ứng dụng.",
+    ),
+    "test_sanitize_strips_path_traversal_windows_style": G(
+        "Tên file độc hại kiểu Windows '..\\\\..\\\\Windows\\\\...' cũng phải bị làm sạch",
+        "Giống tấn công path traversal nhưng dùng dấu gạch chéo ngược kiểu đường dẫn Windows.",
+        "Ví dụ tên file '..\\\\..\\\\Windows\\\\System32\\\\evil.xlsx'.",
+        "Tên file sau khi xử lý không còn chứa '..' hay dấu '\\\\'.",
+        "Đảm bảo việc làm sạch tên file hoạt động trên cả hai kiểu đường dẫn Windows và Unix.",
+        "Hệ thống chạy trên Windows có thể bị tấn công bằng kiểu đường dẫn đặc thù mà bộ lọc Unix bỏ sót.",
+    ),
+    "test_sanitize_empty_name_falls_back": G(
+        "Tên file rỗng phải được thay bằng một tên mặc định hợp lệ",
+        "Trường hợp hiếm khi trình duyệt gửi lên tên file rỗng hoặc không hợp lệ.",
+        "Ví dụ tên file gửi lên là chuỗi rỗng ''.",
+        "Hệ thống phải tự đặt một tên file mặc định thay vì lưu file không tên.",
+        "Tránh lỗi hệ thống file khi gặp tên rỗng.",
+        "Việc lưu file có thể thất bại với lỗi khó hiểu nếu tên file rỗng không được xử lý.",
+    ),
+    "test_save_upload_rejects_disallowed_extension": G(
+        "Từ chối ngay các file có đuôi không được phép (ví dụ .exe) trước khi lưu vào đĩa",
+        "Người dùng tải lên một file không phải Excel, ví dụ file thực thi.",
+        "Ví dụ file 'evil.exe' được gửi tới chức năng chỉ chấp nhận .xlsx.",
+        "Yêu cầu phải bị từ chối với mã lỗi 400 (yêu cầu không hợp lệ) và không được lưu file đó vào đĩa.",
+        "Ngăn người dùng tải lên các loại file nguy hiểm hoặc không liên quan vào máy chủ.",
+        "Máy chủ có thể vô tình lưu trữ file thực thi hoặc file độc hại do không kiểm tra đuôi file.",
+    ),
+    "test_save_upload_rejects_empty_file": G(
+        "Từ chối file tải lên có dung lượng 0 byte",
+        "Người dùng tải lên một file rỗng (ví dụ do lỗi mạng khi chọn file).",
+        "Ví dụ file 'empty.xlsx' có nội dung trống.",
+        "Yêu cầu bị từ chối với thông báo 'File tải lên rỗng' và file tạm không được giữ lại trên đĩa.",
+        "Phát hiện sớm lỗi tải file, tránh xử lý tiếp với dữ liệu không có gì.",
+        "Hệ thống có thể tạo một tác vụ xử lý cho một file trống, gây lãng phí và lỗi khó hiểu ở bước sau.",
+    ),
+    "test_save_upload_rejects_file_over_limit": G(
+        "Từ chối file tải lên vượt quá giới hạn dung lượng cho phép",
+        "Người dùng tải lên một file có kích thước lớn hơn mức hệ thống cho phép.",
+        "Ví dụ file 2KB được tải lên trong khi giới hạn cấu hình chỉ cho phép 1KB.",
+        "Yêu cầu bị từ chối với mã lỗi 413 (file quá lớn) và phần file đã ghi tạm phải được xoá sạch, không để lại rác trên đĩa.",
+        "Bảo vệ máy chủ khỏi bị quá tải ổ đĩa do file tải lên quá lớn hoặc tấn công làm đầy dung lượng.",
+        "Máy chủ có thể bị đầy ổ đĩa hoặc chậm dần theo thời gian do các file dở dang không bị dọn dẹp.",
+    ),
+    "test_save_upload_accepts_valid_small_file": G(
+        "File hợp lệ, đúng định dạng và trong giới hạn dung lượng phải được lưu thành công",
+        "Trường hợp bình thường: người dùng tải lên một file Excel nhỏ, hợp lệ.",
+        "Ví dụ file 'ok.xlsx' với nội dung hợp lệ và dung lượng nhỏ.",
+        "File phải được lưu đúng vào vị trí đích với nội dung giữ nguyên, không bị từ chối oan.",
+        "Đảm bảo các bước kiểm tra an toàn (đuôi file, dung lượng) không chặn nhầm các yêu cầu hợp lệ.",
+        "Các bộ lọc bảo mật quá chặt có thể vô tình chặn luôn cả người dùng hợp lệ, gây khó chịu khi sử dụng hệ thống.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Negative cases mở rộng - chuyển lỗi kỹ thuật thành thông báo người dùng
+    # -------------------------------------------------------------------------
+    "test_encrypted_or_unknown_underlying_error_falls_back_to_generic_excel_message": G(
+        "File Excel có mật khẩu/mã hoá vẫn phải báo lỗi thân thiện, không lộ chi tiết kỹ thuật",
+        "Nhà thầu nộp một file Excel được đặt mật khẩu bảo vệ, hệ thống không tự mở được.",
+        "Ví dụ file 'BaoGia_C_CoMatKhau.xlsx' báo lỗi 'Workbook is encrypted and password-protected'.",
+        "Thông báo cho người dùng vẫn phải nêu đúng tên file gốc và nói 'không đúng định dạng Excel', không hiển thị câu lỗi kỹ thuật gốc.",
+        "Người dùng biết cần gỡ mật khẩu file trước khi tải lên, dù lỗi kỹ thuật bên dưới là loại lỗi hệ thống chưa từng gặp.",
+        "Người dùng nhận một câu lỗi tiếng Anh kỹ thuật khó hiểu, không biết hướng xử lý.",
+    ),
+    "test_unknown_request_mapping_still_returns_something_safe": G(
+        "Hệ thống không bao giờ được 'câm lặng' hoặc crash khi gặp lỗi không xác định được tên file/nhà thầu",
+        "Một lỗi xảy ra nhưng không khớp với bất kỳ thông tin nào trong yêu cầu (ví dụ thiếu thông tin ngữ cảnh).",
+        "Ví dụ lỗi nhắc tới 'unknown.xlsx' mà không có dữ liệu request nào để tham chiếu.",
+        "Hàm tạo thông báo lỗi vẫn phải trả về một chuỗi văn bản hợp lệ, không phải None và không ném thêm lỗi mới.",
+        "Bảo đảm người dùng luôn nhận được một phản hồi nào đó, dù là trường hợp hiếm gặp nhất.",
+        "Toàn bộ tác vụ có thể bị crash thêm lần hai ngay tại bước hiển thị lỗi, khiến người dùng không nhận được phản hồi nào cả.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Báo cáo so sánh giá giữa các nhà thầu (Ma trận đơn giá)
+    # -------------------------------------------------------------------------
+    "test_price_matrix_marks_the_outlier_cell_directly": G(
+        "Tự động tô màu và gắn ghi chú ngay trên ô giá khi nhà thầu báo giá lệch hẳn",
+        "Bốn nhà thầu cùng báo giá một hạng mục: ba nhà thầu báo giá gần nhau, một nhà thầu báo giá cách biệt rất xa.",
+        "Ví dụ ba nhà thầu báo 95, 100, 105; một nhà thầu báo 500 cho cùng một hạng mục 'Tủ điện tổng'.",
+        "Đúng ô giá của nhà thầu báo 500 (không phải một cột riêng) phải được tô màu cảnh báo và có ghi chú (hiện khi rê chuột) nêu rõ tên nhà thầu, giá trị, trung vị và mức lệch %; ô giá của các nhà thầu báo gần nhau thì không bị tô màu và không có ghi chú.",
+        "Người xem báo cáo chỉ cần rê chuột vào đúng ô giá bất thường để biết ngay vì sao nó bị đánh dấu, không cần dò một cột ghi chú riêng hay tự tính toán so sánh từng dòng.",
+        "Một mức giá bất thường có thể bị bỏ lọt trong hàng nghìn dòng dữ liệu, dẫn đến đánh giá thầu sai mà không ai phát hiện kịp thời.",
+    ),
+    "test_price_matrix_has_no_comment_when_all_bidders_close": G(
+        "Không gắn ghi chú/tô màu giả khi tất cả nhà thầu báo giá tương đương nhau",
+        "Các nhà thầu báo giá cho cùng một hạng mục chỉ chênh nhau rất ít, trong phạm vi bình thường.",
+        "Ví dụ ba nhà thầu báo 98, 100, 102 cho cùng một hạng mục — mức chênh chỉ vài phần trăm.",
+        "Không ô giá nào trong dòng đó được tô màu cảnh báo hay gắn ghi chú, vì không có nhà thầu nào lệch đáng kể.",
+        "Người xem báo cáo không bị làm phiền bởi các cảnh báo không cần thiết khi giá cả vẫn trong mức hợp lý.",
+        "Báo cáo có thể tô màu và cảnh báo tràn lan dù không có vấn đề thật, làm người dùng mất niềm tin vào tính năng cảnh báo.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # File tổng hợp độc lập "Bảng chào giá tổng hợp" (đúng format file mẫu)
+    # -------------------------------------------------------------------------
+    "test_summary_has_one_sheet_per_hangmuc_with_side_by_side_blocks": G(
+        "Tự sinh file tổng hợp đúng format: mỗi hạng mục một sheet, các nhà thầu xếp cạnh nhau",
+        "Có nhiều nhà thầu cùng chào giá; hệ thống gộp tất cả vào một file tổng hợp riêng, mỗi hạng mục (sheet gốc) là một trang, mỗi nhà thầu một khối cột nằm cạnh nhau — giống hệt bảng chào giá tổng hợp thực tế.",
+        "Ví dụ hạng mục 'HT điện' thành một sheet riêng; trong đó bốn nhà thầu xếp cạnh nhau, mỗi nhà thầu có đủ các cột KL chào, mô tả/quy cách, mã hiệu, thương hiệu, xuất xứ, các thành phần đơn giá, ĐG tổng hợp và thành tiền.",
+        "Sheet mang đúng tên hạng mục gốc, dòng tiêu đề ghi đủ tên cả bốn nhà thầu, mỗi nhà thầu có cột 'ĐG tổng hợp' và 'Thành tiền NT chào' riêng, và TUYỆT ĐỐI không có cột phân tích phụ (Mức độ, Điểm bất thường).",
+        "Người đánh giá thầu xem được toàn bộ nhà thầu trên đúng bảng quen thuộc của mình, không bị chèn thêm các cột kỹ thuật lạ.",
+        "Nếu dựng sai cấu trúc, cột của nhà thầu này có thể lẫn sang nhà thầu khác, hoặc file lại xuất hiện các cột phân tích mà người dùng không muốn.",
+    ),
+    "test_summary_marks_deviating_price_cells_directly": G(
+        "Đánh dấu trực tiếp lên ô giá của nhà thầu báo lệch nhiều trong file tổng hợp",
+        "Trong file tổng hợp, một nhà thầu báo đơn giá cách biệt hẳn so với các nhà thầu còn lại cho cùng một hạng mục.",
+        "Ví dụ ba nhà thầu báo 95, 100, 105; một nhà thầu báo 500 cho cùng hạng mục.",
+        "Đúng ô 'ĐG tổng hợp' (và 'Thành tiền NT chào') của nhà thầu báo 500 được tô màu cảnh báo và gắn ghi chú ngay trên ô, nêu rõ mức lệch so với trung vị; ô của các nhà thầu báo gần nhau không bị đánh dấu.",
+        "Người xem chỉ cần rê chuột vào đúng ô giá bị đánh dấu để hiểu vì sao nó bất thường, ngay trên bảng tổng hợp.",
+        "Một mức giá bất thường có thể bị bỏ lọt giữa hàng nghìn dòng, dẫn đến đánh giá thầu sai.",
+    ),
+    "test_summary_no_marks_when_prices_close": G(
+        "File tổng hợp không đánh dấu khi các nhà thầu báo giá tương đương nhau",
+        "Tất cả nhà thầu báo giá cho cùng hạng mục chỉ chênh nhau rất ít.",
+        "Ví dụ ba nhà thầu báo 98, 100, 102.",
+        "Không ô giá nào trong file tổng hợp bị tô màu hay gắn ghi chú cảnh báo.",
+        "Tránh làm người xem rối mắt với cảnh báo thừa khi giá cả vẫn hợp lý.",
+        "File tô màu tràn lan sẽ làm mất ý nghĩa của việc đánh dấu.",
+    ),
+    "test_numbering_row_with_float_values_is_detected": G(
+        "Nhận diện đúng dòng chú giải đánh số cột kể cả khi số ở dạng 1.0, 2.0",
+        "Nhiều file Excel có một dòng ghi số thứ tự cột (1, 2, 3...) ngay dưới tiêu đề; khi đọc bằng máy, các số này có thể ở dạng '1.0', '2.0'.",
+        "Ví dụ dòng '1, 2, 3, 4, 5, 6, 7, 8, 16=11+12+13+14+15' — chỉ là chú thích đánh số cột, không phải hàng hóa.",
+        "Hệ thống phải nhận ra đây là dòng chú giải và bỏ qua, không đọc nhầm thành một hạng mục tên là '2'.",
+        "Tránh để dòng đánh số cột lọt vào báo cáo như một hạng mục giả rồi bị gắn cờ 'phát sinh' oan.",
+        "Báo cáo có thể chứa hàng loạt 'hạng mục' rác tên là số, làm sai số liệu và gây nhiễu cho người đánh giá.",
+    ),
+    "test_numbering_row_does_not_misfire_on_real_priced_row": G(
+        "Không nhầm một hạng mục thật thành dòng đánh số cột",
+        "Một hàng hóa thật cũng có thể bắt đầu bằng số thứ tự 1, 2, 3, 4.",
+        "Ví dụ '1 | Tủ điện tổng | Cái | 4 | Schneider' — là hạng mục thật, không phải dòng chú giải.",
+        "Hệ thống vẫn giữ lại dòng này như một hạng mục, không bỏ nhầm.",
+        "Đảm bảo việc lọc dòng chú giải không vô tình xóa mất hàng hóa thật.",
+        "Một hạng mục hợp lệ có thể biến mất khỏi báo cáo nếu bộ lọc quá tay.",
+    ),
+    "test_legend_and_section_subtotal_excluded_from_comparable_items": G(
+        "Dòng đánh số cột và tiêu đề mục có tổng phụ không được coi là hạng mục so sánh",
+        "File chào giá có dòng đánh số cột, có tiêu đề mục lớn (vd 'A. ĐẦU MỤC CÔNG VIỆC THEO KLMT') kèm một con số tổng phụ rất lớn ở cột thành tiền.",
+        "Ví dụ tiêu đề mục 'A. ĐẦU MỤC...' có thành tiền 76 tỷ (là tổng của cả mục), không có đơn vị/khối lượng/đơn giá.",
+        "Dòng đánh số cột bị bỏ hẳn; tiêu đề mục được giữ lại nhưng đánh dấu là dòng tổng phụ (không đem ra so sánh như một hàng hóa).",
+        "Tránh việc các dòng tiêu đề/tổng phụ bị gắn cờ 'phát sinh' hoặc 'bất thường' một cách vô lý, gây nhiễu báo cáo.",
+        "Báo cáo có thể đầy cảnh báo giả ở các dòng tiêu đề mục, khiến người đánh giá mất thời gian và giảm tin tưởng.",
+    ),
+    "test_summary_splits_multiple_hangmuc_into_separate_sheets": G(
+        "Nhiều hạng mục được tách thành nhiều sheet riêng trong file tổng hợp",
+        "Hồ sơ chào giá có nhiều hạng mục khác nhau (ví dụ hệ thống điện và hệ thống cấp thoát nước).",
+        "Ví dụ mỗi nhà thầu có sheet 'HT điện' và sheet 'HT CTN'; file tổng hợp phải tạo đúng hai trang tương ứng.",
+        "File tổng hợp có một sheet riêng cho mỗi hạng mục, mang đúng tên hạng mục gốc.",
+        "Giữ đúng cách tổ chức theo hạng mục như bảng chào giá gốc, dễ tra cứu từng phần.",
+        "Nếu gộp hết vào một sheet hoặc đặt sai tên, người dùng khó đối chiếu với hồ sơ gốc.",
+    ),
 }
 
 

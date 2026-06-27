@@ -239,6 +239,9 @@ def _is_numbering_row(row: list[Any]) -> bool:
     values = [_as_text(value) for value in row if _as_text(value)]
     if len(values) < 4:
         return False
+    # Excel/Calamine trả số nguyên dưới dạng float ("1.0"); bỏ phần ".0" thừa để
+    # nhận diện đúng dòng chú giải đánh số cột (1, 2, 3, ...).
+    values = [re.sub(r"\.0+$", "", value) for value in values]
     first_four = []
     for value in values[:4]:
         match = re.match(r"^(\d+)", value)
@@ -424,16 +427,27 @@ def load_workbook_items(
             reference_amount = safe_amount(ref_qty, unit_price_total, raw_ref_amount)
             bid_amount = safe_amount(bid_qty, unit_price_total, raw_bid_amount)
 
+            normalized_stt = normalize_stt(stt)
             summary = (
                 not unit
                 and not stt
                 and any(token in normalize_name(name) for token in ("tong cong", "tong truoc thue", "thue vat", "tong sau thue"))
                 and (raw_ref_amount is not None or raw_bid_amount is not None)
             )
+            # Tiêu đề mục cấp cao (STT dạng "A", "I", "II"...) mang một subtotal ở
+            # cột thành tiền nhưng không có đơn vị/khối lượng/đơn giá: đây là dòng
+            # tổng phụ của mục, không phải hạng mục để so sánh.
+            section_subtotal = (
+                bool(name)
+                and not unit
+                and ref_qty is None and bid_qty is None
+                and unit_price_total is None
+                and (raw_ref_amount is not None or raw_bid_amount is not None)
+                and bool(_ALPHA.match(normalized_stt) or _ROMAN.match(normalized_stt))
+            )
             group = _looks_group(stt, name, unit, ref_qty, bid_qty, unit_price_total, raw_ref_amount, raw_bid_amount)
-            normalized_stt = normalize_stt(stt)
 
-            if summary:
+            if summary or section_subtotal:
                 row_type = RowType.SUMMARY
                 current_parent_detail = ""
                 current_parent_code = ""

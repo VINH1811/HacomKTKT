@@ -530,7 +530,8 @@ function renderResult(jobId, data) {
   const files = data.files || {};
   const actions = [];
   if (files.package) actions.push(resultLink(`/api/jobs/${jobId}/download-package`, isOcr ? "Tải toàn bộ kết quả OCR" : "Tải toàn bộ kết quả", true));
-  if (!isOcr || !files.package) actions.push(resultLink(`/api/jobs/${jobId}/download`, isOcr ? "Tải file Excel đầu tiên" : "Tải báo cáo tổng", !files.package));
+  if (files.summary_file) actions.push(resultLink(`/api/jobs/${jobId}/download-file/${encodeURIComponent(files.summary_file)}`, "Tải bảng tổng hợp chào giá (đã đánh dấu)", !files.package));
+  if (!isOcr || !files.package) actions.push(resultLink(`/api/jobs/${jobId}/download`, isOcr ? "Tải file Excel đầu tiên" : "Tải báo cáo phân tích chi tiết", false));
   const individual = isOcr ? (files.ocr_files || {}) : (files.annotated_files || {});
   Object.entries(individual).forEach(([name, filename]) => actions.push(resultLink(`/api/jobs/${jobId}/download-file/${encodeURIComponent(filename)}`, `${isOcr ? "Tải OCR" : "Tải file đánh dấu"}: ${name}`)));
   $("#resultActions").innerHTML = actions.join("");

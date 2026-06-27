@@ -8,6 +8,7 @@ from typing import Any, Optional
 _NA = {"", "-", "--", "—", "–", "n/a", "na", "none", "null", "nan"}
 _CURRENCY = re.compile(r"(?i)\b(vnd|vnđ|đồng|dong|usd|eur)\b|₫|\$")
 _ALLOWED = re.compile(r"[^0-9,\.\-+() ]")
+_LETTER = re.compile(r"[^\W\d_]", re.UNICODE)
 
 
 def parse_number(value: Any) -> Optional[float]:
@@ -31,6 +32,11 @@ def parse_number(value: Any) -> Optional[float]:
     if negative:
         raw = raw[1:-1]
     raw = _CURRENCY.sub("", raw)
+    if _LETTER.search(raw):
+        # Text rác lẫn chữ cái với số (vd. mã hàng "SP123ABC") không được coi
+        # là một con số; nếu không chặn ở đây, các bước strip ký tự phía dưới
+        # sẽ vô tình "bịa" ra một giá trị số sai từ nội dung text.
+        return None
     raw = _ALLOWED.sub("", raw).strip()
     raw = raw.replace(" ", "")
     if not raw or raw in {"+", "-"}:
