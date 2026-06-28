@@ -191,6 +191,8 @@ def compare_appendices_with_bidders(
         def load_pl2():
             try:
                 return load_pl2_requirements(pl2, config=config)
+            except ValueError:
+                raise
             except Exception as exc:
                 raise RuntimeError(
                     f"Không đọc được file '{pl2.name}' (PHỤ LỤC 02): {type(exc).__name__}: {exc}"
@@ -201,6 +203,12 @@ def compare_appendices_with_bidders(
         requirements, pl2_warnings = pl2_future.result() if pl2_future else ([], [])
 
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
+    for w in bidders:
+        if not w.items:
+            raise ValueError(f"File nhà thầu '{w.path.name}' ({w.bidder}) không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
+
+    if pl2 and not requirements:
+        raise ValueError(f"File Phụ lục 02 '{pl2.name}' không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
 
     bidder_count = len(bidders)
     peer_price_enabled = bidder_count >= 2
@@ -217,8 +225,6 @@ def compare_appendices_with_bidders(
             ))
         catalogue_mode = "PL01_OFFICIAL"
     else:
-        if all(not w.items for w in bidders):
-            raise ValueError("Không tìm thấy dữ liệu dòng hàng nào trong tất cả các file nhà thầu để đối chiếu. Vui lòng kiểm tra lại.")
         reference, rows, cluster_stats = build_peer_consensus(bidders, config)
         catalogue_mode = (
             "MULTIWAY_PEER_CONSENSUS"

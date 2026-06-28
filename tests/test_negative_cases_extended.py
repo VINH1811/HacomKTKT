@@ -222,17 +222,16 @@ class TestTenderPackageNegative:
         bidder = tmp_path / "bidder.xlsx"
         _valid_boq(bidder)
 
-        out = compare_appendices_with_bidders(
-            bidder_files=[("NT A", bidder)],
-            output_dir=tmp_path / "out",
-            pl1_path=None,
-            pl2_path=pl2,
-            config=_cfg(),
-        )
-        # Không crash, báo cáo vẫn được tạo, nhưng phải có cảnh báo rõ ràng
-        # rằng PL02 không đọc được yêu cầu nào - không được "im lặng" coi như đạt.
-        assert out.report_path.exists()
-        assert any("phụ lục 02" in w.lower() for w in out.result.warnings)
+        with pytest.raises(ValueError) as excinfo:
+            compare_appendices_with_bidders(
+                bidder_files=[("NT A", bidder)],
+                output_dir=tmp_path / "out",
+                pl1_path=None,
+                pl2_path=pl2,
+                config=_cfg(),
+            )
+        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
+        assert "Phụ lục 02" in str(excinfo.value)
 
     def test_single_bidder_with_zero_items_produces_empty_but_valid_report(self, tmp_path: Path):
         pl1 = tmp_path / "pl1.xlsx"
@@ -243,16 +242,15 @@ class TestTenderPackageNegative:
         wb.active.title = "Sheet1"
         wb.save(empty_bidder)
 
-        out = compare_appendices_with_bidders(
-            bidder_files=[("NT trống", empty_bidder)],
-            output_dir=tmp_path / "out",
-            pl1_path=pl1,
-            pl2_path=None,
-            config=_cfg(),
-        )
-        assert out.report_path.exists()
-        # Hai hạng mục PL01 phải được đánh dấu MISSING vì nhà thầu không có gì để đối chiếu
-        assert out.result.summary.missing_items == 2
+        with pytest.raises(ValueError) as excinfo:
+            compare_appendices_with_bidders(
+                bidder_files=[("NT trống", empty_bidder)],
+                output_dir=tmp_path / "out",
+                pl1_path=pl1,
+                pl2_path=None,
+                config=_cfg(),
+            )
+        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
 
     def test_single_bidder_disables_peer_price_comparison(self, tmp_path: Path):
         pl1 = tmp_path / "pl1.xlsx"
@@ -288,9 +286,9 @@ class TestPL2ReaderNegative:
         wb.active.title = "Sheet1"
         wb.save(path)
 
-        requirements, warnings = load_pl2_requirements(path, config=_cfg())
-        assert requirements == []
-        assert any("không đọc được yêu cầu" in w.lower() for w in warnings)
+        with pytest.raises(ValueError) as excinfo:
+            load_pl2_requirements(path, config=_cfg())
+        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------
@@ -436,3 +434,26 @@ class TestErrorMessageMapping:
         msg = format_job_error_message(exc, None)
         assert "không có dữ liệu dòng hàng" in msg
         assert "lỗi file" not in msg
+
+    def test_empty_pl2_file_raises_value_error(self, tmp_path: Path):
+        pl1 = tmp_path / "pl1.xlsx"
+        _valid_boq(pl1, rows=2)
+
+        pl2 = tmp_path / "pl2_empty.xlsx"
+        wb = Workbook()
+        wb.active.title = "Sheet1"
+        wb.save(pl2)
+
+        bidder = tmp_path / "bidder.xlsx"
+        _valid_boq(bidder, rows=2)
+
+        with pytest.raises(ValueError) as excinfo:
+            compare_appendices_with_bidders(
+                bidder_files=[("NT A", bidder)],
+                output_dir=tmp_path / "out",
+                pl1_path=pl1,
+                pl2_path=pl2,
+                config=_cfg(),
+            )
+        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
+        assert "Phụ lục 02" in str(excinfo.value)

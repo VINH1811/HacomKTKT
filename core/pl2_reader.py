@@ -133,6 +133,8 @@ def load_pl2_requirements(
         max_rows=config.max_excel_rows,
         fallback_openpyxl=config.excel_fallback_openpyxl,
     )
+    if not matrices.sheets or all(len(sheet.rows) == 0 for sheet in matrices.sheets):
+        raise ValueError(f"File Phụ lục 02 '{path.name}' không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
     requirements: list[MaterialRequirement] = []
     warnings: list[str] = list(matrices.warnings)
     for sheet in matrices.sheets:
