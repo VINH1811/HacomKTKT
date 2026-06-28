@@ -588,6 +588,23 @@ def load_workbook_items(
 
     if not items:
         warnings.append("Không đọc được hạng mục dữ liệu nào từ workbook")
+        skipped_normalized = {normalize_name(value) for value in SKIP_SHEETS}
+        sheet_names = [sheet.name for sheet in matrices.sheets if normalize_name(sheet.name) not in skipped_normalized]
+        closest_msg = ""
+        if sheet_names:
+            from rapidfuzz import fuzz
+            targets = ["BOQ", "Mẫu 03.2", "Mẫu 3.2", "Khối lượng", "Đơn giá", "HSDT", "Dự thầu", "Chi tiết", "Phụ lục"]
+            best_match = None
+            best_score = 0
+            for name in sheet_names:
+                for target in targets:
+                    score = fuzz.WRatio(normalize_name(target), normalize_name(name))
+                    if score > best_score:
+                        best_score = score
+                        best_match = name
+            if best_match and best_score > 60:
+                closest_msg = f" Có phải bạn muốn dùng sheet '{best_match}'?"
+        warnings.append(f"Không tìm thấy sheet BOQ trong workbook.{closest_msg}")
     return WorkbookData(
         path=path,
         role=role,

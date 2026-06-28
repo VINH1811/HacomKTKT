@@ -52,6 +52,11 @@ class CompareThresholds:
     name_review_score: float = 0.78
     name_reject_score: float = 0.58
     material_review_score: float = 0.72
+    material_reject_score: float = 0.45
+    brand_review_score: float = 0.80
+    brand_reject_score: float = 0.45
+    origin_review_score: float = 0.85
+    origin_reject_score: float = 0.50
     math_tolerance_pct: float = 0.005
     robust_z_warn: float = 2.5
     robust_z_critical: float = 3.5

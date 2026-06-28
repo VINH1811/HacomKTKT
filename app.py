@@ -128,6 +128,12 @@ def _build_config(payload: dict[str, Any]) -> EnterpriseConfig:
         quantity_critical_pct=float(payload.get("quantity_critical_pct", 0.15)),
         name_review_score=float(payload.get("name_review_score", 0.78)),
         name_reject_score=float(payload.get("name_reject_score", 0.58)),
+        material_review_score=float(payload.get("material_review_score", 0.72)),
+        material_reject_score=float(payload.get("material_reject_score", 0.45)),
+        brand_review_score=float(payload.get("brand_review_score", 0.80)),
+        brand_reject_score=float(payload.get("brand_reject_score", 0.45)),
+        origin_review_score=float(payload.get("origin_review_score", 0.85)),
+        origin_reject_score=float(payload.get("origin_reject_score", 0.50)),
     )
     return cfg
 
@@ -222,6 +228,9 @@ def format_job_error_message(exc: Exception, request: dict[str, Any] | None) -> 
             
         if "xlsx" in underlying_message.lower() and ("valueerror" in underlying_type.lower() or "invalidfileexception" in underlying_type.lower()):
             return f"File '{original_filename}' không đúng định dạng Excel. Hệ thống nhận file .xlsx. Hãy Save As file .xls/.xlsb thành .xlsx trước khi chạy."
+            
+        if "encrypted" in underlying_message.lower() or "password" in underlying_message.lower() or "encrypted" in underlying_type.lower() or "password" in underlying_type.lower():
+            return f"File '{original_filename}' bị khóa hoặc bảo vệ bằng mật khẩu. Vui lòng gỡ bỏ mật khẩu trước khi chạy."
             
         if "badzipfile" in underlying_type.lower() or "zipfile.badzipfile" in underlying_type.lower() or "not a zip" in underlying_message.lower():
             return f"File '{original_filename}' không phải là file Excel."

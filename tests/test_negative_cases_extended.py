@@ -389,7 +389,7 @@ class TestErrorMessageMapping:
         }
         msg = format_job_error_message(exc, request)
         assert "BaoGia_C_CoMatKhau.xlsx" in msg
-        assert "không đúng định dạng Excel" in msg
+        assert "bị khóa hoặc bảo vệ bằng mật khẩu" in msg
 
     def test_unknown_request_mapping_still_returns_something_safe(self):
         exc = RuntimeError("Không đọc được file 'unknown.xlsx' (???): ValueError: lỗi lạ")

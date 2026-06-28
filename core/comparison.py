@@ -335,9 +335,9 @@ def build_bidder_rows(
             row.price_delta_pct = None
             row.amount_delta = None
         else:
-            _compare_text(row, "Vật tư/Quy cách", ref.material, cand.material, t.material_review_score, 0.45, weight_review=4, weight_warning=9)
-            _compare_text(row, "Thương hiệu", ref.brand, cand.brand, 0.80, 0.45, weight_review=4, weight_warning=9)
-            _compare_text(row, "Xuất xứ", ref.origin, cand.origin, 0.85, 0.50, weight_review=3, weight_warning=8)
+            _compare_text(row, "Vật tư/Quy cách", ref.material, cand.material, t.material_review_score, t.material_reject_score, weight_review=4, weight_warning=9)
+            _compare_text(row, "Thương hiệu", ref.brand, cand.brand, t.brand_review_score, t.brand_reject_score, weight_review=4, weight_warning=9)
+            _compare_text(row, "Xuất xứ", ref.origin, cand.origin, t.origin_review_score, t.origin_reject_score, weight_review=3, weight_warning=8)
             _compare_numeric(
                 row, "Khối lượng nhà thầu chào", ref.quantity, cand.quantity,
                 t.quantity_warn_pct, t.quantity_critical_pct,
