@@ -35,7 +35,7 @@ def test_format_job_error_message_bad_zip_file():
         ]
     }
     msg = format_job_error_message(exc, request)
-    assert msg == "File 'Chào giá Nhà Thầu A Gốc.xlsx' không phải là file Excel."
+    assert msg == "File 'Chào giá Nhà Thầu A Gốc.xlsx' không phải là file Excel (có thể file bị lỗi hoặc là file rỗng 0 KB)."
 
 
 def test_format_job_error_message_corrupt_format():
@@ -109,4 +109,4 @@ def test_package_pipeline_with_corrupt_files(tmp_path):
     friendly_msg = format_job_error_message(excinfo.value, request)
     # Since the loaders run in parallel, either pl1 or bidderA could fail first
     assert "PL01_Gốc_Hacom.xlsx" in friendly_msg or "BaoGia_NhaThauA.xlsx" in friendly_msg
-    assert "không phải là file Excel." in friendly_msg
+    assert "không phải là file Excel (có thể file bị lỗi hoặc là file rỗng 0 KB)." in friendly_msg

@@ -480,3 +480,16 @@ class TestErrorMessageMapping:
         msg = format_job_error_message(exc, request)
         assert "Mau_PL02_BaoMat.xlsx" in msg
         assert "bị khóa hoặc bảo vệ bằng mật khẩu" in msg
+
+    def test_calamine_ziperror_mapping(self):
+        exc = RuntimeError(
+            "Không đọc được file 'empty_pl2.xlsx' (PHỤ LỤC 02): "
+            "ZipError: invalid Zip archive: Could not find EOCD"
+        )
+        request = {
+            "pl2_file": "empty_pl2.xlsx",
+            "pl2_original": "PL02_Trong_0_KB.xlsx"
+        }
+        msg = format_job_error_message(exc, request)
+        assert "PL02_Trong_0_KB.xlsx" in msg
+        assert "không phải là file Excel (có thể file bị lỗi hoặc là file rỗng 0 KB)" in msg

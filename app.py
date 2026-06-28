@@ -232,8 +232,15 @@ def format_job_error_message(exc: Exception, request: dict[str, Any] | None) -> 
         if any(w in underlying_message.lower() or w in underlying_type.lower() or w in exc_str.lower() for w in ["encrypted", "password", "mật khẩu", "bảo vệ", "bảo mật", "khóa"]):
             return f"File '{original_filename}' bị khóa hoặc bảo vệ bằng mật khẩu. Vui lòng gỡ bỏ mật khẩu trước khi chạy."
             
-        if "badzipfile" in underlying_type.lower() or "zipfile.badzipfile" in underlying_type.lower() or "not a zip" in underlying_message.lower():
-            return f"File '{original_filename}' không phải là file Excel."
+        if (
+            "badzipfile" in underlying_type.lower()
+            or "zipfile.badzipfile" in underlying_type.lower()
+            or "ziperror" in underlying_type.lower()
+            or "not a zip" in underlying_message.lower()
+            or "invalid zip" in underlying_message.lower()
+            or "could not find eocd" in underlying_message.lower()
+        ):
+            return f"File '{original_filename}' không phải là file Excel (có thể file bị lỗi hoặc là file rỗng 0 KB)."
             
         if underlying_type == "ValueError" and "dữ liệu dòng hàng" in underlying_message:
             return underlying_message
