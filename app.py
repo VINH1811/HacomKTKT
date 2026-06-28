@@ -235,10 +235,16 @@ def format_job_error_message(exc: Exception, request: dict[str, Any] | None) -> 
         if "badzipfile" in underlying_type.lower() or "zipfile.badzipfile" in underlying_type.lower() or "not a zip" in underlying_message.lower():
             return f"File '{original_filename}' không phải là file Excel."
             
+        if underlying_type == "ValueError" and "dữ liệu dòng hàng" in underlying_message:
+            return underlying_message
+            
         if underlying_type in {"AttributeError", "TypeError", "NameError", "KeyError", "IndexError", "ZeroDivisionError", "UnboundLocalError"}:
             return "lỗi file"
             
         return f"File '{original_filename}' không đúng định dạng Excel."
+
+    if exc_type == "ValueError" and "dữ liệu dòng hàng" in exc_str:
+        return exc_str
 
     if exc_type in {"AttributeError", "TypeError", "NameError", "KeyError", "IndexError", "ZeroDivisionError", "UnboundLocalError"}:
         return "lỗi file"

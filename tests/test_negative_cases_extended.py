@@ -430,3 +430,9 @@ class TestErrorMessageMapping:
                 config=_cfg(),
             )
         assert "không có dữ liệu dòng hàng" in str(excinfo.value)
+
+    def test_format_job_error_message_returns_raw_value_error_message(self):
+        exc = ValueError("File HSMT 'mock.xlsx' không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
+        msg = format_job_error_message(exc, None)
+        assert "không có dữ liệu dòng hàng" in msg
+        assert "lỗi file" not in msg
