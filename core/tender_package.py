@@ -191,8 +191,6 @@ def compare_appendices_with_bidders(
         def load_pl2():
             try:
                 return load_pl2_requirements(pl2, config=config)
-            except ValueError:
-                raise
             except Exception as exc:
                 raise RuntimeError(
                     f"Không đọc được file '{pl2.name}' (PHỤ LỤC 02): {type(exc).__name__}: {exc}"

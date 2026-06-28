@@ -447,7 +447,7 @@ class TestErrorMessageMapping:
         bidder = tmp_path / "bidder.xlsx"
         _valid_boq(bidder, rows=2)
 
-        with pytest.raises(ValueError) as excinfo:
+        with pytest.raises((ValueError, RuntimeError)) as excinfo:
             compare_appendices_with_bidders(
                 bidder_files=[("NT A", bidder)],
                 output_dir=tmp_path / "out",
@@ -457,3 +457,26 @@ class TestErrorMessageMapping:
             )
         assert "không có dữ liệu dòng hàng" in str(excinfo.value)
         assert "Phụ lục 02" in str(excinfo.value)
+
+    def test_real_encrypted_pl2_file_header_detection_raises_value_error(self, tmp_path: Path):
+        path = tmp_path / "protected_pl2.xlsx"
+        content = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 100 + b"E\x00n\x00c\x00r\x00y\x00p\x00t\x00e\x00d\x00P\x00a\x00c\x00k\x00a\x00g\x00e"
+        path.write_bytes(content)
+
+        with pytest.raises(ValueError) as excinfo:
+            load_pl2_requirements(path, config=_cfg())
+        
+        assert "bị khóa hoặc bảo vệ bằng mật khẩu" in str(excinfo.value)
+
+    def test_encrypted_pl2_in_job_formatting(self):
+        exc = RuntimeError(
+            "Không đọc được file 'protected_pl2_uuid.xlsx' (PHỤ LỤC 02): "
+            "ValueError: File bị khóa hoặc bảo vệ bằng mật khẩu. Vui lòng gỡ bỏ mật khẩu trước khi tải lên."
+        )
+        request = {
+            "pl2_file": "protected_pl2_uuid.xlsx",
+            "pl2_original": "Mau_PL02_BaoMat.xlsx"
+        }
+        msg = format_job_error_message(exc, request)
+        assert "Mau_PL02_BaoMat.xlsx" in msg
+        assert "bị khóa hoặc bảo vệ bằng mật khẩu" in msg

@@ -125,6 +125,19 @@ def load_pl2_requirements(
     path = Path(path)
     if path.suffix.lower() != ".xlsx":
         raise ValueError("Phụ lục 02 phải là file .xlsx")
+    try:
+        with open(path, "rb") as f:
+            header = f.read(8)
+            if header == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+                f.seek(0)
+                content = f.read(512 * 1024)
+                if b"E\x00n\x00c\x00r\x00y\x00p\x00t\x00e\x00d\x00P\x00a\x00c\x00k\x00a\x00g\x00e" in content:
+                    raise ValueError("File bị khóa hoặc bảo vệ bằng mật khẩu. Vui lòng gỡ bỏ mật khẩu trước khi tải lên.")
+                else:
+                    raise ValueError("Hệ thống nhận file .xlsx. Hãy Save As file .xls/.xlsb thành .xlsx trước khi chạy.")
+    except Exception as e:
+        if "mật khẩu" in str(e) or "Hệ thống nhận file" in str(e):
+            raise
     config = config or EnterpriseConfig.from_env()
     keywords = tuple(_n(x) for x in project_keywords if str(x).strip())
     matrices = read_workbook_matrices(
