@@ -229,7 +229,7 @@ def format_job_error_message(exc: Exception, request: dict[str, Any] | None) -> 
         if "xlsx" in underlying_message.lower() and ("valueerror" in underlying_type.lower() or "invalidfileexception" in underlying_type.lower()):
             return f"File '{original_filename}' không đúng định dạng Excel. Hệ thống nhận file .xlsx. Hãy Save As file .xls/.xlsb thành .xlsx trước khi chạy."
             
-        if "encrypted" in underlying_message.lower() or "password" in underlying_message.lower() or "encrypted" in underlying_type.lower() or "password" in underlying_type.lower():
+        if any(w in underlying_message.lower() or w in underlying_type.lower() or w in exc_str.lower() for w in ["encrypted", "password", "mật khẩu", "bảo vệ", "bảo mật", "khóa"]):
             return f"File '{original_filename}' bị khóa hoặc bảo vệ bằng mật khẩu. Vui lòng gỡ bỏ mật khẩu trước khi chạy."
             
         if "badzipfile" in underlying_type.lower() or "zipfile.badzipfile" in underlying_type.lower() or "not a zip" in underlying_message.lower():

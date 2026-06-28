@@ -396,3 +396,37 @@ class TestErrorMessageMapping:
         msg = format_job_error_message(exc, None)
         assert msg  # phải luôn trả một chuỗi, không None / không raise
         assert "unknown.xlsx" in msg
+
+    def test_real_encrypted_file_header_detection_raises_value_error(self, tmp_path: Path):
+        path = tmp_path / "protected.xlsx"
+        content = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 100 + b"E\x00n\x00c\x00r\x00y\x00p\x00t\x00e\x00d\x00P\x00a\x00c\x00k\x00a\x00g\x00e"
+        path.write_bytes(content)
+
+        with pytest.raises(ValueError) as excinfo:
+            load_workbook_items(path, DocumentRole.HSDT, bidder="Protected NT")
+        
+        assert "bị khóa hoặc bảo vệ bằng mật khẩu" in str(excinfo.value)
+
+    def test_empty_reference_file_raises_value_error(self, tmp_path: Path):
+        pl1 = tmp_path / "pl1_empty.xlsx"
+        wb = Workbook()
+        wb.active.title = "Sheet1"
+        wb.save(pl1)
+
+        bidder = tmp_path / "bidder.xlsx"
+        wb2 = Workbook()
+        ws2 = wb2.active
+        ws2.title = "Điện"
+        ws2.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng", "Đơn giá", "Thành tiền"])
+        ws2.append(["1", "M-01", "Item 1", "Cái", 10, 100, 1000])
+        wb2.save(bidder)
+
+        with pytest.raises(ValueError) as excinfo:
+            compare_appendices_with_bidders(
+                bidder_files=[("NT A", bidder)],
+                output_dir=tmp_path / "out",
+                pl1_path=pl1,
+                pl2_path=None,
+                config=_cfg(),
+            )
+        assert "không có dữ liệu dòng hàng" in str(excinfo.value)

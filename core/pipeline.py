@@ -41,6 +41,8 @@ def compare_tender_files(
     )
     loaded = load_workbooks_parallel(specs, config)
     reference = loaded["reference"]
+    if not reference.items:
+        raise ValueError(f"File HSMT '{reference.path.name}' không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
 
     rows = []
@@ -73,6 +75,8 @@ def compare_bidder_files(
     ]
     loaded = load_workbooks_parallel(specs, config)
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
+    if all(not w.items for w in bidders):
+        raise ValueError("Không tìm thấy dữ liệu dòng hàng nào trong tất cả các file nhà thầu để đối chiếu. Vui lòng kiểm tra lại.")
     reference, rows, cluster_stats = build_peer_consensus(bidders, config)
     peer_stats = enrich_peer_comparison(rows, config)
     enrich_consensus_anomalies(rows, config)

@@ -207,6 +207,8 @@ def compare_appendices_with_bidders(
     cluster_stats: dict = {}
     if pl1:
         reference = loaded["pl1"]
+        if not reference.items:
+            raise ValueError(f"File Phụ lục 01 '{reference.path.name}' không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
         rows: list[ComparedItem] = []
         for workbook in bidders:
             matches = match_items(reference.items, workbook.items, config)
@@ -215,6 +217,8 @@ def compare_appendices_with_bidders(
             ))
         catalogue_mode = "PL01_OFFICIAL"
     else:
+        if all(not w.items for w in bidders):
+            raise ValueError("Không tìm thấy dữ liệu dòng hàng nào trong tất cả các file nhà thầu để đối chiếu. Vui lòng kiểm tra lại.")
         reference, rows, cluster_stats = build_peer_consensus(bidders, config)
         catalogue_mode = (
             "MULTIWAY_PEER_CONSENSUS"
