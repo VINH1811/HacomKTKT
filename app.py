@@ -242,7 +242,7 @@ def format_job_error_message(exc: Exception, request: dict[str, Any] | None) -> 
         ):
             return f"File '{original_filename}' không phải là file Excel (có thể file bị lỗi hoặc là file rỗng 0 KB)."
             
-        if underlying_type == "ValueError" and "dữ liệu dòng hàng" in underlying_message:
+        if underlying_type == "ValueError" and ("dữ liệu dòng hàng" in underlying_message or "Phụ lục số" in underlying_message or "là file rỗng" in underlying_message):
             return underlying_message
             
         if underlying_type in {"AttributeError", "TypeError", "NameError", "KeyError", "IndexError", "ZeroDivisionError", "UnboundLocalError"}:
@@ -250,7 +250,7 @@ def format_job_error_message(exc: Exception, request: dict[str, Any] | None) -> 
             
         return f"File '{original_filename}' không đúng định dạng Excel."
 
-    if exc_type == "ValueError" and "dữ liệu dòng hàng" in exc_str:
+    if exc_type == "ValueError" and ("dữ liệu dòng hàng" in exc_str or "Phụ lục số" in exc_str or "là file rỗng" in exc_str):
         return exc_str
 
     if exc_type in {"AttributeError", "TypeError", "NameError", "KeyError", "IndexError", "ZeroDivisionError", "UnboundLocalError"}:

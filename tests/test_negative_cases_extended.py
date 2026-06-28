@@ -230,8 +230,8 @@ class TestTenderPackageNegative:
                 pl2_path=pl2,
                 config=_cfg(),
             )
-        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
-        assert "Phụ lục 02" in str(excinfo.value)
+        assert "Phụ lục số 02" in str(excinfo.value)
+        assert "là file rỗng" in str(excinfo.value)
 
     def test_single_bidder_with_zero_items_produces_empty_but_valid_report(self, tmp_path: Path):
         pl1 = tmp_path / "pl1.xlsx"
@@ -288,7 +288,8 @@ class TestPL2ReaderNegative:
 
         with pytest.raises(ValueError) as excinfo:
             load_pl2_requirements(path, config=_cfg())
-        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
+        assert "Phụ lục số 02" in str(excinfo.value)
+        assert "là file rỗng" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------
@@ -427,7 +428,8 @@ class TestErrorMessageMapping:
                 pl2_path=None,
                 config=_cfg(),
             )
-        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
+        assert "Phụ lục số 01" in str(excinfo.value)
+        assert "là file rỗng" in str(excinfo.value)
 
     def test_format_job_error_message_returns_raw_value_error_message(self):
         exc = ValueError("File HSMT 'mock.xlsx' không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
@@ -455,8 +457,8 @@ class TestErrorMessageMapping:
                 pl2_path=pl2,
                 config=_cfg(),
             )
-        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
-        assert "Phụ lục 02" in str(excinfo.value)
+        assert "Phụ lục số 02" in str(excinfo.value)
+        assert "là file rỗng" in str(excinfo.value)
 
     def test_real_encrypted_pl2_file_header_detection_raises_value_error(self, tmp_path: Path):
         path = tmp_path / "protected_pl2.xlsx"

@@ -206,7 +206,7 @@ def compare_appendices_with_bidders(
             raise ValueError(f"File nhà thầu '{w.path.name}' ({w.bidder}) không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
 
     if pl2 and not requirements:
-        raise ValueError(f"File Phụ lục 02 '{pl2.name}' không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
+        raise ValueError("Phụ lục số 02 là file rỗng.")
 
     bidder_count = len(bidders)
     peer_price_enabled = bidder_count >= 2
@@ -214,7 +214,7 @@ def compare_appendices_with_bidders(
     if pl1:
         reference = loaded["pl1"]
         if not reference.items:
-            raise ValueError(f"File Phụ lục 01 '{reference.path.name}' không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
+            raise ValueError("Phụ lục số 01 là file rỗng.")
         rows: list[ComparedItem] = []
         for workbook in bidders:
             matches = match_items(reference.items, workbook.items, config)
