@@ -250,7 +250,7 @@ class TestTenderPackageNegative:
                 pl2_path=None,
                 config=_cfg(),
             )
-        assert "không có dữ liệu dòng hàng" in str(excinfo.value)
+        assert "File nhà thầu 'NT trống' là file rỗng." in str(excinfo.value)
 
     def test_single_bidder_disables_peer_price_comparison(self, tmp_path: Path):
         pl1 = tmp_path / "pl1.xlsx"

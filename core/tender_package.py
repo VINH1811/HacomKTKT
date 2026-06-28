@@ -203,7 +203,7 @@ def compare_appendices_with_bidders(
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
     for w in bidders:
         if not w.items:
-            raise ValueError(f"File nhà thầu '{w.path.name}' ({w.bidder}) không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
+            raise ValueError(f"File nhà thầu '{w.bidder}' là file rỗng.")
 
     if pl2 and not requirements:
         raise ValueError("Phụ lục số 02 là file rỗng.")

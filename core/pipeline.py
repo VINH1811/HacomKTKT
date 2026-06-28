@@ -46,7 +46,7 @@ def compare_tender_files(
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
     for w in bidders:
         if not w.items:
-            raise ValueError(f"File nhà thầu '{w.path.name}' ({w.bidder}) không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
+            raise ValueError(f"File nhà thầu '{w.bidder}' là file rỗng.")
 
     rows = []
     for workbook in bidders:
@@ -80,7 +80,7 @@ def compare_bidder_files(
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
     for w in bidders:
         if not w.items:
-            raise ValueError(f"File nhà thầu '{w.path.name}' ({w.bidder}) không có dữ liệu dòng hàng để đối chiếu. Vui lòng kiểm tra lại.")
+            raise ValueError(f"File nhà thầu '{w.bidder}' là file rỗng.")
     reference, rows, cluster_stats = build_peer_consensus(bidders, config)
     peer_stats = enrich_peer_comparison(rows, config)
     enrich_consensus_anomalies(rows, config)
