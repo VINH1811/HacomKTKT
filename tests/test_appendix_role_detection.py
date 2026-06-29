@@ -96,8 +96,8 @@ def test_swapped_appendices_are_auto_corrected(tmp_path: Path):
     # Kết quả phải tương đương: cùng số hạng mục chuẩn, cùng số dòng thiếu.
     assert swapped.result.summary.total_reference_items == correct.result.summary.total_reference_items
     assert _missing_count(swapped.result) == _missing_count(correct.result)
-    # Và có cảnh báo rõ ràng đã tự hoán đổi.
-    assert any("hoán đổi" in w.lower() for w in swapped.result.warnings)
+    # Và có cảnh báo rõ ràng: có thể đã tráo và hệ thống đã tự đổi lại.
+    assert any("tráo" in w.lower() and "đổi lại" in w.lower() for w in swapped.result.warnings)
 
 
 def test_single_pl2_uploaded_into_pl1_slot_is_rerouted(tmp_path: Path):

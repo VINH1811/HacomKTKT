@@ -222,23 +222,24 @@ def _resolve_appendix_roles(
     if pl1 and pl2:
         if role1 == "pl2" and role2 == "pl1":
             warnings.append(
-                "Phát hiện Phụ lục 01 và Phụ lục 02 bị đặt nhầm chỗ; hệ thống đã tự hoán đổi lại "
-                "theo đúng cấu trúc cột của từng file."
+                "⚠️ CÓ THỂ BẠN ĐÃ TRÁO Phụ lục 01 và Phụ lục 02 (đặt nhầm ô tải lên): "
+                "file ở ô Phụ lục 01 lại có cấu trúc Phụ lục 02 và ngược lại. "
+                "Hệ thống đã TỰ ĐỔI LẠI cho đúng — vui lòng kiểm tra lại kết quả."
             )
             return pl2, pl1, warnings
         return pl1, pl2, warnings
 
     if pl1 and not pl2 and role1 == "pl2":
         warnings.append(
-            "File tải ở ô Phụ lục 01 thực chất có cấu trúc Phụ lục 02 (yêu cầu vật tư); "
-            "hệ thống đã xử lý đúng như Phụ lục 02."
+            "⚠️ File bạn tải ở ô Phụ lục 01 thực chất có cấu trúc Phụ lục 02 (yêu cầu vật tư/"
+            "thương hiệu). Hệ thống đã TỰ XỬ LÝ đúng như Phụ lục 02 — kiểm tra lại vị trí tải lên."
         )
         return None, pl1, warnings
 
     if pl2 and not pl1 and role2 == "pl1":
         warnings.append(
-            "File tải ở ô Phụ lục 02 thực chất có cấu trúc Phụ lục 01 (bảng khối lượng); "
-            "hệ thống đã xử lý đúng như Phụ lục 01."
+            "⚠️ File bạn tải ở ô Phụ lục 02 thực chất có cấu trúc Phụ lục 01 (bảng khối lượng). "
+            "Hệ thống đã TỰ XỬ LÝ đúng như Phụ lục 01 — kiểm tra lại vị trí tải lên."
         )
         return pl2, None, warnings
 
