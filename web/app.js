@@ -530,8 +530,14 @@ function renderResult(jobId, data) {
   const files = data.files || {};
   const actions = [];
   if (files.package) actions.push(resultLink(`/api/jobs/${jobId}/download-package`, isOcr ? "Tải toàn bộ kết quả OCR" : "Tải toàn bộ kết quả", true));
+  // summary_file chỉ xuất hiện khi bật báo cáo phân tích nặng (mặc định báo cáo
+  // chính ĐÃ là bảng tổng hợp).
   if (files.summary_file) actions.push(resultLink(`/api/jobs/${jobId}/download-file/${encodeURIComponent(files.summary_file)}`, "Tải bảng tổng hợp chào giá (đã đánh dấu)", !files.package));
-  if (!isOcr || !files.package) actions.push(resultLink(`/api/jobs/${jobId}/download`, isOcr ? "Tải file Excel đầu tiên" : "Tải báo cáo phân tích chi tiết", false));
+  if (!isOcr || !files.package) {
+    const reportLabel = isOcr ? "Tải file Excel đầu tiên"
+      : (files.summary_file ? "Tải báo cáo phân tích chi tiết" : "Tải bảng tổng hợp chào giá (đã đánh dấu)");
+    actions.push(resultLink(`/api/jobs/${jobId}/download`, reportLabel, !files.package && !files.summary_file));
+  }
   const individual = isOcr ? (files.ocr_files || {}) : (files.annotated_files || {});
   Object.entries(individual).forEach(([name, filename]) => actions.push(resultLink(`/api/jobs/${jobId}/download-file/${encodeURIComponent(filename)}`, `${isOcr ? "Tải OCR" : "Tải file đánh dấu"}: ${name}`)));
   $("#resultActions").innerHTML = actions.join("");

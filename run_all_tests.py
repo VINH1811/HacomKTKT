@@ -622,6 +622,174 @@ KNOWN_GUIDES: dict[str, Guide] = {
     ),
 
     # -------------------------------------------------------------------------
+    # Phần B - Lỗi parse số / dữ liệu
+    # -------------------------------------------------------------------------
+    "test_b01_vietnamese_number_format": G(
+        "B-01: Đọc đúng số kiểu Việt Nam (dấu chấm phân cách hàng nghìn)",
+        "Người nhập khối lượng/giá theo kiểu Việt Nam, dùng dấu chấm ngăn cách hàng nghìn.",
+        "Ví dụ '1.234' phải hiểu là 1234; '1.234.567,89' là 1234567,89.",
+        "Hệ thống đọc ra đúng con số, KHÔNG hiểu nhầm '1.234' thành 1,234 (một phẩy hai ba bốn).",
+        "Khối lượng và giá nhập kiểu Việt Nam được hiểu đúng, không sai lệch hàng nghìn lần.",
+        "Một dấu chấm hiểu sai có thể làm giá trị tăng/giảm hàng nghìn lần.",
+    ),
+    "test_b02_international_number_format": G(
+        "B-02: Đọc đúng số kiểu quốc tế (dấu phẩy phân cách hàng nghìn)",
+        "File dùng định dạng quốc tế: dấu phẩy ngăn cách hàng nghìn, dấu chấm cho thập phân.",
+        "Ví dụ '1,234' là 1234; '1,234,567.89' là 1234567,89.",
+        "Hệ thống đọc đúng giá trị, không nhầm '1,234' thành 1,234 thập phân.",
+        "Hồ sơ xuất từ phần mềm nước ngoài vẫn được đọc đúng số liệu.",
+        "Sai một dấu phân cách có thể làm lệch toàn bộ giá trị.",
+    ),
+    "test_b01_b02_decimal_values_preserved": G(
+        "B-01/B-02: Giá trị thập phân thật vẫn được giữ đúng",
+        "Có những giá trị thập phân thật (nhỏ hơn 1, hoặc 2 chữ số lẻ).",
+        "Ví dụ '0,5' là 0,5; '12,75' là 12,75 — không được hiểu thành phân cách nghìn.",
+        "Hệ thống phân biệt được phần thập phân với dấu phân cách hàng nghìn.",
+        "Hệ số, tỉ lệ, đơn giá lẻ vẫn chính xác.",
+        "Nếu hiểu nhầm, một hệ số 0,5 có thể bị đọc thành 5 hoặc 500.",
+    ),
+    "test_b03_ref_error_is_detected_file_still_read": G(
+        "B-03: Ô thành tiền lỗi #REF! vẫn đọc được file và đánh dấu lỗi",
+        "Một ô công thức trong file bị hỏng tham chiếu (hiện #REF!).",
+        "Ví dụ ô thành tiền G2 chứa công thức lỗi =#REF!.",
+        "Hệ thống vẫn đọc được toàn bộ file, chỉ rõ ô G2 lỗi công thức và cảnh báo, KHÔNG crash.",
+        "Người dùng biết chính xác ô nào có số liệu không đáng tin để kiểm tra lại.",
+        "Nếu không phát hiện, số tiền sai do công thức lỗi có thể bị dùng như dữ liệu thật.",
+    ),
+    "test_b04_missing_price_column_is_handled": G(
+        "B-04: Thiếu toàn bộ cột đơn giá vẫn xử lý được",
+        "Hồ sơ nhà thầu bị thiếu hẳn cột đơn giá (chỉ có khối lượng).",
+        "Ví dụ file chỉ có STT, mã hiệu, tên, đơn vị, khối lượng — không có cột đơn giá.",
+        "Hệ thống vẫn đọc được các hạng mục, để đơn giá trống (chưa có), KHÔNG crash, KHÔNG báo lỗi Python.",
+        "Hồ sơ thiếu giá vẫn được tiếp nhận và nhận diện đúng phần còn thiếu.",
+        "Nếu xử lý kém, cả tác vụ có thể đổ vỡ chỉ vì một cột bị thiếu.",
+    ),
+    "test_b05_merged_stt_cell_does_not_crash": G(
+        "B-05: Ô STT bị gộp (merge) với dòng dưới không gây lỗi",
+        "Người lập bảng gộp ô số thứ tự của hai dòng liền nhau.",
+        "Ví dụ ô STT 'I.1' được merge xuống ô trống bên dưới (A2:A3).",
+        "Hệ thống đọc được ít nhất một trong hai dòng, KHÔNG crash vì ô gộp.",
+        "Các bảng dùng ô gộp (rất phổ biến) vẫn xử lý được bình thường.",
+        "Nếu không xử lý, một ô gộp có thể làm hỏng việc đọc cả vùng dữ liệu.",
+    ),
+    "test_b06_unit_variant_met_equals_m_no_mismatch": G(
+        "B-06: Đơn vị 'mét' và 'm' phải coi là cùng một đơn vị",
+        "Nhà thầu ghi đơn vị theo cách viết khác với phụ lục nhưng cùng nghĩa.",
+        "Ví dụ phụ lục ghi 'm', nhà thầu ghi 'mét' cho cùng hạng mục.",
+        "Hệ thống KHÔNG được gắn cờ lệch đơn vị, vì 'mét' và 'm' là một.",
+        "Tránh báo động giả chỉ vì cách viết đơn vị khác nhau (lỗi đã tìm thấy và sửa).",
+        "Báo động giả tràn lan về đơn vị làm người đánh giá mất thời gian và mất tin tưởng.",
+    ),
+    "test_b06_more_unit_variants_are_equivalent": G(
+        "B-06: Các biến thể đơn vị khác cũng được coi là tương đương",
+        "Nhiều cách viết đơn vị cùng nghĩa: m2/m², Bộ/bộ, mét khối/m³.",
+        "Ví dụ 'm2' và 'm²', 'Bộ' và 'bộ' phải được hiểu là cùng đơn vị.",
+        "Hệ thống chuẩn hóa đơn vị trước khi so sánh nên không gắn cờ lệch.",
+        "Bao quát nhiều cách viết đơn vị trong thực tế hồ sơ.",
+        "Nếu không chuẩn hóa, mỗi cách viết khác nhau lại sinh một cảnh báo giả.",
+    ),
+    "test_b06_genuinely_different_units_still_flagged": G(
+        "B-06: Đơn vị khác nhau thật sự vẫn phải được cảnh báo",
+        "Hai đơn vị thực sự khác bản chất (vd 'Bộ' và 'm').",
+        "Ví dụ phụ lục ghi 'Bộ', nhà thầu ghi 'm' cho cùng hạng mục.",
+        "Hệ thống vẫn phải gắn cờ lệch đơn vị để người dùng kiểm tra.",
+        "Đảm bảo việc chuẩn hóa đơn vị không che mất sai khác thật.",
+        "Nếu bỏ sót, một thay đổi đơn vị thật (Bộ→m) có thể làm hiểu sai khối lượng.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Phần C - Đối chiếu tool vs đáp án biết trước (đo độ chính xác)
+    # -------------------------------------------------------------------------
+    "test_c03_tool_catches_known_deviations_without_false_positives": G(
+        "C-03: Tool bắt đúng các sai lệch đã biết trước, không báo nhầm, không bỏ sót",
+        "Dựng sẵn một bộ KLMT + hồ sơ nhà thầu với các sai lệch CỐ Ý (đáp án biết trước), rồi đo xem tool có bắt đúng không.",
+        "Ví dụ: 1 hạng mục khớp hoàn toàn, 1 hạng mục lệch khối lượng 30%, 1 hạng mục bị thiếu, 1 hạng mục phát sinh ngoài KLMT.",
+        "Tool phải bắt đúng: lệch khối lượng được cảnh báo, hạng mục thiếu = MISSING, hạng mục phát sinh = EXTRA; còn dòng khớp hoàn toàn KHÔNG bị báo động giả. Tổng đúng 1 thiếu + 1 phát sinh.",
+        "Đo được độ chính xác thực tế của tool: bắt được bao nhiêu, báo nhầm (false positive) và bỏ sót (false negative) bao nhiêu.",
+        "Nếu tool báo nhầm hoặc bỏ sót, người đánh giá có thể tin sai vào kết quả.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Phần D - Ngưỡng cảnh báo (biên ngưỡng + cấu hình)
+    # -------------------------------------------------------------------------
+    "test_d01_quantity_below_med_threshold_no_flag": G(
+        "D-01: Khối lượng lệch dưới ngưỡng (4,9% < 5%) thì KHÔNG cảnh báo",
+        "Nhà thầu chào khối lượng lệch nhẹ so với mời thầu, dưới ngưỡng cảnh báo.",
+        "Ví dụ mời thầu 100, nhà thầu chào 104,9 (lệch 4,9%) với ngưỡng cảnh báo 5%.",
+        "Hệ thống KHÔNG gắn cờ cho hạng mục này vì còn trong ngưỡng cho phép.",
+        "Tránh làm phiền người dùng với sai khác nhỏ trong mức chấp nhận được.",
+        "Nếu cảnh báo cả mức nhỏ, báo cáo sẽ ngập cờ và mất ý nghĩa.",
+    ),
+    "test_d02_quantity_just_above_med_is_warning": G(
+        "D-02: Khối lượng lệch vừa qua ngưỡng (5,1% > 5%) thì cảnh báo mức vừa",
+        "Khối lượng chào lệch vừa vượt ngưỡng cảnh báo.",
+        "Ví dụ mời thầu 100, nhà thầu 105,1 (lệch 5,1%).",
+        "Hệ thống gắn cờ CẢNH BÁO (mức vừa), đúng ngay khi vượt ngưỡng.",
+        "Bắt đúng các sai khác bắt đầu đáng chú ý.",
+        "Nếu bỏ qua, sai lệch vượt ngưỡng có thể lọt.",
+    ),
+    "test_d03_quantity_below_high_is_still_warning_not_critical": G(
+        "D-03: Lệch dưới ngưỡng nghiêm trọng (19,9% < 20%) chỉ là cảnh báo, chưa nghiêm trọng",
+        "Khối lượng lệch khá lớn nhưng chưa tới mức nghiêm trọng.",
+        "Ví dụ lệch 19,9% với ngưỡng nghiêm trọng 20%.",
+        "Hệ thống gắn CẢNH BÁO (mức vừa), KHÔNG nâng lên mức nghiêm trọng.",
+        "Phân loại đúng mức độ để ưu tiên xử lý hợp lý.",
+        "Nếu phân loại sai, mức độ ưu tiên xử lý bị lệch.",
+    ),
+    "test_d04_quantity_above_high_is_critical": G(
+        "D-04: Lệch vượt ngưỡng nghiêm trọng (20,1% > 20%) thì gắn cờ nghiêm trọng",
+        "Khối lượng lệch vượt ngưỡng nghiêm trọng.",
+        "Ví dụ lệch 20,1% với ngưỡng nghiêm trọng 20%.",
+        "Hệ thống gắn cờ BẤT THƯỜNG (nghiêm trọng).",
+        "Đưa các sai lệch lớn lên ưu tiên cao nhất.",
+        "Nếu xem nhẹ, sai khối lượng lớn có thể bị bỏ qua.",
+    ),
+    "test_d05_changing_threshold_changes_result": G(
+        "D-05: Thay đổi ngưỡng thì kết quả thay đổi theo (ngưỡng có tác dụng thật)",
+        "Quản trị viên đổi ngưỡng cảnh báo để bắt sớm hơn.",
+        "Ví dụ cùng mức lệch 4%: với ngưỡng 3% thì cảnh báo, với ngưỡng 5% thì không.",
+        "Kết quả thay đổi đúng theo ngưỡng đang đặt, không dùng giá trị cứng trong code.",
+        "Mỗi gói thầu có thể đặt tiêu chuẩn kiểm tra riêng.",
+        "Nếu ngưỡng không có tác dụng, việc cho phép chỉnh ngưỡng là vô nghĩa.",
+    ),
+    "test_d06_price_outlier_among_bidders_is_flagged": G(
+        "D-06: Giá cao bất thường giữa các nhà thầu phải bị gắn cờ",
+        "Nhiều nhà thầu chào giá cho cùng hạng mục, một nhà thầu cao hẳn.",
+        "Ví dụ 3 nhà thầu chào 100k, 105k, 200k; trung vị 105k.",
+        "Nhà thầu chào 200k bị gắn cờ giá cao bất thường, thông báo nêu trung vị nhóm.",
+        "Phát hiện giá bất thường khi so ngang giữa các nhà thầu.",
+        "Giá nhập nhầm hoặc bất thường có thể lọt nếu không so ngang.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Phần E - Khả năng nền tảng cho trải nghiệm người dùng
+    # -------------------------------------------------------------------------
+    "test_e03_ui_threshold_values_flow_into_config": G(
+        "E-03: Ngưỡng người dùng nhập trên giao diện chảy đúng vào cấu hình so sánh",
+        "Người dùng đổi ngưỡng cảnh báo trên màn hình rồi chạy lại.",
+        "Ví dụ nhập ngưỡng giá 7%, khối lượng 3% — các giá trị này phải tới đúng bộ máy so sánh.",
+        "Cấu hình so sánh nhận đúng các giá trị ngưỡng người dùng nhập.",
+        "Đảm bảo nút chỉnh ngưỡng trên giao diện thực sự điều khiển kết quả.",
+        "Nếu không chảy đúng, người dùng đổi ngưỡng mà kết quả không đổi.",
+    ),
+    "test_e03_defaults_used_when_not_provided": G(
+        "E-03: Khi không nhập ngưỡng, dùng giá trị mặc định hợp lý",
+        "Người dùng không chỉnh gì, để hệ thống dùng ngưỡng mặc định.",
+        "Ví dụ không truyền tham số ngưỡng nào.",
+        "Hệ thống dùng ngưỡng mặc định (khối lượng 5%, giá 10%), không lỗi.",
+        "Người dùng phổ thông vẫn chạy được mà không cần hiểu ngưỡng.",
+        "Nếu thiếu mặc định, hệ thống có thể lỗi khi người dùng không nhập gì.",
+    ),
+    "test_e02_result_lets_us_rank_bidders_by_severity": G(
+        "E-02: Kết quả đủ thông tin để biết nhà thầu nào có nhiều vấn đề nhất",
+        "Sau khi chạy, người dùng cần nhìn ra nhà thầu nào nặng vấn đề nhất.",
+        "Ví dụ một nhà thầu khớp hết, một nhà thầu thiếu hạng mục + lệch khối lượng lớn.",
+        "Dữ liệu kết quả gắn tên nhà thầu kèm mức độ từng dòng, cho phép đếm và xếp hạng: nhà thầu xấu có nhiều cờ nghiêm trọng hơn rõ rệt.",
+        "Người đánh giá nhanh chóng khoanh vùng hồ sơ cần soi kỹ nhất.",
+        "Nếu kết quả không gắn nhà thầu/mức độ rõ, người dùng khó biết bắt đầu từ đâu.",
+    ),
+
+    # -------------------------------------------------------------------------
     # Negative cases - thông báo lỗi thân thiện cho người dùng
     # -------------------------------------------------------------------------
     "test_format_job_error_message_non_xlsx_extension": G(
@@ -808,13 +976,21 @@ KNOWN_GUIDES: dict[str, Guide] = {
         "Người dùng biết ngay là đã tải nhầm file, không lầm tưởng rằng việc kiểm tra thương hiệu/xuất xứ đã được thực hiện đầy đủ.",
         "Người dùng có thể tưởng nhầm hồ sơ đã được kiểm tra đầy đủ thương hiệu/xuất xứ, trong khi thực tế bước đó chưa từng chạy.",
     ),
-    "test_single_bidder_with_zero_items_produces_empty_but_valid_report": G(
-        "Khi nhà thầu nộp file trống (không có hạng mục nào), hệ thống phải báo đầy đủ các hạng mục đó là 'thiếu'",
-        "Có Phụ lục 01 quy định rõ các hạng mục cần chào giá, nhưng file nhà thầu hoàn toàn trống.",
-        "Ví dụ PL01 yêu cầu 2 hạng mục, nhưng nhà thầu nộp file Excel có sheet trống không một dòng dữ liệu.",
-        "Báo cáo phải đếm đủ 2 hạng mục đó ở trạng thái 'thiếu' (MISSING), không được bỏ qua.",
-        "Phát hiện ngay trường hợp nhà thầu nộp nhầm/thiếu hồ sơ chào giá.",
-        "Một hồ sơ thực chất trống rỗng có thể bị đánh giá nhầm là 'không có vấn đề gì' vì không có dữ liệu để so sánh.",
+    "test_single_bidder_with_zero_items_raises_clear_no_boq_error": G(
+        "A-05: Nhà thầu nộp file trống (không có bảng khối lượng) phải báo lỗi rõ ràng",
+        "File hồ sơ nhà thầu hoàn toàn không có bảng khối lượng (BOQ) nào — chỉ có sheet trống.",
+        "Ví dụ PL01 yêu cầu 2 hạng mục, nhưng nhà thầu nộp file Excel sheet trống không một dòng dữ liệu.",
+        "Hệ thống dừng và báo rõ 'Không đọc được hạng mục nào từ ...; file có thể không chứa bảng khối lượng (BOQ)', nêu đúng tên nhà thầu — KHÔNG tạo báo cáo rỗng trông như đúng.",
+        "Người dùng biết ngay đã nộp nhầm/thiếu file, thay vì nhận một báo cáo vô nghĩa.",
+        "Một hồ sơ trống có thể bị hiểu nhầm là 'đã kiểm tra xong' nếu hệ thống cứ tạo báo cáo rỗng.",
+    ),
+    "test_bidder_file_without_boq_sheet_raises_clear_error": G(
+        "A-05: File chỉ có sheet 'Bìa'/'Phụ lục' (không có bảng khối lượng) phải báo lỗi rõ ràng",
+        "Người dùng tải nhầm một file không phải bảng chào giá — chỉ có trang bìa và ghi chú.",
+        "Ví dụ file có sheet 'Bìa' và 'Phụ lục' nhưng không có sheet bảng khối lượng nào.",
+        "Hệ thống báo lỗi rõ ràng nêu đúng tên nhà thầu và gợi ý kiểm tra lại file có bảng khối lượng.",
+        "Tránh việc người dùng tưởng đã so sánh xong trong khi thực ra không có dữ liệu nào được đọc.",
+        "Nếu im lặng tạo báo cáo rỗng, sai sót tải nhầm file sẽ không bị phát hiện.",
     ),
     "test_single_bidder_disables_peer_price_comparison": G(
         "Khi chỉ có một nhà thầu duy nhất, hệ thống không được tự so sánh giá của họ với ai",
@@ -871,6 +1047,22 @@ KNOWN_GUIDES: dict[str, Guide] = {
         "Hệ thống phải tự đặt một tên file mặc định thay vì lưu file không tên.",
         "Tránh lỗi hệ thống file khi gặp tên rỗng.",
         "Việc lưu file có thể thất bại với lỗi khó hiểu nếu tên file rỗng không được xử lý.",
+    ),
+    "test_a06_start_without_any_bidder_file_is_rejected": G(
+        "A-06: Bấm Bắt đầu khi chưa chọn file nhà thầu nào phải bị từ chối",
+        "Người dùng bấm nút Bắt đầu kiểm tra mà chưa tải lên hồ sơ nhà thầu nào.",
+        "Ví dụ danh sách file rỗng, không có tên nhà thầu nào.",
+        "Backend từ chối với lỗi rõ ràng 'Cần ít nhất ... file', không tạo tác vụ vô nghĩa.",
+        "Tránh chạy một tác vụ không có gì để so sánh, gây lãng phí và rối.",
+        "Nếu không chặn, hệ thống có thể tạo job trống hoặc lỗi khó hiểu.",
+    ),
+    "test_a06_mismatched_files_and_names_is_rejected": G(
+        "A-06: Số file và số tên nhà thầu lệch nhau phải bị từ chối",
+        "Số file tải lên không khớp với số tên nhà thầu nhập vào.",
+        "Ví dụ có 1 file nhưng không nhập tên nhà thầu nào.",
+        "Backend từ chối với mã lỗi 400 để đảm bảo mỗi file gắn đúng một tên nhà thầu.",
+        "Giữ dữ liệu nhất quán: mỗi hồ sơ phải có tên đi kèm.",
+        "Nếu lệch, kết quả có thể gán nhầm tên cho hồ sơ nhà thầu.",
     ),
     "test_save_upload_rejects_disallowed_extension": G(
         "Từ chối ngay các file có đuôi không được phép (ví dụ .exe) trước khi lưu vào đĩa",
@@ -995,6 +1187,114 @@ KNOWN_GUIDES: dict[str, Guide] = {
         "Dòng đánh số cột bị bỏ hẳn; tiêu đề mục được giữ lại nhưng đánh dấu là dòng tổng phụ (không đem ra so sánh như một hàng hóa).",
         "Tránh việc các dòng tiêu đề/tổng phụ bị gắn cờ 'phát sinh' hoặc 'bất thường' một cách vô lý, gây nhiễu báo cáo.",
         "Báo cáo có thể đầy cảnh báo giả ở các dòng tiêu đề mục, khiến người đánh giá mất thời gian và giảm tin tưởng.",
+    ),
+    "test_pl2_of_other_project_is_read_by_default": G(
+        "Phụ lục 02 của dự án bất kỳ phải đọc được, không bị khóa cứng theo tên dự án",
+        "Trước đây hệ thống chỉ chấp nhận Phụ lục 02 của dự án có tên chứa 'hacom'/'mall'; dự án khác bị bỏ qua.",
+        "Ví dụ Phụ lục 02 ghi 'Dự án: KHU ĐÔ THỊ ABC' với danh sách yêu cầu vật tư.",
+        "Mặc định hệ thống đọc được toàn bộ yêu cầu vật tư, không bỏ qua sheet vì khác tên dự án.",
+        "Hệ thống dùng được cho mọi dự án, không bị giới hạn ở một dự án cụ thể.",
+        "Nếu còn khóa cứng tên dự án, dùng cho dự án khác sẽ ra báo cáo rỗng phần kiểm tra vật tư.",
+    ),
+    "test_pl2_project_filter_can_be_enabled_via_keywords": G(
+        "Vẫn có thể bật lọc theo tên dự án khi thật sự cần",
+        "Khi một file Phụ lục 02 gộp nhiều dự án, người dùng muốn chỉ lấy đúng dự án của mình.",
+        "Ví dụ truyền từ khóa 'hacom'/'mall'; sheet ghi 'Dự án: KHU ĐÔ THỊ ABC' (không khớp) sẽ bị bỏ qua.",
+        "Khi cấu hình từ khóa dự án, hệ thống lọc đúng và ghi cảnh báo rõ ràng sheet nào bị bỏ.",
+        "Giữ được tính năng lọc theo dự án như một tùy chọn, thay vì khóa cứng.",
+        "Nếu mất tính năng lọc, người dùng không tách được dữ liệu khi file gộp nhiều dự án.",
+    ),
+    "test_pl2_keywords_from_env": G(
+        "Từ khóa lọc dự án có thể cấu hình qua biến môi trường",
+        "Quản trị viên muốn đặt sẵn từ khóa dự án mà không sửa code.",
+        "Ví dụ đặt HSMT_PL2_PROJECT_KEYWORDS='hacom,mall'.",
+        "Hệ thống đọc từ khóa từ biến môi trường và áp dụng đúng khi lọc Phụ lục 02.",
+        "Cấu hình linh hoạt theo từng môi trường triển khai mà không can thiệp mã nguồn.",
+        "Nếu không đọc được cấu hình, quản trị viên buộc phải sửa code cho mỗi dự án.",
+    ),
+    "test_arbitrary_floor_columns_are_detected_as_technical": G(
+        "Nhận diện cột chia theo tầng cho mọi số tầng, không khóa cứng tên tầng",
+        "Bảng khối lượng có thể chia cột theo từng tầng của bất kỳ công trình nào.",
+        "Ví dụ các cột 'Tầng 7', 'Tầng 30', 'Tầng hầm' — không chỉ giới hạn tầng 1..5 như trước.",
+        "Mọi cột tầng được nhận là cột thông số kỹ thuật và giữ lại trong dữ liệu.",
+        "Hệ thống dùng được cho công trình bao nhiêu tầng cũng được, không cần sửa code.",
+        "Nếu khóa cứng tên tầng, các tầng khác sẽ bị bỏ sót thông tin.",
+    ),
+    "test_non_floor_columns_not_misdetected_as_floor": G(
+        "Không nhầm cột thường (Khối lượng, Đơn giá) thành cột tầng",
+        "Việc nhận diện cột tầng phải đủ chặt để không bắt nhầm các cột số liệu thường.",
+        "Ví dụ cột 'Khối lượng', 'Đơn giá tổng hợp' không được coi là cột tầng kỹ thuật.",
+        "Các cột số liệu chính vẫn được ánh xạ đúng vai trò của chúng, không sinh cột kỹ thuật giả.",
+        "Đảm bảo việc tổng quát hóa nhận diện tầng không gây tác dụng phụ.",
+        "Nếu bắt nhầm, cột khối lượng/đơn giá có thể bị xử lý sai vai trò.",
+    ),
+    "test_detect_role_classifies_each_file_correctly": G(
+        "Tự nhận ra đâu là Phụ lục 01, đâu là Phụ lục 02 dựa trên cấu trúc cột",
+        "Hệ thống nhìn vào nội dung cột của từng file để biết file nào là bảng khối lượng (PL01), file nào là yêu cầu vật tư (PL02).",
+        "Ví dụ file có cột 'Khối lượng/Đơn giá' được nhận là PL01; file có cột 'Vật tư + Thương hiệu/Xuất xứ' được nhận là PL02.",
+        "Mỗi file được phân loại đúng vai trò thật của nó, không phụ thuộc người dùng bỏ vào ô nào.",
+        "Là nền tảng để hệ thống tự sửa khi người dùng đặt nhầm vị trí hai phụ lục.",
+        "Nếu nhận diện sai vai trò, toàn bộ việc đối chiếu phụ lục sẽ chệch hướng.",
+    ),
+    "test_swapped_appendices_are_auto_corrected": G(
+        "Đặt ngược vị trí Phụ lục 01 và Phụ lục 02 thì hệ thống tự hoán đổi lại cho đúng",
+        "Người dùng vô tình tải PL02 vào ô PL01 và PL01 vào ô PL02.",
+        "Ví dụ bỏ ngược hai file; trước đây kết quả sẽ sai hoàn toàn.",
+        "Hệ thống nhận ra cấu trúc cột bị ngược, tự hoán đổi lại, và cho ra kết quả TƯƠNG ĐƯƠNG như khi đặt đúng (cùng số hạng mục, cùng số dòng thiếu), kèm cảnh báo đã tự hoán đổi.",
+        "Người dùng không bị sai kết quả chỉ vì nhầm thứ tự ô tải lên — một lỗi rất dễ mắc.",
+        "Nếu không xử lý, đổi chỗ hai phụ lục sẽ cho báo cáo sai mà người dùng khó phát hiện.",
+    ),
+    "test_single_pl2_uploaded_into_pl1_slot_is_rerouted": G(
+        "Tải nhầm một file Phụ lục 02 vào ô Phụ lục 01 vẫn được xử lý đúng",
+        "Người dùng chỉ có một file PL02 nhưng lại bỏ vào ô PL01.",
+        "Ví dụ tải file yêu cầu vật tư vào ô dành cho bảng khối lượng.",
+        "Hệ thống nhận ra đây thực chất là PL02 và chạy đúng chế độ 'chỉ có PL02', kèm cảnh báo rõ ràng.",
+        "Tránh việc hệ thống cố đọc file yêu cầu vật tư như một bảng khối lượng rồi cho kết quả vô nghĩa.",
+        "Nếu không xử lý, người dùng nhận một báo cáo rỗng hoặc sai mà không hiểu vì sao.",
+    ),
+
+    # -------------------------------------------------------------------------
+    # Cảnh báo đặt nhầm vị trí file (mời thầu vs dự thầu) — không tự sửa
+    # -------------------------------------------------------------------------
+    "test_fill_ratio_distinguishes_invitation_from_bid": G(
+        "Phân biệt bảng mời thầu (chưa có giá) với hồ sơ dự thầu (đã chào giá)",
+        "Hệ thống đo tỷ lệ hạng mục đã điền đơn giá để đoán file là bảng mời thầu hay hồ sơ dự thầu.",
+        "Ví dụ bảng mời thầu chỉ có khối lượng (tỷ lệ giá ~0%); hồ sơ dự thầu đã điền đơn giá (tỷ lệ cao).",
+        "Tỷ lệ điền giá của bảng mời thầu thấp, của hồ sơ dự thầu cao — đủ để phân biệt.",
+        "Là cơ sở để cảnh báo khi người dùng đặt nhầm vị trí hai loại file giống cấu trúc nhau.",
+        "Nếu không phân biệt được, không thể nhắc người dùng khi họ tải nhầm chỗ.",
+    ),
+    "test_package_warns_when_bid_uploaded_as_pl1": G(
+        "Cảnh báo khi một hồ sơ dự thầu bị bỏ nhầm vào ô Phụ lục 01",
+        "Người dùng vô tình tải một hồ sơ dự thầu (đã chào giá) vào ô dành cho bảng khối lượng mời thầu.",
+        "Ví dụ file ở ô Phụ lục 01 đã điền đầy đơn giá.",
+        "Hệ thống KHÔNG tự đổi (vì không chắc 100%) nhưng đưa ra cảnh báo rõ ràng để người dùng soi lại vị trí tải lên.",
+        "Giúp phát hiện sớm lỗi đặt nhầm chỗ — loại lỗi rất dễ mắc và gây sai toàn bộ kết quả.",
+        "Nếu không cảnh báo, kết quả đối chiếu sẽ sai mà người dùng không hề biết.",
+    ),
+    "test_package_warns_when_invitation_in_bidder_slot": G(
+        "Cảnh báo khi một bảng mời thầu bị bỏ nhầm vào danh sách nhà thầu",
+        "Một file chưa có đơn giá (bảng mời thầu) lại nằm trong danh sách hồ sơ nhà thầu.",
+        "Ví dụ 'hồ sơ nhà thầu' thực chất là bảng khối lượng chưa chào giá.",
+        "Hệ thống cảnh báo rằng hồ sơ này có vẻ là bảng mời thầu, không phải hồ sơ dự thầu.",
+        "Nhắc người dùng kiểm tra lại trước khi tin vào kết quả.",
+        "Nếu bỏ qua, một file sai loại có thể bị so sánh như một nhà thầu thật.",
+    ),
+    "test_package_no_warning_when_files_placed_correctly": G(
+        "Không cảnh báo đặt nhầm khi các file đã ở đúng vị trí",
+        "Trường hợp bình thường: Phụ lục 01 là bảng mời thầu, hồ sơ nhà thầu đã chào giá.",
+        "Ví dụ PL01 chỉ có khối lượng, hồ sơ nhà thầu có đơn giá đầy đủ.",
+        "Hệ thống KHÔNG đưa ra cảnh báo đặt nhầm vị trí nào.",
+        "Tránh làm phiền người dùng bằng cảnh báo thừa khi mọi thứ đã đúng.",
+        "Cảnh báo sai chỗ tràn lan sẽ làm người dùng bỏ qua cả cảnh báo thật.",
+    ),
+    "test_tender_warns_when_hsmt_is_actually_a_bid": G(
+        "Cảnh báo khi đổi nhầm HSMT và HSDT",
+        "Trong chế độ 'HSMT với HSDT', người dùng bỏ một hồ sơ dự thầu vào ô HSMT.",
+        "Ví dụ file ở ô HSMT đã điền đầy đơn giá (giống hồ sơ dự thầu).",
+        "Hệ thống cảnh báo rằng file HSMT có vẻ là hồ sơ dự thầu — kiểm tra lại vị trí.",
+        "HSMT và HSDT cùng cấu trúc bảng khối lượng nên rất dễ đổi nhầm; cảnh báo giúp tránh kết quả đảo ngược.",
+        "Nếu không cảnh báo, đổi nhầm HSMT↔HSDT làm 'thiếu' thành 'phát sinh' và ngược lại mà không ai biết.",
     ),
     "test_summary_splits_multiple_hangmuc_into_separate_sheets": G(
         "Nhiều hạng mục được tách thành nhiều sheet riêng trong file tổng hợp",

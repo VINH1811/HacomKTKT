@@ -4,15 +4,35 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from .anomaly import enrich_consensus_anomalies
-from .comparison import build_bidder_rows, make_result
+from .comparison import build_bidder_rows, make_result, misplacement_warnings
 from .config import EnterpriseConfig
 from .excel_reader import file_sha256
 from .matcher import match_items
-from .models import ComparisonResult, DocumentRole, WorkbookData
+from .models import ComparisonResult, DocumentRole, UserFacingError, WorkbookData
 from .parallel import WorkbookLoadSpec, load_workbooks_parallel
 from .peer_analysis import enrich_peer_comparison
 from .peer_catalogue import build_peer_consensus
-from .reporter import export_comparison_report
+from .reporter import export_comparison_report, export_consolidated_summary
+
+
+def _write_report(result: ComparisonResult, output_path, config: EnterpriseConfig) -> None:
+    if config.generate_analytical_report:
+        export_comparison_report(result, output_path)
+    else:
+        export_consolidated_summary(result, output_path)
+
+
+def _no_boq_message(label: str) -> str:
+    return (
+        f"Không đọc được hạng mục nào từ '{label}'. File có thể không chứa bảng khối lượng (BOQ) "
+        "— hãy kiểm tra lại đúng file có sheet bảng khối lượng/hạng mục (ví dụ có các cột "
+        "Diễn giải/Đơn vị/Khối lượng)."
+    )
+
+
+def _ensure_has_items(workbook: WorkbookData, label: str) -> None:
+    if not any(item.is_comparable for item in workbook.items):
+        raise UserFacingError(_no_boq_message(label))
 
 
 def compare_tender_files(
@@ -43,6 +63,10 @@ def compare_tender_files(
     reference = loaded["reference"]
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
 
+    _ensure_has_items(reference, "HSMT")
+    for workbook in bidders:
+        _ensure_has_items(workbook, workbook.bidder)
+
     rows = []
     for workbook in bidders:
         matches = match_items(reference.items, workbook.items, config)
@@ -51,8 +75,11 @@ def compare_tender_files(
     enrich_peer_comparison(rows, config)
     enrich_consensus_anomalies(rows, config)
     result = make_result(rows, reference, bidders, _audit(reference, bidders, config, "HSMT_vs_HSDT"))
+    # Cảnh báo nếu nghi đặt nhầm HSMT ↔ HSDT (file ở ô HSMT đã chào giá, hoặc một
+    # HSDT chưa có giá).
+    result.warnings.extend(misplacement_warnings(reference, "HSMT", bidders))
     if output_path:
-        export_comparison_report(result, output_path)
+        _write_report(result, output_path, config)
     return result
 
 
@@ -73,6 +100,8 @@ def compare_bidder_files(
     ]
     loaded = load_workbooks_parallel(specs, config)
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
+    for workbook in bidders:
+        _ensure_has_items(workbook, workbook.bidder)
     reference, rows, cluster_stats = build_peer_consensus(bidders, config)
     peer_stats = enrich_peer_comparison(rows, config)
     enrich_consensus_anomalies(rows, config)
@@ -86,7 +115,7 @@ def compare_bidder_files(
     })
     result = make_result(rows, reference, bidders, audit)
     if output_path:
-        export_comparison_report(result, output_path)
+        _write_report(result, output_path, config)
     return result
 
 

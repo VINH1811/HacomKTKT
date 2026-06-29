@@ -9,9 +9,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable, Optional
 
 from .annotator import annotate_bidder_workbook
-from .comparison import build_bidder_rows, make_result
+from .comparison import build_bidder_rows, make_result, misplacement_warnings
 from .config import EnterpriseConfig
-from .excel_reader import file_sha256
+from .excel_io import read_workbook_matrices
+from .excel_reader import detect_header, file_sha256, map_columns
 from .matcher import match_items
 from .models import (
     ComparedItem,
@@ -23,13 +24,14 @@ from .models import (
     MatchResult,
     MaterialRequirement,
     Severity,
+    UserFacingError,
     WorkbookData,
 )
 from .parallel import WorkbookLoadSpec, load_workbooks_parallel
 from .peer_analysis import enrich_peer_comparison
 from .peer_catalogue import build_peer_consensus
-from .pl2_reader import PL2Matcher, evaluate_pl2_compliance, load_pl2_requirements
-from .reporter import export_comparison_report
+from .pl2_reader import PL2Matcher, _find_header, evaluate_pl2_compliance, load_pl2_requirements
+from .reporter import export_comparison_report, export_consolidated_summary
 
 _RANK = {Severity.OK: 0, Severity.INFO: 1, Severity.REVIEW: 2, Severity.WARNING: 3, Severity.CRITICAL: 4}
 _SAFE = re.compile(r"[^0-9A-Za-zÀ-ỹ._ -]+")
@@ -144,6 +146,105 @@ def _requirements_audit(requirements: list[MaterialRequirement]) -> list[dict]:
     } for req in requirements]
 
 
+def _no_boq_message(label: str) -> str:
+    return (
+        f"Không đọc được hạng mục nào từ '{label}'. File có thể không chứa bảng khối lượng (BOQ) "
+        "— hãy kiểm tra lại đúng file có sheet bảng khối lượng/hạng mục (ví dụ có các cột "
+        "Diễn giải/Đơn vị/Khối lượng)."
+    )
+
+
+def _ensure_has_items(workbook: WorkbookData, label: str) -> None:
+    if not any(item.is_comparable for item in workbook.items):
+        raise UserFacingError(_no_boq_message(label))
+
+
+def _looks_like_boq(matrices) -> bool:
+    """Đúng cấu trúc Phụ lục 01 (KLMT): có cột tên hạng mục + khối lượng/đơn giá."""
+    for sheet in matrices.sheets:
+        if not sheet.rows:
+            continue
+        try:
+            _start, _end, flat = detect_header(sheet.rows[:90])
+        except ValueError:
+            continue
+        mapping, _technical = map_columns(flat, DocumentRole.HSMT)
+        fields = set(mapping.values())
+        has_quantity = bool({"reference_quantity", "bid_quantity"} & fields)
+        has_price = bool({"unit_price_total", "reference_amount", "bid_amount"} & fields)
+        if "item_name" in fields and (has_quantity or has_price):
+            return True
+    return False
+
+
+def _looks_like_pl2(matrices) -> bool:
+    """Đúng cấu trúc Phụ lục 02: có cột Vật tư + Thương hiệu/Xuất xứ."""
+    return any(sheet.rows and _find_header(sheet.rows) is not None for sheet in matrices.sheets)
+
+
+def detect_appendix_role(path: Path, config: EnterpriseConfig) -> str:
+    """Nhận diện một file là 'pl1' (KLMT), 'pl2' (yêu cầu vật tư) hay 'unknown'.
+
+    Dựa vào cấu trúc cột thực tế, không dựa vào ô upload người dùng chọn.
+    """
+    try:
+        matrices = read_workbook_matrices(
+            path,
+            engine=config.excel_read_engine,
+            max_rows=300,
+            fallback_openpyxl=config.excel_fallback_openpyxl,
+        )
+    except Exception:
+        return "unknown"
+    is_boq = _looks_like_boq(matrices)
+    is_pl2 = _looks_like_pl2(matrices)
+    if is_pl2 and not is_boq:
+        return "pl2"
+    if is_boq and not is_pl2:
+        return "pl1"
+    # Cả hai tín hiệu (hiếm): KLMT có cột thương hiệu/xuất xứ -> ưu tiên KLMT vì
+    # có số liệu khối lượng/đơn giá. Không có tín hiệu nào -> không xác định.
+    if is_boq and is_pl2:
+        return "pl1"
+    return "unknown"
+
+
+def _resolve_appendix_roles(
+    pl1: Optional[Path],
+    pl2: Optional[Path],
+    config: EnterpriseConfig,
+) -> tuple[Optional[Path], Optional[Path], list[str]]:
+    """Tự sửa khi người dùng đặt nhầm PL01/PL02 vào sai ô upload."""
+    warnings: list[str] = []
+    role1 = detect_appendix_role(pl1, config) if pl1 else None
+    role2 = detect_appendix_role(pl2, config) if pl2 else None
+
+    if pl1 and pl2:
+        if role1 == "pl2" and role2 == "pl1":
+            warnings.append(
+                "Phát hiện Phụ lục 01 và Phụ lục 02 bị đặt nhầm chỗ; hệ thống đã tự hoán đổi lại "
+                "theo đúng cấu trúc cột của từng file."
+            )
+            return pl2, pl1, warnings
+        return pl1, pl2, warnings
+
+    if pl1 and not pl2 and role1 == "pl2":
+        warnings.append(
+            "File tải ở ô Phụ lục 01 thực chất có cấu trúc Phụ lục 02 (yêu cầu vật tư); "
+            "hệ thống đã xử lý đúng như Phụ lục 02."
+        )
+        return None, pl1, warnings
+
+    if pl2 and not pl1 and role2 == "pl1":
+        warnings.append(
+            "File tải ở ô Phụ lục 02 thực chất có cấu trúc Phụ lục 01 (bảng khối lượng); "
+            "hệ thống đã xử lý đúng như Phụ lục 01."
+        )
+        return pl2, None, warnings
+
+    return pl1, pl2, warnings
+
+
 def compare_appendices_with_bidders(
     bidder_files: Iterable[tuple[str, str | Path]],
     output_dir: str | Path,
@@ -176,6 +277,10 @@ def compare_appendices_with_bidders(
     pl1 = Path(pl1_path) if pl1_path else None
     pl2 = Path(pl2_path) if pl2_path else None
 
+    # Tự nhận diện và sửa nếu PL01/PL02 bị đặt nhầm ô upload (dựa vào cấu trúc cột
+    # thực tế, không dựa vào ô người dùng chọn).
+    pl1, pl2, role_warnings = _resolve_appendix_roles(pl1, pl2, config)
+
     specs = [
         WorkbookLoadSpec(f"bidder:{index}", path, DocumentRole.HSDT, name)
         for index, (name, path) in enumerate(pairs)
@@ -202,17 +307,40 @@ def compare_appendices_with_bidders(
 
     bidders = [loaded[f"bidder:{index}"] for index in range(len(pairs))]
 
+    # A-05: file không có sheet bảng khối lượng nào -> báo lỗi rõ ràng thay vì
+    # tạo báo cáo rỗng. PL02-only thì PL02 đã được kiểm tra riêng phía trên.
+    for bidder in bidders:
+        _ensure_has_items(bidder, bidder.bidder)
+    if pl1:
+        _ensure_has_items(loaded["pl1"], "Phụ lục 01")
+
+    # Cảnh báo (không tự sửa) nếu nghi đặt nhầm vị trí: hồ sơ dự thầu vào ô Phụ
+    # lục 01, hoặc một bảng mời thầu/khối lượng lọt vào danh sách nhà thầu.
+    misplace_warnings = misplacement_warnings(loaded["pl1"] if pl1 else None, "Phụ lục 01", bidders)
+
     bidder_count = len(bidders)
     peer_price_enabled = bidder_count >= 2
     cluster_stats: dict = {}
     if pl1:
         reference = loaded["pl1"]
         rows: list[ComparedItem] = []
-        for workbook in bidders:
+
+        def _match_one(workbook: WorkbookData) -> list[ComparedItem]:
             matches = match_items(reference.items, workbook.items, config)
-            rows.extend(build_bidder_rows(
+            return build_bidder_rows(
                 reference.items, workbook.items, workbook.bidder, matches, config, reference_is_boq=True,
-            ))
+            )
+
+        # Mỗi nhà thầu được ghép độc lập với PL01 -> chạy song song để rút ngắn
+        # thời gian khi có nhiều hồ sơ (rapidfuzz nhả GIL nên thread tăng tốc thật).
+        if bidder_count > 1:
+            workers = min(max(1, config.excel_read_workers), bidder_count)
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="match") as executor:
+                for bidder_rows in executor.map(_match_one, bidders):
+                    rows.extend(bidder_rows)
+        else:
+            for workbook in bidders:
+                rows.extend(_match_one(workbook))
         catalogue_mode = "PL01_OFFICIAL"
     else:
         reference, rows, cluster_stats = build_peer_consensus(bidders, config)
@@ -300,6 +428,8 @@ def compare_appendices_with_bidders(
         "thresholds": {name: getattr(config.thresholds, name) for name in config.thresholds.__dataclass_fields__},
     }
     result = make_result(rows, reference, bidders, audit)
+    result.warnings.extend(role_warnings)
+    result.warnings.extend(misplace_warnings)
     result.warnings.extend(pl2_warnings)
     if not pl1:
         if peer_price_enabled:
@@ -316,7 +446,12 @@ def compare_appendices_with_bidders(
         result.warnings.append("Không có PL02: hệ thống bỏ qua kiểm tra thương hiệu/xuất xứ theo yêu cầu vật tư chính thức.")
 
     report_path = output_dir / report_name
-    export_comparison_report(result, report_path)
+    if config.generate_analytical_report:
+        export_comparison_report(result, report_path)
+    else:
+        # Bảng tổng hợp side-by-side nhẹ thay cho báo cáo phân tích nặng (nhanh
+        # hơn nhiều khi nhiều hồ sơ; vẫn đánh dấu giá lệch + vi phạm PL02).
+        export_consolidated_summary(result, report_path)
 
     annotated: dict[str, Path] = {}
     annotation_jobs = []

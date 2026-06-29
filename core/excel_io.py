@@ -173,6 +173,48 @@ def list_sheets_fast(path: str | Path, *, engine: str = "calamine") -> list[dict
     return [{"name": sheet.name, "rows": sheet.row_count, "cols": sheet.col_count} for sheet in matrices.sheets]
 
 
+# Chữ ký nhận diện loại file qua magic bytes (không phụ thuộc đuôi file).
+_SIG_ZIP = b"PK\x03\x04"
+_SIG_OLE2 = b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"
+_SIG_PNG = b"\x89PNG\r\n\x1a\n"
+_SIG_PDF = b"%PDF"
+# "Encrypt" dưới dạng UTF-16LE (tên stream EncryptedPackage/EncryptionInfo của
+# file Office bị mã hóa).
+_SIG_ENCRYPTED = b"E\x00n\x00c\x00r\x00y\x00p\x00t"
+
+
+def diagnose_excel_file(path: str | Path) -> Optional[str]:
+    """Chẩn đoán vì sao một file không đọc được, trả về thông báo tiếng Việt rõ ràng.
+
+    Đọc chữ ký file để phân biệt: file rỗng, file mật khẩu, Excel cũ (.xls nhị
+    phân), ảnh, PDF, file hỏng hoặc file không phải Excel. Trả None nếu không kết
+    luận được (để tầng gọi dùng thông báo dự phòng).
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(65536)
+    except OSError:
+        return None
+    if not head:
+        return "đang rỗng (0 byte). Hãy kiểm tra lại và tải đúng file."
+    if head.startswith(_SIG_ZIP):
+        # Là gói zip/OOXML hợp lệ về dạng nhưng không mở được -> hỏng cấu trúc.
+        return ("bị hỏng hoặc sai cấu trúc Excel (.xlsx). Hãy mở bằng Excel, dùng Save As "
+                "tạo lại file .xlsx mới rồi tải lên.")
+    if head.startswith(_SIG_OLE2):
+        if _SIG_ENCRYPTED in head:
+            return ("đang được đặt mật khẩu bảo vệ. Hãy mở file, bỏ mật khẩu "
+                    "(Save As → Tools/Công cụ → General Options → xóa mật khẩu) rồi tải lại.")
+        return ("là định dạng Excel cũ (.xls/.xlsb nhị phân). Hãy mở bằng Excel và Save As "
+                "sang định dạng .xlsx rồi tải lại.")
+    if head.startswith(_SIG_PNG) or head[:3] == b"\xFF\xD8\xFF" or head[:6] in (b"GIF87a", b"GIF89a"):
+        return "là một file ảnh, không phải bảng tính Excel. Hãy tải đúng file .xlsx."
+    if head.startswith(_SIG_PDF):
+        return ("là một file PDF, không phải bảng tính Excel. Nếu đây là bản scan, hãy dùng "
+                "chức năng Quét PDF (OCR) để chuyển sang Excel trước.")
+    return "không phải là file Excel hợp lệ (.xlsx). Hãy kiểm tra lại file gốc."
+
+
 def _normalise_target(target: str) -> str:
     target = target.replace("\\", "/")
     if target.startswith("/"):

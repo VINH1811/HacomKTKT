@@ -53,27 +53,27 @@ def test_format_job_error_message_corrupt_format():
 
 
 def test_format_job_error_message_backend_error():
-    # Simulation of programming bugs in backend (AttributeError, TypeError, KeyError)
+    # Lỗi lập trình nội bộ -> thông báo chung, không lộ traceback, không đổ lỗi
+    # sai cho định dạng file.
+    from app import _GENERIC_PROCESSING_ERROR
+
     exc1 = AttributeError("'NoneType' object has no attribute 'items'")
-    msg1 = format_job_error_message(exc1, None)
-    assert msg1 == "lỗi file"
+    assert format_job_error_message(exc1, None) == _GENERIC_PROCESSING_ERROR
 
     exc2 = TypeError("unsupported operand type(s) for +: 'NoneType' and 'float'")
-    msg2 = format_job_error_message(exc2, None)
-    assert msg2 == "lỗi file"
+    assert format_job_error_message(exc2, None) == _GENERIC_PROCESSING_ERROR
 
     exc3 = KeyError("item_name")
-    msg3 = format_job_error_message(exc3, None)
-    assert msg3 == "lỗi file"
+    assert format_job_error_message(exc3, None) == _GENERIC_PROCESSING_ERROR
 
-    # Even if it happened inside loading, if it is a TypeError, mask as "lỗi file"
+    # Even if it happened inside loading, if it is a TypeError, mask as generic.
     exc4 = RuntimeError(
         "Không đọc được file '002_NhaThauA.xlsx' (Nhà thầu A): TypeError: NoneType object"
     )
     msg4 = format_job_error_message(exc4, {
         "bidders": [{"file": "002_NhaThauA.xlsx", "original_name": "A.xlsx"}]
     })
-    assert msg4 == "lỗi file"
+    assert msg4 == _GENERIC_PROCESSING_ERROR
 
 
 def test_package_pipeline_with_corrupt_files(tmp_path):

@@ -22,13 +22,52 @@ from .models import (
     WorkbookData,
 )
 from .number_parser import parse_number, percent_delta
-from .text_normalizer import canonical_id, normalize_name
+from .text_normalizer import canonical_id, normalize_name, normalize_unit
 
 _RANK = {Severity.OK: 0, Severity.INFO: 1, Severity.REVIEW: 2, Severity.WARNING: 3, Severity.CRITICAL: 4}
 
 
 def _worst(a: Severity, b: Severity) -> Severity:
     return a if _RANK[a] >= _RANK[b] else b
+
+
+def detail_price_fill_ratio(workbook: WorkbookData) -> float:
+    """Tỷ lệ hạng mục chi tiết đã điền đơn giá/thành tiền.
+
+    Tín hiệu phân biệt hồ sơ DỰ THẦU (đã chào giá -> tỷ lệ cao) với bảng MỜI
+    THẦU/KLMT (chưa có giá -> tỷ lệ ~0). Dùng để cảnh báo khi nghi đặt nhầm vị trí.
+    """
+    details = [it for it in workbook.items if it.row_type is RowType.DETAIL]
+    if not details:
+        return 0.0
+    priced = sum(1 for it in details if it.unit_price_total is not None or it.bid_amount is not None)
+    return priced / len(details)
+
+
+# Ngưỡng heuristic: >=50% hạng mục có giá -> "đã chào giá"; <=5% -> "chưa có giá".
+_PRICED_LIKE_BID = 0.50
+_UNPRICED_LIKE_INVITATION = 0.05
+
+
+def misplacement_warnings(reference, reference_label: str, bidders: list) -> list[str]:
+    """Cảnh báo (không tự sửa) khi nghi ngờ đặt nhầm vị trí file.
+
+    - File ở ô mời thầu/phụ lục mà đã điền đầy đơn giá -> có thể là hồ sơ dự thầu.
+    - File trong danh sách nhà thầu mà chưa có đơn giá -> có thể là bảng mời thầu.
+    """
+    warnings: list[str] = []
+    if reference is not None and detail_price_fill_ratio(reference) >= _PRICED_LIKE_BID:
+        warnings.append(
+            f"{reference_label} đã điền nhiều đơn giá — có vẻ là hồ sơ dự thầu đã chào giá, "
+            f"không phải bảng khối lượng mời thầu. Hãy kiểm tra lại vị trí tải lên."
+        )
+    for bidder in bidders:
+        if detail_price_fill_ratio(bidder) <= _UNPRICED_LIKE_INVITATION:
+            warnings.append(
+                f"Hồ sơ nhà thầu '{bidder.bidder}' hầu như chưa có đơn giá chào — có vẻ là bảng "
+                f"mời thầu/khối lượng, không phải hồ sơ dự thầu. Hãy kiểm tra lại vị trí tải lên."
+            )
+    return warnings
 
 
 def _safe_delta(base: Optional[float], value: Optional[float]) -> Optional[float]:
@@ -305,7 +344,10 @@ def build_bidder_rows(
             )
 
         _compare_text(row, "Mã hiệu", ref.item_code, cand.item_code, 0.95, 0.60, weight_review=3, weight_warning=8)
-        _compare_text(row, "Đơn vị tính", ref.unit, cand.unit, 0.99, 0.80, weight_review=5, weight_warning=12)
+        # So sánh đơn vị theo dạng ĐÃ CHUẨN HÓA: "mét"/"m", "m2"/"m²"... là cùng
+        # đơn vị, không được báo lệch. Chỉ khi chuẩn hóa vẫn khác mới đối chiếu.
+        if normalize_unit(ref.unit) != normalize_unit(cand.unit):
+            _compare_text(row, "Đơn vị tính", ref.unit, cand.unit, 0.99, 0.80, weight_review=5, weight_warning=12)
 
         component_row = ref.row_type is RowType.COMPONENT or cand.row_type is RowType.COMPONENT
         if reference_is_boq:

@@ -45,6 +45,7 @@ _HEADER_TERMS = (
     "ten hang muc", "tên hạng mục", "dvt", "đvt",
 )
 
+_FLOOR_COLUMN = re.compile(r"\btang\s*(?:\d+|ham|h\b)", re.I)
 _FORMULA_ERROR = re.compile(r"#(?:REF!|DIV/0!|VALUE!|NAME\?|N/A|NUM!|NULL!)", re.I)
 _ROMAN = re.compile(r"^(?:[IVXLCDM]+)(?:[.\-]|$)", re.I)
 _ALPHA = re.compile(r"^[A-Z](?:[.\-]|$)", re.I)
@@ -228,7 +229,10 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         text = strip_accents(normalize_text(raw))
         if not text or any(text == value or text.endswith(value) for value in noise):
             continue
-        if any(term in text for term in ("cong suat", "luu luong", "cot ap", "dien ap", "nguon dien", "moi chat", "do on", "hieu suat", "toc do", "nhiet do", "ky hieu", "quy cach", "tang h", "tang1", "tang2", "tang3", "tang4", "tang5", "tang23")):
+        # Cột chia theo tầng: nhận diện chung "tầng <số>" hoặc "tầng hầm" thay vì
+        # liệt kê cứng tên tầng của một công trình cụ thể.
+        is_floor_column = bool(_FLOOR_COLUMN.search(text))
+        if is_floor_column or any(term in text for term in ("cong suat", "luu luong", "cot ap", "dien ap", "nguon dien", "moi chat", "do on", "hieu suat", "toc do", "nhiet do", "ky hieu", "quy cach")):
             label = raw.split("|")[-1].strip() or raw.strip()
             technical[col] = label
     return fixed, technical

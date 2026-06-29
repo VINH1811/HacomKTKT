@@ -312,6 +312,8 @@ _BLOCK_GROUPS = [
     (None, 13, 13),
 ]
 _BLOCK_WIDTHS = [10, 30, 14, 16, 13, 14, 14, 14, 14, 14, 16, 18, 18, 26]
+_BRAND_IDX = 3
+_ORIGIN_IDX = 4
 _UNIT_PRICE_IDX = 10
 _BID_AMOUNT_IDX = 12
 _KLMT_LEAVES = ["STT", "Mã hiệu", "Diễn giải", "ĐVT", "KL\nMời thầu"]
@@ -326,7 +328,7 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
     Mỗi nhóm giữ lại bản tham chiếu (PL01/đồng thuận) và bản chào của từng nhà
     thầu, kèm metadata để dựng khối KLMT bên trái.
     """
-    grouped: dict[str, dict[str, Any]] = defaultdict(lambda: {"ref": None, "bidders": {}})
+    grouped: dict[str, dict[str, Any]] = defaultdict(lambda: {"ref": None, "bidders": {}, "pl2": {}})
     meta: dict[str, tuple] = {}
     for row in result.rows:
         item = row.reference or row.candidate
@@ -337,6 +339,19 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
             grouped[cid]["ref"] = row.reference
         if row.candidate is not None:
             grouped[cid]["bidders"][row.bidder] = row.candidate
+            # Thu thập vi phạm Phụ lục 02 (thương hiệu/xuất xứ) của từng nhà thầu
+            # để đánh dấu trực tiếp lên ô tương ứng trong bảng tổng hợp.
+            pl2_issues: dict[str, tuple[str, bool]] = {}
+            for diff in row.differences:
+                field = str(diff.field)
+                if not field.startswith("Phụ lục 02"):
+                    continue
+                key = "brand" if "Thương hiệu" in field else ("origin" if "Xuất xứ" in field else "")
+                if key:
+                    is_critical = str(diff.message).startswith("Thiếu")
+                    pl2_issues[key] = (str(diff.message), is_critical)
+            if pl2_issues:
+                grouped[cid]["pl2"][row.bidder] = pl2_issues
         if cid not in meta:
             ref = row.reference
             anchor = ref or row.candidate
@@ -442,6 +457,16 @@ def _write_quote_row(ws, f, r: int, bidders: list[str], cid: str,
             elif abs(delta) >= warn_pct:
                 styles[leaf_idx] = "money_warn"
                 comments[leaf_idx] = _deviation_comment(bidder, value, med, delta, False)
+
+        # Đánh dấu vi phạm Phụ lục 02 trực tiếp lên ô Thương hiệu/Xuất xứ.
+        pl2_issues = grouped[cid]["pl2"].get(bidder, {})
+        for key, leaf_idx in (("brand", _BRAND_IDX), ("origin", _ORIGIN_IDX)):
+            issue = pl2_issues.get(key)
+            if issue:
+                msg, is_critical = issue
+                styles[leaf_idx] = "critical" if is_critical else "warning"
+                comments[leaf_idx] = f"Phụ lục 02 — {msg}"
+
         for j, value in enumerate(leaf_values):
             kind = _BLOCK_LEAVES[j][1]
             style = f[styles[j]] if j in styles else f[kind]

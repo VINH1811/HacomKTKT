@@ -24,7 +24,8 @@ from security import configure_offline_environment, deny_external_network
 configure_offline_environment()
 
 from core.config import EnterpriseConfig
-from core.models import CompareThresholds
+from core.excel_io import diagnose_excel_file
+from core.models import CompareThresholds, UserFacingError
 from core.pipeline import compare_bidder_files, compare_tender_files
 from core.reporter import export_consolidated_summary
 from core.tender_package import compare_pl1_pl2_with_bidders
@@ -95,7 +96,12 @@ async def _save_upload(
     allowed_suffixes: set[str] | None = None,
 ) -> None:
     allowed = {suffix.lower() for suffix in (allowed_suffixes or {".xlsx"})}
-    suffix = target.suffix.lower()
+    # Kiểm tra theo ĐUÔI FILE GỐC người dùng tải lên, không theo tên target. Một
+    # số ô (Phụ lục 01/02, HSMT) ép tên target thành .xlsx nên nếu chỉ xét target
+    # thì .xlsb/.xls/file lạ sẽ lọt qua. Khi không có tên file gốc thì mới dựa vào
+    # target để giữ tương thích.
+    source_suffix = Path(upload.filename or "").suffix.lower()
+    suffix = source_suffix or target.suffix.lower()
     if suffix not in allowed:
         accepted = ", ".join(sorted(allowed))
         raise HTTPException(400, f"Định dạng không hỗ trợ. Chỉ nhận: {accepted}")
@@ -129,6 +135,9 @@ def _build_config(payload: dict[str, Any]) -> EnterpriseConfig:
         name_review_score=float(payload.get("name_review_score", 0.78)),
         name_reject_score=float(payload.get("name_reject_score", 0.58)),
     )
+    # Mặc định ưu tiên bảng tổng hợp nhẹ (nhanh hơn nhiều khi nhiều hồ sơ). Có thể
+    # bật lại báo cáo phân tích nhiều sheet bằng "analytical_report": true.
+    cfg.generate_analytical_report = bool(payload.get("analytical_report", False))
     return cfg
 
 
@@ -179,15 +188,25 @@ def _result_preview(result, files: dict[str, Any] | None = None) -> dict[str, An
 
 
 
-def format_job_error_message(exc: Exception, request: dict[str, Any] | None) -> str:
+_GENERIC_PROCESSING_ERROR = (
+    "Đã xảy ra lỗi khi xử lý file. Vui lòng kiểm tra lại file hoặc thử lại; "
+    "nếu vẫn lỗi, hãy liên hệ người quản trị."
+)
+
+
+def format_job_error_message(
+    exc: Exception,
+    request: dict[str, Any] | None,
+    folder: Path | None = None,
+) -> str:
     exc_str = str(exc)
     exc_type = type(exc).__name__
-    
+
     file_match = re.search(r"Không đọc được file '([^']+)'", exc_str)
     if file_match:
         target_filename = file_match.group(1)
         original_filename = target_filename
-        
+
         if request:
             if target_filename == request.get("pl1_file"):
                 original_filename = request.get("pl1_original") or "Phụ lục 01"
@@ -220,21 +239,27 @@ def format_job_error_message(exc: Exception, request: dict[str, Any] | None) -> 
             underlying_type = exc_type
             underlying_message = exc_str
             
+        # 1. Lỗi lập trình nội bộ: file có thể không sao, không chẩn đoán định dạng.
+        if underlying_type in {"AttributeError", "TypeError", "NameError", "KeyError", "IndexError", "ZeroDivisionError", "UnboundLocalError"}:
+            return _GENERIC_PROCESSING_ERROR
+
+        # 2. Chẩn đoán chính xác theo CHỮ KÝ FILE (đáng tin hơn chuỗi lỗi): phân
+        # biệt file mật khẩu, Excel cũ, ảnh, PDF, file hỏng... mỗi loại một thông báo.
+        if folder is not None:
+            reason = diagnose_excel_file(Path(folder) / target_filename)
+            if reason:
+                return f"File '{original_filename}' {reason}"
+
+        # 3. Dự phòng bằng heuristic chuỗi khi không có file để soi chữ ký.
         if "xlsx" in underlying_message.lower() and ("valueerror" in underlying_type.lower() or "invalidfileexception" in underlying_type.lower()):
             return f"File '{original_filename}' không đúng định dạng Excel. Hệ thống nhận file .xlsx. Hãy Save As file .xls/.xlsb thành .xlsx trước khi chạy."
-            
+
         if "badzipfile" in underlying_type.lower() or "zipfile.badzipfile" in underlying_type.lower() or "not a zip" in underlying_message.lower():
             return f"File '{original_filename}' không phải là file Excel."
-            
-        if underlying_type in {"AttributeError", "TypeError", "NameError", "KeyError", "IndexError", "ZeroDivisionError", "UnboundLocalError"}:
-            return "lỗi file"
-            
+
         return f"File '{original_filename}' không đúng định dạng Excel."
 
-    if exc_type in {"AttributeError", "TypeError", "NameError", "KeyError", "IndexError", "ZeroDivisionError", "UnboundLocalError"}:
-        return "lỗi file"
-        
-    return "lỗi file"
+    return _GENERIC_PROCESSING_ERROR
 
 
 def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
@@ -364,10 +389,10 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
 
         _update(job_id, progress=92, message="Đang hoàn thiện báo cáo và file đánh dấu")
 
-        # File tổng hợp riêng theo đúng format bảng chào giá tổng hợp: các nhà
-        # thầu xếp cạnh nhau, ô giá lệch nhiều được đánh dấu trực tiếp. Không có
-        # cột phân tích (Mức độ, Điểm bất thường).
-        if mode in {"package", "bidders", "tender"}:
+        # Khi bật báo cáo phân tích nặng, vẫn tạo thêm bảng tổng hợp nhẹ làm bản
+        # đọc nhanh. Khi tắt (mặc định), chính báo cáo đã là bảng tổng hợp nên
+        # không tạo lại.
+        if mode in {"package", "bidders", "tender"} and cfg.generate_analytical_report:
             summary_path = folder / "Bang_tong_hop_chao_gia_da_danh_dau.xlsx"
             export_consolidated_summary(result, summary_path)
             files = {**files, "summary_file": summary_path.name}
@@ -390,14 +415,36 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
             **extra_status,
         )
     except Exception as exc:
-        friendly_message = format_job_error_message(exc, request)
-        _update(
-            job_id,
-            state="failed",
-            progress=100,
-            message=friendly_message,
-            error_type=type(exc).__name__,
-        )
+        # Lớp bắt lỗi tổng: MỌI lỗi (kể cả lỗi chưa lường trước) đều được biến
+        # thành thông báo thân thiện và job luôn kết thúc ở trạng thái "failed",
+        # không bao giờ crash hay để job treo.
+        try:
+            if isinstance(exc, UserFacingError):
+                friendly_message = str(exc)
+            else:
+                friendly_message = format_job_error_message(exc, request, folder)
+        except Exception:
+            friendly_message = _GENERIC_PROCESSING_ERROR
+        try:
+            _update(
+                job_id,
+                state="failed",
+                progress=100,
+                message=friendly_message,
+                error_type=type(exc).__name__,
+            )
+        except Exception:
+            # Phương án cuối: ghi trạng thái thất bại tối thiểu để không treo job.
+            try:
+                _atomic_json(_job_dir(job_id) / "status.json", {
+                    "job_id": job_id,
+                    "state": "failed",
+                    "progress": 100,
+                    "message": _GENERIC_PROCESSING_ERROR,
+                    "updated_at": time.time(),
+                })
+            except Exception:
+                pass
 
 
 def _cleanup_expired() -> None:

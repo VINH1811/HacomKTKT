@@ -54,6 +54,10 @@ class EnterpriseConfig:
 
     # Reporting
     report_constant_memory: bool = True
+    # Báo cáo phân tích nhiều sheet (nặng) — mặc định bật để giữ tương thích. Tắt
+    # đi (HSMT_ANALYTICAL_REPORT=0) để dùng bảng tổng hợp nhẹ làm báo cáo chính,
+    # nhanh hơn nhiều khi có nhiều hồ sơ.
+    generate_analytical_report: bool = True
     random_state: int = 42
 
     @classmethod
@@ -84,4 +88,5 @@ class EnterpriseConfig:
             reranker_batch_size=_int_env("HSMT_RERANK_BATCH", 16, 1, 256),
             fuzzy_top_k=_int_env("HSMT_FUZZY_TOP_K", 8, 1, 100),
             semantic_top_k=_int_env("HSMT_SEMANTIC_TOP_K", 5, 1, 100),
+            generate_analytical_report=_bool_env("HSMT_ANALYTICAL_REPORT", True),
         )

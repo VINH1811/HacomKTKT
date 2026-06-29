@@ -267,6 +267,9 @@ def annotate_bidder_workbook(
         # Fix the AI columns once per sheet. Recomputing from ws.max_column after
         # every row would keep appending new columns and make the file explode.
         ai_columns: dict[str, tuple[int, int, int, int, dict[str, int]]] = {}
+        # Cột tên hạng mục được tính MỘT lần/sheet. ws.max_column quét toàn bộ ô
+        # nên nếu gọi trong vòng lặp từng ô sẽ rất chậm; ở đây tính sẵn để dùng lại.
+        item_cols: dict[str, int] = {}
         for sheet_name, info in meta.items():
             if sheet_name not in wb.sheetnames:
                 continue
@@ -274,6 +277,9 @@ def annotate_bidder_workbook(
             fields = {str(k): int(v) for k, v in (info.get("field_columns") or {}).items()}
             header_row = int(info.get("header_end") or 1)
             original_max = max(int(info.get("max_column") or 1), int(ws.max_column or 1))
+            # Default = 2 khớp đúng hành vi cũ: ở vòng lặp đánh dấu, sheet luôn đã
+            # có thêm cột AI nên ws.max_column >= 2, tức default cũ luôn cho 2.
+            item_cols[sheet_name] = fields.get("item_name", 2)
             ai_sev_col, ai_reason_col, ai_note_col = original_max + 2, original_max + 3, original_max + 4
             ai_columns[sheet_name] = (ai_sev_col, ai_reason_col, ai_note_col, header_row, fields)
             ws.cell(header_row, ai_sev_col, "AI MỨC ĐỘ")
@@ -317,7 +323,7 @@ def annotate_bidder_workbook(
                 ws.cell(row_number, col).font = Font(name="Arial", color=_FONT.get(severity, "000000"), bold=col == ai_sev_col)
                 ws.cell(row_number, col).alignment = Alignment(vertical="top", wrap_text=True)
 
-            item_col = fields.get("item_name", 2 if ws.max_column >= 2 else 1)
+            item_col = item_cols[sheet_name]
             anchor = ws.cell(row_number, item_col)
             anchor.fill = _FILL.get(severity, PatternFill())
             anchor.font = Font(

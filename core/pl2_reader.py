@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,6 +66,38 @@ _EU = {
 }
 _USA = {"usa", "us", "united states", "my", "hoa ky"}
 
+# Quy các biến thể tên/ký hiệu quốc gia về một dạng chuẩn để "VN" và "Việt Nam"
+# (hay "TQ"/"China"/"Trung Quốc"...) được coi là cùng một xuất xứ.
+_COUNTRY_CANON = {
+    "vn": "vietnam", "viet nam": "vietnam", "vietnam": "vietnam",
+    "tq": "china", "trung quoc": "china", "china": "china", "prc": "china",
+    "han quoc": "korea", "korea": "korea", "kr": "korea",
+    "nhat": "japan", "nhat ban": "japan", "japan": "japan", "jp": "japan",
+    "thai lan": "thailand", "thailand": "thailand",
+    "dai loan": "taiwan", "taiwan": "taiwan",
+    "my": "usa", "hoa ky": "usa", "usa": "usa", "us": "usa",
+    "duc": "germany", "germany": "germany",
+    "phap": "france", "france": "france",
+    "y": "italy", "italy": "italy",
+    "tay ban nha": "spain", "spain": "spain",
+    "an do": "india", "india": "india",
+    "malaysia": "malaysia", "singapore": "singapore", "indonesia": "indonesia",
+}
+
+
+def _canon_country(value: str) -> str:
+    n = _n(value)
+    if not n:
+        return ""
+    if n in _COUNTRY_CANON:
+        return _COUNTRY_CANON[n]
+    # Tên đầy đủ (>=3 ký tự) có thể nằm trong cụm; ký hiệu ngắn (vn, my...) chỉ
+    # khớp khi trùng khít để tránh dính nhầm vào từ khác.
+    for token in sorted(_COUNTRY_CANON, key=len, reverse=True):
+        if len(token) >= 3 and token in n:
+            return _COUNTRY_CANON[token]
+    return ""
+
 
 def _n(value: object) -> str:
     return strip_accents(normalize_text(str(value or "")))
@@ -118,14 +151,22 @@ def _find_header(rows: list[list[object]]) -> Optional[tuple[int, int, int, int,
 def load_pl2_requirements(
     path: str | Path,
     *,
-    project_keywords: Iterable[str] = ("hacom", "mall"),
+    project_keywords: Iterable[str] | None = None,
     config: EnterpriseConfig | None = None,
 ) -> tuple[list[MaterialRequirement], list[str]]:
-    """Load official PL02 requirements with Calamine-first reading."""
+    """Load official PL02 requirements with Calamine-first reading.
+
+    Mặc định KHÔNG lọc sheet theo tên dự án (dùng được cho mọi dự án). Có thể
+    bật lọc bằng biến môi trường HSMT_PL2_PROJECT_KEYWORDS (vd "hacom,mall")
+    hoặc truyền project_keywords trực tiếp.
+    """
     path = Path(path)
     if path.suffix.lower() != ".xlsx":
         raise ValueError("Phụ lục 02 phải là file .xlsx")
     config = config or EnterpriseConfig.from_env()
+    if project_keywords is None:
+        env_keywords = os.getenv("HSMT_PL2_PROJECT_KEYWORDS", "").strip()
+        project_keywords = tuple(x.strip() for x in env_keywords.split(",") if x.strip()) if env_keywords else ()
     keywords = tuple(_n(x) for x in project_keywords if str(x).strip())
     matrices = read_workbook_matrices(
         path,
@@ -139,8 +180,10 @@ def load_pl2_requirements(
         rows = sheet.rows
         project_text = _sheet_project_text(rows)
         if keywords and project_text and not any(k in project_text for k in keywords):
-            if "du an" in project_text and "hacom" not in project_text and "mall" not in project_text:
-                warnings.append(f"Bỏ qua sheet '{sheet.name}' vì thuộc dự án khác")
+            # Chỉ bỏ qua khi sheet có nêu tên một dự án nhưng không khớp từ khóa
+            # đã cấu hình (tránh bỏ nhầm sheet không ghi tên dự án).
+            if "du an" in project_text:
+                warnings.append(f"Bỏ qua sheet '{sheet.name}' vì thuộc dự án khác (không khớp từ khóa dự án đã cấu hình)")
                 continue
         header = _find_header(rows)
         if not header:
@@ -283,6 +326,9 @@ def _origin_allowed(candidate: str, allowed_values: tuple[str, ...]) -> bool:
     for allowed in allowed_values:
         a = _n(allowed)
         if _equivalent_token(c, a):
+            return True
+        canon_a = _canon_country(a)
+        if canon_a and canon_a == _canon_country(c):
             return True
         if a in {"asia", "chau a"} and any(token in c for token in _ASIA):
             return True

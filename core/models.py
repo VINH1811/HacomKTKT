@@ -6,6 +6,14 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 
+class UserFacingError(Exception):
+    """Lỗi có thông báo đã viết sẵn cho người dùng cuối.
+
+    Thông báo (str của exception) được hiển thị nguyên văn trên giao diện, không
+    qua bước chẩn đoán/định dạng lại như các lỗi kỹ thuật khác.
+    """
+
+
 class DocumentRole(str, Enum):
     HSMT = "HSMT"
     HSDT = "HSDT"
