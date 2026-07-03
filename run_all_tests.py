@@ -1257,6 +1257,66 @@ KNOWN_GUIDES: dict[str, Guide] = {
     # Cảnh báo đặt nhầm vị trí file (mời thầu vs dự thầu) — không tự sửa
     # -------------------------------------------------------------------------
     # -------------------------------------------------------------------------
+    # Vùng xám format lạ: từ điển cột mở rộng + cảnh báo ghép thấp
+    # -------------------------------------------------------------------------
+    "test_variant_headers_tt_dvtinh_kl_are_mapped": G(
+        "Nhận diện được cột viết tắt/biến thể: TT, KL, Đv tính",
+        "File chào giá dùng cách viết ngắn thay vì thuật ngữ chuẩn.",
+        "Ví dụ cột 'TT' thay STT, 'KL' thay Khối lượng, 'Đv tính' thay ĐVT, thứ tự cột đảo lộn.",
+        "Tất cả các cột được nhận diện đúng vai trò (STT, khối lượng, đơn vị, tên hạng mục, đơn giá).",
+        "File BOQ tiếng Việt viết khác mẫu quen vẫn được đọc trọn vẹn, không bị ghép sai.",
+        "Trước đây các file này bị phân loại dòng sai, cho ra toàn 'thiếu/phát sinh' giả.",
+    ),
+    "test_variant_headers_hangmuc_soluong_gia_are_mapped": G(
+        "Nhận diện được cột thuật ngữ khác: Hạng mục, Số lượng, Giá",
+        "File dùng 'Hạng mục' thay 'Tên hạng mục', 'Số lượng' thay 'Khối lượng', 'Giá' thay 'Đơn giá'.",
+        "Ví dụ header: TT | Hạng mục | Đơn vị | Số lượng | Giá.",
+        "Đủ 5 cột được nhận diện đúng vai trò; file so sánh được bình thường.",
+        "Mở rộng phạm vi file chấp nhận được mà không cần sửa file gốc.",
+        "Trước đây file này bị từ chối hẳn với lỗi 'không chứa bảng khối lượng'.",
+    ),
+    "test_variant_terms_do_not_steal_amount_or_material_columns": G(
+        "Từ khóa mới không nhận nhầm cột số liệu/vật tư",
+        "Việc thêm từ khóa rộng ('hạng mục', 'mô tả'...) phải không phá cột đã nhận đúng.",
+        "Ví dụ 'Thành tiền hạng mục' vẫn là thành tiền; 'Mô tả quy cách' vẫn là vật tư.",
+        "Các cột chuẩn giữ nguyên vai trò cũ; từ khóa mới chỉ bắt khi không lẫn từ số liệu.",
+        "Đảm bảo mở rộng từ điển không gây tác dụng phụ lên file đúng mẫu (đã đối chứng trên file thật: kết quả giữ nguyên từng con số).",
+        "Nếu nhận nhầm, một cột tiền có thể bị đọc như tên hạng mục làm sai toàn bộ.",
+    ),
+    "test_grey_zone_file_now_parses_as_detail_and_matches": G(
+        "File format lạ (kiểu F1) giờ ghép khớp đầy đủ thay vì 0 khớp",
+        "File bố cục lạ: header ở dòng 4, cột đảo lộn, dùng TT/KL/Đv tính.",
+        "Ví dụ 2 hạng mục giống hệt PL01 nhưng trước đây ghép được 0 do dòng bị phân loại sai.",
+        "Các dòng được phân loại DETAIL đúng, ghép khớp 2/2, không còn thiếu/phát sinh giả.",
+        "Vá đúng điểm yếu 'vùng xám' đã phát hiện bằng thực nghiệm.",
+        "Người dùng từng có nguy cơ kết luận nhà thầu chào thiếu trong khi file chỉ khác format.",
+    ),
+    "test_low_match_ratio_triggers_warning": G(
+        "Cảnh báo khi ghép được quá ít hạng mục (dấu hiệu format chưa nhận diện đủ)",
+        "Một nhà thầu ghép được dưới 20% hạng mục so với bảng chuẩn (từ 10 hạng mục trở lên).",
+        "Ví dụ PL01 có 12 hạng mục nhưng file nhà thầu ghép được 0.",
+        "Xuất hiện cảnh báo nêu đúng tên nhà thầu, tỷ lệ ghép, và nói rõ các dòng 'thiếu/phát sinh' có thể là GIẢ.",
+        "Người dùng không tin nhầm vào kết quả khi file thực ra không được đọc trọn vẹn.",
+        "Không có cảnh báo, kết quả 'trông như đúng' nhưng vô nghĩa có thể dẫn đến kết luận sai về nhà thầu.",
+    ),
+    "test_normal_match_ratio_has_no_low_match_warning": G(
+        "Không cảnh báo ghép thấp khi tỷ lệ khớp bình thường",
+        "Nhà thầu chào đủ và khớp hầu hết hạng mục.",
+        "Ví dụ 12/12 hạng mục khớp với PL01.",
+        "Không xuất hiện cảnh báo ghép thấp (đã đối chứng cả trên file Hacom thật).",
+        "Tránh báo động giả làm loãng các cảnh báo thật.",
+        "Cảnh báo tràn lan sẽ khiến người dùng bỏ qua cảnh báo quan trọng.",
+    ),
+    "test_small_files_never_trigger_low_match_warning": G(
+        "Bảng chuẩn quá nhỏ (<10 hạng mục) không kích hoạt cảnh báo ghép thấp",
+        "Với vài hạng mục, tỷ lệ ghép không đủ ý nghĩa thống kê.",
+        "Ví dụ PL01 chỉ có 2 hạng mục và nhà thầu ghép 0.",
+        "Không cảnh báo ghép thấp (các cơ chế khác như 'thiếu hạng mục' vẫn hoạt động bình thường).",
+        "Ngưỡng cảnh báo được giới hạn đúng phạm vi nó có ý nghĩa.",
+        "Cảnh báo trên mẫu quá nhỏ dễ sai và gây nhiễu.",
+    ),
+
+    # -------------------------------------------------------------------------
     # Hiệu năng: cache SHA-256 + ghi file đánh dấu đa tiến trình
     # -------------------------------------------------------------------------
     "test_parse_cache_hit_returns_equal_but_independent_copy": G(

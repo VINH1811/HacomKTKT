@@ -49,6 +49,42 @@ _PRICED_LIKE_BID = 0.50
 _UNPRICED_LIKE_INVITATION = 0.05
 
 
+# Ngưỡng cảnh báo ghép cặp thấp bất thường: dưới 20% hạng mục chuẩn ghép được
+# (khi bảng chuẩn có từ 10 hạng mục trở lên) gần như chắc chắn là file định
+# dạng lạ không được đọc trọn vẹn, không phải nhà thầu chào thiếu thật.
+_LOW_MATCH_RATIO = 0.20
+_LOW_MATCH_MIN_ITEMS = 10
+
+
+def low_match_warnings(reference, reference_label: str, rows: list) -> list[str]:
+    """Cảnh báo khi một nhà thầu ghép được quá ít hạng mục so với bảng chuẩn.
+
+    Nguyên nhân phổ biến: file dùng định dạng/thuật ngữ cột chưa được nhận diện
+    đầy đủ, khiến các dòng bị phân loại sai và toàn bộ thành 'thiếu/phát sinh'
+    giả. Chỉ cảnh báo, không đổi kết quả.
+    """
+    ref_total = sum(1 for item in reference.items if item.is_comparable) if reference else 0
+    if ref_total < _LOW_MATCH_MIN_ITEMS:
+        return []
+    matched_by_bidder: dict[str, int] = defaultdict(int)
+    bidders_seen: set[str] = set()
+    for row in rows:
+        bidders_seen.add(row.bidder)
+        if row.match.kind not in {MatchKind.MISSING, MatchKind.EXTRA}:
+            matched_by_bidder[row.bidder] += 1
+    warnings: list[str] = []
+    for bidder in sorted(bidders_seen):
+        ratio = matched_by_bidder.get(bidder, 0) / ref_total
+        if ratio < _LOW_MATCH_RATIO:
+            warnings.append(
+                f"⚠️ Chỉ ghép được {ratio:.0%} hạng mục giữa {reference_label} và '{bidder}' "
+                f"({matched_by_bidder.get(bidder, 0)}/{ref_total}). File của nhà thầu có thể dùng định dạng/"
+                f"thuật ngữ cột chưa được nhận diện đầy đủ (ví dụ thiếu cột STT, đơn vị tính) — các dòng "
+                f"'thiếu/phát sinh' có thể là GIẢ. Hãy kiểm tra lại định dạng file trước khi kết luận."
+            )
+    return warnings
+
+
 def misplacement_warnings(reference, reference_label: str, bidders: list) -> list[str]:
     """Cảnh báo (không tự sửa) khi nghi ngờ đặt nhầm vị trí file.
 

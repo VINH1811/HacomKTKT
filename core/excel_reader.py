@@ -43,6 +43,9 @@ _HEADER_TERMS = (
     "don gia", "đơn giá", "thanh tien", "thành tiền", "thuong hieu", "thương hiệu",
     "xuat xu", "xuất xứ", "ma hieu", "mã hiệu", "mo ta", "mô tả",
     "ten hang muc", "tên hạng mục", "dvt", "đvt",
+    # Biến thể viết ngắn/khác thuật ngữ thường gặp ở file ngoài mẫu quen thuộc.
+    "so luong", "số lượng", "hang muc", "hạng mục", "dv tinh", "đv tính",
+    "noi dung", "nội dung", "so thu tu", "số thứ tự",
 )
 
 _FLOOR_COLUMN = re.compile(r"\btang\s*(?:\d+|ham|h\b)", re.I)
@@ -94,9 +97,9 @@ def _header_score(flat: list[str]) -> int:
     joined = " | ".join(normalize_text(value) for value in flat)
     score = sum(3 for term in _HEADER_TERMS if normalize_text(term) in joined)
     populated = sum(bool(normalize_text(v)) for v in flat)
-    if "stt" in joined:
+    if "stt" in joined or re.search(r"\btt\b", joined):
         score += 8
-    if "dien giai" in joined or "noi dung cong viec" in joined or "danh muc" in joined:
+    if "dien giai" in joined or "noi dung cong viec" in joined or "danh muc" in joined or "hang muc" in joined or "hạng mục" in joined:
         score += 8
     if "don gia" in joined or "thanh tien" in joined:
         score += 6
@@ -210,6 +213,24 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
             candidates["brand"].append((60, col)); continue
         if "xuat xu" in text:
             candidates["origin"].append((60, col)); continue
+
+        # Biến thể viết ngắn / khác thuật ngữ (file ngoài mẫu quen): "TT"/"Số TT"
+        # thay STT, "Đv tính"/"ĐV" thay ĐVT, "Số lượng"/"SL" thay Khối lượng,
+        # "Hạng mục"/"Nội dung"/"Mô tả" đứng một mình thay Tên hạng mục, "Giá"
+        # trơ trọi thay Đơn giá. Ưu tiên thấp hơn thuật ngữ chuẩn nên không đè
+        # mapping của các file đúng mẫu; loại trừ từ số liệu để không nhận nhầm.
+        if text in {"tt", "so tt"} or "so thu tu" in text:
+            candidates["stt"].append((90, col)); continue
+        if "dv tinh" in text or text == "dv":
+            candidates["unit"].append((80, col)); continue
+        if "so luong" in text or re.search(r"\bsl\b", text):
+            field = "bid_quantity" if role is DocumentRole.HSDT else "reference_quantity"
+            candidates[field].append((45, col)); continue
+        if any(term in text for term in ("hang muc", "noi dung", "mo ta", "ten cong viec")) and not any(
+                bad in text for bad in ("thanh tien", "don gia", "gia tri", "khoi luong", "so luong", "quy cach")):
+            candidates["item_name"].append((60, col)); continue
+        if text == "gia" or text == "gia chao" or text == "don gia chao":
+            candidates["unit_price_total"].append((55, col)); continue
 
     used_cols: set[int] = set()
     for field, values in candidates.items():

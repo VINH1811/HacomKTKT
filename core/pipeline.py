@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from .anomaly import enrich_consensus_anomalies
-from .comparison import build_bidder_rows, make_result, misplacement_warnings
+from .comparison import build_bidder_rows, low_match_warnings, make_result, misplacement_warnings
 from .config import EnterpriseConfig
 from .excel_reader import file_sha256
 from .matcher import match_items_cached
@@ -76,8 +76,9 @@ def compare_tender_files(
     enrich_consensus_anomalies(rows, config)
     result = make_result(rows, reference, bidders, _audit(reference, bidders, config, "HSMT_vs_HSDT"))
     # Cảnh báo nếu nghi đặt nhầm HSMT ↔ HSDT (file ở ô HSMT đã chào giá, hoặc một
-    # HSDT chưa có giá).
+    # HSDT chưa có giá), và nếu tỷ lệ ghép cặp thấp bất thường (định dạng lạ).
     result.warnings.extend(misplacement_warnings(reference, "HSMT", bidders))
+    result.warnings.extend(low_match_warnings(reference, "HSMT", rows))
     if output_path:
         _write_report(result, output_path, config)
     return result

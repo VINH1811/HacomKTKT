@@ -11,7 +11,7 @@ from pickle import PicklingError
 from typing import Iterable, Optional
 
 from .annotator import annotate_bidder_workbook
-from .comparison import build_bidder_rows, make_result, misplacement_warnings
+from .comparison import build_bidder_rows, low_match_warnings, make_result, misplacement_warnings
 from .config import EnterpriseConfig
 from .excel_io import read_workbook_matrices
 from .excel_reader import detect_header, file_sha256, map_columns
@@ -456,6 +456,8 @@ def compare_appendices_with_bidders(
     result = make_result(rows, reference, bidders, audit)
     result.warnings.extend(role_warnings)
     result.warnings.extend(misplace_warnings)
+    if pl1:
+        result.warnings.extend(low_match_warnings(reference, "Phụ lục 01", rows))
     result.warnings.extend(pl2_warnings)
     if not pl1:
         if peer_price_enabled:
