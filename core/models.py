@@ -159,6 +159,8 @@ class WorkbookData:
     read_seconds: float = 0.0
     formula_issues: list[dict[str, Any]] = field(default_factory=list)
     external_link_count: int = 0
+    # SHA-256 đầy đủ của file nguồn — dùng làm khóa cache parse/ghép cặp.
+    content_sha: str = ""
 
 
 @dataclass(slots=True)

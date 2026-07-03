@@ -1256,6 +1256,73 @@ KNOWN_GUIDES: dict[str, Guide] = {
     # -------------------------------------------------------------------------
     # Cảnh báo đặt nhầm vị trí file (mời thầu vs dự thầu) — không tự sửa
     # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # Hiệu năng: cache SHA-256 + ghi file đánh dấu đa tiến trình
+    # -------------------------------------------------------------------------
+    "test_parse_cache_hit_returns_equal_but_independent_copy": G(
+        "Cache đọc file: lần chạy lặp dùng lại dữ liệu đã parse nhưng là bản sao độc lập",
+        "Cùng một file được xử lý lại (rất phổ biến khi test đi test lại): hệ thống dùng cache theo mã SHA-256 nội dung file để bỏ qua bước đọc.",
+        "Ví dụ nạp cùng file 2 lần; lần 1 cố tình 'làm bẩn' dữ liệu trả về.",
+        "Lần 2 trúng cache nhưng nhận bản sao sạch, độc lập — không dính bất kỳ thay đổi nào của lần 1; nội dung nghiệp vụ giống hệt lần đọc gốc.",
+        "Tăng tốc lần chạy lặp mà không có rủi ro dữ liệu lần trước 'nhiễm' sang lần sau.",
+        "Nếu dùng chung object, một lần chạy có thể làm sai kết quả của mọi lần chạy sau.",
+    ),
+    "test_parse_cache_invalidated_when_file_content_changes": G(
+        "Cache tự vô hiệu khi nội dung file thay đổi",
+        "Người dùng sửa file rồi tải lên lại — dù tên file giống hệt.",
+        "Ví dụ đổi đơn giá trong file rồi chạy lại.",
+        "Hệ thống đọc lại file mới (SHA đổi là khóa cache đổi), tuyệt đối không trả dữ liệu cũ.",
+        "Đảm bảo cache không bao giờ cho kết quả lỗi thời.",
+        "Nếu dính cache cũ, người dùng sửa file mà kết quả không đổi — sai nghiêm trọng.",
+    ),
+    "test_parse_cache_overrides_bidder_and_path_per_run": G(
+        "Cache dùng lại được giữa các job dù tên file/tên nhà thầu khác nhau",
+        "Mỗi lần tải lên, file được lưu với tên khác (theo job) dù nội dung y hệt.",
+        "Ví dụ cùng nội dung nhưng job 1 đặt tên '002_a.xlsx'/NT Một, job 2 đặt '005_b.xlsx'/NT Hai.",
+        "Cache trúng theo nội dung (SHA), nhưng tên nhà thầu và tên file trong kết quả theo đúng lần chạy hiện tại.",
+        "Tối đa hoá tỉ lệ trúng cache giữa các lần chạy web mà không lẫn thông tin nhãn.",
+        "Nếu giữ nhãn cũ, kết quả hiển thị sai tên nhà thầu/file.",
+    ),
+    "test_parse_cache_disabled_when_size_zero": G(
+        "Có thể tắt hẳn cache bằng cấu hình",
+        "Quản trị viên muốn tắt cache (HSMT_PARSE_CACHE_SIZE=0) để tiết kiệm RAM hoặc gỡ lỗi.",
+        "Ví dụ đặt kích thước cache = 0 rồi nạp cùng file 2 lần.",
+        "Cả 2 lần đều đọc thật từ đĩa, không dùng cache.",
+        "Cho phép kiểm soát hành vi theo môi trường triển khai.",
+        "Nếu không tắt được, khó chẩn đoán khi nghi ngờ cache.",
+    ),
+    "test_match_cache_returns_identical_results_as_uncached": G(
+        "Cache ghép cặp: kết quả giống hệt khi không cache",
+        "Bước ghép hạng mục (tốn vài giây) được cache theo SHA của cả 2 file + toàn bộ tham số ghép.",
+        "Ví dụ ghép PL01 với hồ sơ nhà thầu 3 lần: 1 lần không cache, 2 lần qua cache.",
+        "Cả 3 lần cho kết quả giống hệt từng cặp/điểm số/lý do; bản trả về là bản sao độc lập.",
+        "Tăng tốc lần chạy lặp mà độ chính xác tuyệt đối không đổi.",
+        "Nếu cache trả sai, toàn bộ so sánh phía sau sai theo.",
+    ),
+    "test_match_cache_survives_threshold_changes_but_not_matcher_config": G(
+        "Đổi ngưỡng cảnh báo vẫn trúng cache ghép cặp; đổi tham số ghép thì không",
+        "Kịch bản phổ biến nhất: người dùng đổi ngưỡng (vd 5%→3%) rồi chạy lại cùng bộ file.",
+        "Ví dụ đổi ngưỡng khối lượng — việc ghép cặp không phụ thuộc ngưỡng nên dùng lại được; còn đổi điểm chấp nhận tên (tham số ghép thật) thì phải ghép lại.",
+        "Đổi ngưỡng: kết quả ghép giữ nguyên (trúng cache). Đổi tham số ghép: chạy lại matcher thật.",
+        "Lần chạy 'đổi ngưỡng rồi chạy lại' nhanh hơn hẳn mà vẫn đúng tuyệt đối.",
+        "Nếu khóa cache thiếu tham số ghép, đổi cấu hình mà kết quả không đổi — sai.",
+    ),
+    "test_end_to_end_cached_run_identical_to_uncached": G(
+        "Đối chứng toàn luồng: chạy có cache cho kết quả Y HỆT chạy không cache",
+        "Chạy trọn luồng so sánh (PL01 + 2 nhà thầu) ở cả hai chế độ: cache tắt hoàn toàn và cache bật (lần 2 trúng cache toàn bộ).",
+        "So từng dòng kết quả: mức độ, kiểu khớp, điểm số, cờ, chi tiết sai lệch, và mọi số liệu tổng quan.",
+        "Hai chế độ giống hệt nhau 100% — đây là bằng chứng trực tiếp cache không đổi độ chính xác.",
+        "Người dùng hưởng tốc độ mà không phải đánh đổi bất kỳ điều gì về kết quả.",
+        "Nếu khác dù 1 dòng, cache không được phép dùng.",
+    ),
+    "test_process_pool_annotation_output_identical_to_sequential": G(
+        "File đánh dấu tạo bằng đa tiến trình y hệt tạo tuần tự",
+        "Ghi file đánh dấu từng nhà thầu là bước chậm nhất; hệ thống chạy song song bằng tiến trình con để rút ngắn khi nhiều hồ sơ.",
+        "Ví dụ 2 nhà thầu: tạo file đánh dấu bằng cách tuần tự và bằng 2 tiến trình song song.",
+        "So từng ô (giá trị, màu nền, ghi chú) của 2 bộ file: giống hệt nhau hoàn toàn.",
+        "Nhiều hồ sơ được đánh dấu nhanh hơn hẳn mà file kết quả không khác một ô nào.",
+        "Nếu khác nhau, chế độ song song không được phép dùng.",
+    ),
     "test_fill_ratio_distinguishes_invitation_from_bid": G(
         "Phân biệt bảng mời thầu (chưa có giá) với hồ sơ dự thầu (đã chào giá)",
         "Hệ thống đo tỷ lệ hạng mục đã điền đơn giá để đoán file là bảng mời thầu hay hồ sơ dự thầu.",

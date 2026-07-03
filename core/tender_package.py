@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import re
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
+from pickle import PicklingError
 from typing import Iterable, Optional
 
 from .annotator import annotate_bidder_workbook
@@ -13,7 +15,7 @@ from .comparison import build_bidder_rows, make_result, misplacement_warnings
 from .config import EnterpriseConfig
 from .excel_io import read_workbook_matrices
 from .excel_reader import detect_header, file_sha256, map_columns
-from .matcher import match_items
+from .matcher import match_items, match_items_cached
 from .models import (
     ComparedItem,
     ComparisonResult,
@@ -144,6 +146,29 @@ def _requirements_audit(requirements: list[MaterialRequirement]) -> list[dict]:
         "origins": list(req.allowed_origins),
         "note": req.note,
     } for req in requirements]
+
+
+def _annotation_payload(bidder: WorkbookData, rows: list[ComparedItem]) -> tuple[WorkbookData, list[ComparedItem]]:
+    """Bản rút gọn gửi sang tiến trình con ghi file đánh dấu.
+
+    annotate_bidder_workbook chỉ đọc bidder/sheet_info/formula_issues/
+    external_link_count của workbook và các trường hiển thị của rows — KHÔNG
+    đọc items/raw/technical_specs. Loại chúng khỏi payload giảm ~10 lần chi phí
+    truyền dữ liệu giữa tiến trình mà file kết quả giữ nguyên từng byte nội dung
+    (đã có test đối chứng process-vs-tuần-tự bảo vệ).
+    """
+    lite_workbook = replace(bidder, items=[])
+
+    def lite_item(item):
+        if item is None:
+            return None
+        return replace(item, raw={}, technical_specs={})
+
+    lite_rows = [
+        replace(row, reference=lite_item(row.reference), candidate=lite_item(row.candidate))
+        for row in rows
+    ]
+    return lite_workbook, lite_rows
 
 
 def _no_boq_message(label: str) -> str:
@@ -327,7 +352,7 @@ def compare_appendices_with_bidders(
         rows: list[ComparedItem] = []
 
         def _match_one(workbook: WorkbookData) -> list[ComparedItem]:
-            matches = match_items(reference.items, workbook.items, config)
+            matches = match_items_cached(reference, workbook, config)
             return build_bidder_rows(
                 reference.items, workbook.items, workbook.bidder, matches, config, reference_is_boq=True,
             )
@@ -461,15 +486,30 @@ def compare_appendices_with_bidders(
         destination = output_dir / f"{_slug(source_path.stem)}__DA_DANH_DAU.xlsx"
         annotation_jobs.append((bidder, source_path, destination, bidder_rows))
 
-    workers = min(max(1, config.excel_write_workers), len(annotation_jobs))
-    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="excel-write") as executor:
-        future_map = {
-            executor.submit(annotate_bidder_workbook, source, destination, bidder, bidder_rows): (bidder, destination)
-            for bidder, source, destination, bidder_rows in annotation_jobs
-        }
-        for future in as_completed(future_map):
-            bidder, destination = future_map[future]
-            future.result()
+    # Ghi file đánh dấu bằng TIẾN TRÌNH con (openpyxl bị GIL nên thread không
+    # tăng tốc). Cùng hàm annotate_bidder_workbook, cùng input -> file kết quả
+    # y hệt cách chạy tuần tự; nếu tiến trình con gặp trục trặc hạ tầng
+    # (spawn/pickle) thì tự động chạy lại tuần tự như cũ.
+    workers = min(max(1, config.annotate_workers), len(annotation_jobs))
+    ran_parallel = False
+    if workers > 1 and len(annotation_jobs) > 1:
+        try:
+            with ProcessPoolExecutor(max_workers=workers) as executor:
+                future_map = {}
+                for bidder, source, destination, bidder_rows in annotation_jobs:
+                    lite_bidder, lite_rows = _annotation_payload(bidder, bidder_rows)
+                    future = executor.submit(annotate_bidder_workbook, source, destination, lite_bidder, lite_rows)
+                    future_map[future] = (bidder, destination)
+                for future in as_completed(future_map):
+                    bidder, destination = future_map[future]
+                    future.result()
+                    annotated[bidder.bidder] = destination
+            ran_parallel = True
+        except (OSError, RuntimeError, BrokenProcessPool, PicklingError):
+            annotated.clear()
+    if not ran_parallel:
+        for bidder, source, destination, bidder_rows in annotation_jobs:
+            annotate_bidder_workbook(source, destination, bidder, bidder_rows)
             annotated[bidder.bidder] = destination
 
     manifest = {

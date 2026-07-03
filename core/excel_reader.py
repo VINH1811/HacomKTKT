@@ -306,7 +306,8 @@ def load_workbook_items(
     if path.suffix.lower() != ".xlsx":
         raise ValueError("Hệ thống nhận file .xlsx. Hãy Save As file .xls/.xlsb thành .xlsx trước khi chạy.")
 
-    source_id = file_sha256(path)[:16]
+    source_sha = file_sha256(path)
+    source_id = source_sha[:16]
     bidder_name = bidder or ("HSMT" if role is DocumentRole.HSMT else path.stem)
     matrices = read_workbook_matrices(
         path,
@@ -604,4 +605,5 @@ def load_workbook_items(
         read_seconds=matrices.elapsed_seconds,
         formula_issues=[issue.to_dict() for issue in scan.issues],
         external_link_count=scan.external_link_count,
+        content_sha=source_sha,
     )

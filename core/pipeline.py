@@ -7,7 +7,7 @@ from .anomaly import enrich_consensus_anomalies
 from .comparison import build_bidder_rows, make_result, misplacement_warnings
 from .config import EnterpriseConfig
 from .excel_reader import file_sha256
-from .matcher import match_items
+from .matcher import match_items_cached
 from .models import ComparisonResult, DocumentRole, UserFacingError, WorkbookData
 from .parallel import WorkbookLoadSpec, load_workbooks_parallel
 from .peer_analysis import enrich_peer_comparison
@@ -69,7 +69,7 @@ def compare_tender_files(
 
     rows = []
     for workbook in bidders:
-        matches = match_items(reference.items, workbook.items, config)
+        matches = match_items_cached(reference, workbook, config)
         rows.extend(build_bidder_rows(reference.items, workbook.items, workbook.bidder, matches, config))
 
     enrich_peer_comparison(rows, config)

@@ -40,6 +40,15 @@ class EnterpriseConfig:
     excel_scan_external_links: bool = True
     excel_fallback_openpyxl: bool = True
 
+    # Cache theo SHA-256 nội dung file: lần chạy lặp lại với cùng file bỏ qua
+    # được bước parse/ghép cặp. Giá trị 0 = tắt cache. Cache luôn trả bản sao
+    # độc lập nên không ảnh hưởng độ chính xác.
+    parse_cache_size: int = 6                    # số workbook đã parse giữ trong RAM
+    match_cache_size: int = 8                    # số kết quả ghép cặp giữ trong RAM
+    # Số tiến trình con ghi file đánh dấu song song (openpyxl bị GIL nên thread
+    # không tăng tốc; process thì có). 1 = tuần tự như cũ.
+    annotate_workers: int = 4
+
     # Matching
     model_root: Path = Path("models")
     embedding_model_path: str = ""
@@ -79,6 +88,9 @@ class EnterpriseConfig:
             excel_scan_formulas=_bool_env("HSMT_EXCEL_SCAN_FORMULAS", True),
             excel_scan_external_links=_bool_env("HSMT_EXCEL_SCAN_EXTERNAL_LINKS", True),
             excel_fallback_openpyxl=_bool_env("HSMT_EXCEL_FALLBACK_OPENPYXL", True),
+            parse_cache_size=_int_env("HSMT_PARSE_CACHE_SIZE", 6, 0, 64),
+            match_cache_size=_int_env("HSMT_MATCH_CACHE_SIZE", 8, 0, 64),
+            annotate_workers=_int_env("HSMT_ANNOTATE_WORKERS", 4, 1, 16),
             model_root=Path(os.getenv("HSMT_MODEL_ROOT", "models")),
             embedding_model_path=os.getenv("HSMT_EMBEDDING_MODEL", ""),
             reranker_model_path=os.getenv("HSMT_RERANKER_MODEL", ""),

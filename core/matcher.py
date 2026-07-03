@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections import defaultdict
-from dataclasses import dataclass
+import threading
+from collections import OrderedDict, defaultdict
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
@@ -11,7 +12,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 
 from .config import EnterpriseConfig
-from .models import ItemRecord, MatchKind, MatchResult, RowType
+from .models import ItemRecord, MatchKind, MatchResult, RowType, WorkbookData
 from .text_normalizer import normalize_name, token_set
 
 
@@ -1185,3 +1186,78 @@ def match_items(
     )
 
     return results
+
+
+# ---------------------------------------------------------------------------
+# Cache kết quả ghép cặp theo SHA-256 nội dung file.
+#
+# An toàn tuyệt đối:
+# - Khóa gồm SHA cả hai file + fingerprint tập items thực tế (sheet, dòng) +
+#   toàn bộ tham số matching: bất kỳ khác biệt nào về dữ liệu hay cấu hình đều
+#   tạo khóa khác -> không bao giờ trả nhầm kết quả cũ.
+# - Cache trả BẢN SAO của từng MatchResult, không dùng chung object.
+# - Đổi ngưỡng giá/khối lượng KHÔNG làm mất cache (matching không phụ thuộc
+#   các ngưỡng đó) — đây chính là kịch bản chạy lặp phổ biến nhất.
+# ---------------------------------------------------------------------------
+_MATCH_CACHE: "OrderedDict[tuple, list[MatchResult]]" = OrderedDict()
+_MATCH_CACHE_LOCK = threading.Lock()
+
+
+def clear_match_cache() -> None:
+    with _MATCH_CACHE_LOCK:
+        _MATCH_CACHE.clear()
+
+
+def _items_fingerprint(items: list[ItemRecord]) -> int:
+    # (sheet, dòng) xác định duy nhất từng item trong một file đã parse; kết hợp
+    # với SHA file + tham số parse trong khóa là đủ để nhận diện chính xác tập
+    # items đưa vào matcher (kể cả khi lọc theo sheet).
+    return hash(tuple((item.sheet, item.row_number) for item in items))
+
+
+def _match_config_fingerprint(config: EnterpriseConfig) -> tuple:
+    return (
+        config.enable_semantic_matching,
+        config.enable_reranker,
+        config.embedding_model_path,
+        config.reranker_model_path,
+        config.fuzzy_top_k,
+        config.semantic_top_k,
+        config.max_fuzzy_candidates,
+        config.thresholds.name_reject_score,
+        config.max_excel_rows,
+        config.excel_read_engine,
+    )
+
+
+def match_items_cached(
+    reference: WorkbookData,
+    candidate: WorkbookData,
+    config: EnterpriseConfig,
+) -> list[MatchResult]:
+    """match_items có cache theo SHA file; kết quả giống hệt match_items."""
+    capacity = max(0, int(getattr(config, "match_cache_size", 0) or 0))
+    if capacity <= 0 or not reference.content_sha or not candidate.content_sha:
+        return match_items(reference.items, candidate.items, config)
+
+    key = (
+        reference.content_sha,
+        candidate.content_sha,
+        _items_fingerprint(reference.items),
+        _items_fingerprint(candidate.items),
+        _match_config_fingerprint(config),
+    )
+    with _MATCH_CACHE_LOCK:
+        cached = _MATCH_CACHE.get(key)
+        if cached is not None:
+            _MATCH_CACHE.move_to_end(key)
+    if cached is not None:
+        return [replace(match) for match in cached]
+
+    matches = match_items(reference.items, candidate.items, config)
+    with _MATCH_CACHE_LOCK:
+        _MATCH_CACHE[key] = matches
+        _MATCH_CACHE.move_to_end(key)
+        while len(_MATCH_CACHE) > capacity:
+            _MATCH_CACHE.popitem(last=False)
+    return [replace(match) for match in matches]
