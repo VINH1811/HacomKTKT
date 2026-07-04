@@ -17,14 +17,20 @@ _SPLIT = re.compile(r"\s*/\s*|\s*;\s*|\s*,\s*")
 _DASH = re.compile(r"\s+-\s+")
 
 _STOPWORDS = {
-    "he", "thong", "vat", "tu", "thiet", "bi", "cung", "cap", "lap", "dat",
+    # KHÔNG đưa "cap" vào đây: "cáp" là danh từ ngành quan trọng (dây cáp) —
+    # loại nó làm yêu cầu "Hệ thống dây cáp hạ thế" mất từ phân biệt chính và
+    # hạng mục cáp bị ghép nhầm sang nhóm thiết bị đóng cắt.
+    "he", "thong", "vat", "tu", "thiet", "bi", "cung", "lap", "dat",
     "va", "cua", "cho", "phan", "loai", "don", "vi", "san", "xuat", "phu", "kien",
 }
 
 # Hints are intentionally domain-oriented, but they are only a bonus. The lexical
 # score still controls matching so the reader remains usable for other projects.
 _CATEGORY_HINTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
-    (("tu dien ha the",), ("tu dien", "msb", "mdb", "db", "ha the")),
+    # Không dùng hint "ha the": gần như mọi hạng mục điện đều nằm dưới mục
+    # "hạ thế" nên hint đó cộng điểm bừa cho nhóm tủ điện/đóng cắt, làm cáp
+    # điện bị ghép nhầm. Chỉ giữ các hint đặc trưng thật của tủ điện.
+    (("tu dien ha the",), ("tu dien", "msb", "mdb")),
     (("thiet bi dong cat tu dien ha the",), ("mccb", "acb", "mcb", "rcbo", "elcb", "dong cat")),
     (("thiet bi dong cat tu dien can ho",), ("mcb", "rcbo", "elcb", "tu can ho", "aptomat")),
     (("day cap ha the", "he thong day cap ha the"), ("cap", "cable", "xlpe", "pvc", "fr", "cu/")),
@@ -245,7 +251,9 @@ class PL2Matcher:
             hints: list[str] = []
             for req_keys, item_hints in _CATEGORY_HINTS:
                 if any(key in normalized_name for key in req_keys):
-                    hints.extend(item_hints)
+                    # Chuẩn hóa hint qua _n để so theo NGUYÊN TỪ với item_text
+                    # (vd "cu/" -> "cu"); loại hint rỗng sau chuẩn hóa.
+                    hints.extend(h for h in (_n(hint) for hint in item_hints) if h)
             prepared.append(_PreparedRequirement(
                 requirement=requirement,
                 normalized_name=normalized_name,
@@ -272,6 +280,12 @@ class PL2Matcher:
         if not item_text:
             return None, 0.0
 
+        # So hint theo NGUYÊN TỪ (đệm khoảng trắng hai đầu), không substring:
+        # substring từng khiến hint "ong" (ống) khớp bừa vào "dong" (lõi đồng),
+        # hint "ha the" khớp mọi hạng mục điện — làm cáp bị ghép nhầm nhóm và
+        # báo sai thương hiệu.
+        padded_text = f" {item_text} "
+
         best: Optional[MaterialRequirement] = None
         best_score = 0.0
         for entry in self._prepared:
@@ -285,7 +299,17 @@ class PL2Matcher:
             ) / 100.0
             right = entry.tokens
             jaccard = len(left & right) / max(1, len(left | right))
-            hint_bonus = 0.28 if entry.item_hints and any(hint in item_text for hint in entry.item_hints) else 0.0
+            # Bonus phân bậc theo SỐ tín hiệu ngành khớp: một hạng mục cáp khớp
+            # 4-5 tín hiệu (cap/xlpe/pvc/fr/cu) phải thắng nhóm chỉ khớp 1 tín
+            # hiệu tình cờ (vd "pvc" trong vỏ cáp). Bonus nhị phân từng làm cáp
+            # vỏ PVC bị ghép nhầm sang nhóm ống luồn dây.
+            matched_hints = 0
+            for hint in entry.item_hints:
+                if f" {hint} " in padded_text:
+                    matched_hints += 1
+                    if matched_hints >= 2:
+                        break
+            hint_bonus = 0.28 if matched_hints >= 2 else (0.14 if matched_hints == 1 else 0.0)
             system_bonus = 0.05 if entry.system_tokens and left & entry.system_tokens else 0.0
             score = min(1.0, 0.72 * lexical + 0.28 * jaccard + hint_bonus + system_bonus)
             if score > best_score:

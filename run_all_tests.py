@@ -1257,6 +1257,66 @@ KNOWN_GUIDES: dict[str, Guide] = {
     # Cảnh báo đặt nhầm vị trí file (mời thầu vs dự thầu) — không tự sửa
     # -------------------------------------------------------------------------
     # -------------------------------------------------------------------------
+    # Ghép nhóm PL02 cho cáp điện (bug Taisin bị báo sai)
+    # -------------------------------------------------------------------------
+    "test_cap_token_is_not_a_stopword": G(
+        "Từ 'cáp' không được coi là từ vô nghĩa khi ghép nhóm PL02",
+        "Trước đây 'cáp' bị loại khỏi phân tích (nhầm với 'cung cấp') khiến nhóm 'Hệ thống dây cáp hạ thế' mất từ nhận diện chính.",
+        "Ví dụ phân tích cụm 'hệ thống dây cáp hạ thế' phải giữ lại từ 'cáp'.",
+        "Từ 'cáp' xuất hiện trong danh sách từ khóa sau phân tích.",
+        "Nhóm cáp có đủ đặc trưng để thắng khi ghép các hạng mục dây cáp.",
+        "Mất từ 'cáp' làm mọi hạng mục cáp dễ bị ghép nhầm sang nhóm khác.",
+    ),
+    "test_fr_cable_matches_cable_group_and_taisin_compliant": G(
+        "Cáp FR hiệu Taisin phải được ghép đúng nhóm cáp và ĐẠT yêu cầu PL02",
+        "Đúng trường hợp người dùng phát hiện: cáp Cu/FR/XLPE hiệu Taisin — Taisin CÓ trong danh sách nhóm 'Hệ thống dây cáp hạ thế' của PL02.",
+        "Ví dụ 'Cu/FR/XLPE (1x240)mm2', thương hiệu Taisin, xuất xứ Việt Nam.",
+        "Ghép đúng nhóm cáp và trạng thái 'PHÙ HỢP DANH SÁCH PL02' — không còn báo sai 'ngoài danh sách (Schneider/ABB/Siemens)'.",
+        "Nhà thầu chào đúng thương hiệu cho phép không bị báo lỗi oan (bug đã sửa: 105 dòng báo sai → 9).",
+        "Báo sai hàng loạt làm người thẩm định nghi ngờ nhầm nhà thầu và mất niềm tin vào hệ thống.",
+    ),
+    "test_pvc_sheathed_cable_not_stolen_by_conduit_group": G(
+        "Cáp vỏ PVC không bị hút nhầm sang nhóm 'Ống luồn dây PVC'",
+        "Nhiều loại cáp có chữ 'PVC' trong tên (vỏ bọc PVC) — một chữ trùng không đủ để coi là ống luồn dây.",
+        "Ví dụ 'Cu/XLPE/PVC (3x240+1x120)mm2' — là cáp, không phải ống.",
+        "Ghép đúng nhóm 'Hệ thống dây cáp hạ thế' nhờ cơ chế cộng điểm theo SỐ tín hiệu ngành khớp (cáp khớp 4-5 tín hiệu, ống chỉ 1).",
+        "44 dòng cáp vỏ PVC từng bị ghép sai nay về đúng nhóm.",
+        "Ghép sai nhóm dẫn tới so thương hiệu với danh sách sai và báo lỗi oan.",
+    ),
+    "test_copper_core_does_not_trigger_ong_hint": G(
+        "Chữ 'đồng' (lõi đồng) không được kích hoạt nhầm tín hiệu 'ống'",
+        "Trước đây tín hiệu so theo chuỗi con: 'ong' nằm trong 'dong' (lõi đồng) nên mọi cáp lõi đồng bị cộng điểm oan cho nhóm ống.",
+        "Ví dụ 'Cáp điện 0,6kV, lõi đồng' — không liên quan gì đến ống.",
+        "Tín hiệu giờ so theo NGUYÊN TỪ: 'ong' chỉ khớp khi có từ 'ống' đứng riêng; cáp lõi đồng ghép đúng nhóm cáp.",
+        "Loại bỏ tận gốc lớp lỗi 'khớp chuỗi con bừa' (cùng họ với lỗi 'ha the' khớp mọi hạng mục điện).",
+        "Khớp chuỗi con bừa tạo điểm cộng ngẫu nhiên, làm kết quả ghép nhóm không ổn định.",
+    ),
+    "test_real_conduit_still_matches_conduit_group": G(
+        "Ống luồn dây thật vẫn về đúng nhóm ống sau khi sửa",
+        "Việc sửa lỗi cho cáp không được làm lệch các hạng mục ống thật.",
+        "Ví dụ 'Ống luồn dây PVC cứng D20' hiệu Sino.",
+        "Vẫn ghép đúng 'Ống luồn dây điện PVC' và đạt yêu cầu (Sino trong danh sách).",
+        "Đối chứng hai chiều: sửa nhóm này không phá nhóm kia.",
+        "Sửa lệch một phía có thể chuyển lỗi từ nhóm cáp sang nhóm ống.",
+    ),
+    "test_switchgear_still_matches_switchgear_group": G(
+        "Tủ điện/thiết bị đóng cắt vẫn về đúng họ tủ điện",
+        "Các hạng mục tủ điện không bị ảnh hưởng bởi các thay đổi cho nhóm cáp.",
+        "Ví dụ 'Tủ điện LV-G.1+LV-G.2' với thiết bị đóng cắt Schneider.",
+        "Vẫn ghép vào đúng họ tủ điện/đóng cắt (trên file thật: số MCCB/ACB ghép đúng nhóm tăng 208→277, ghép sai nhóm 262→0).",
+        "Độ phủ kiểm tra PL02 cho thiết bị quan trọng tăng thật chứ không giảm.",
+        "Nếu tủ điện lệch nhóm, các thiết bị giá trị lớn nhất sẽ bị kiểm sai danh sách.",
+    ),
+    "test_single_incidental_hint_gets_smaller_bonus_than_multiple": G(
+        "Khớp 1 tín hiệu tình cờ phải được cộng điểm ít hơn khớp nhiều tín hiệu thật",
+        "Cơ chế cộng điểm phân bậc: nhóm khớp nhiều tín hiệu ngành đáng tin hơn nhóm chỉ trùng 1 chữ.",
+        "Ví dụ cùng một hạng mục cáp: nhóm cáp khớp cap/xlpe/pvc/cu, nhóm ống chỉ khớp 'pvc'.",
+        "Điểm của nhóm cáp cao hơn nhóm ống cho hạng mục đó.",
+        "Nguyên tắc tổng quát (không vá riêng ca nào): càng nhiều bằng chứng càng đáng tin.",
+        "Cộng điểm cào bằng khiến 1 chữ trùng tình cờ có sức nặng ngang 5 bằng chứng thật.",
+    ),
+
+    # -------------------------------------------------------------------------
     # Vùng xám format lạ: từ điển cột mở rộng + cảnh báo ghép thấp
     # -------------------------------------------------------------------------
     "test_variant_headers_tt_dvtinh_kl_are_mapped": G(
