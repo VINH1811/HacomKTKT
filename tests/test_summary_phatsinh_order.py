@@ -123,9 +123,10 @@ def _extra_x(cid, bidder, bidder_row, name, price) -> ComparedItem:
     return ComparedItem(cid, bidder, None, cand, MatchResult(None, 0, MatchKind.EXTRA, 0.0))
 
 
-def test_phatsinh_gathered_into_reference_sheet_multi_bidder(tmp_path: Path):
-    # 2 nhà thầu; PL01 tên sheet khác nhà thầu. Phát sinh của từng nhà thầu phải
-    # được GOM về đúng trang PL01 và nằm ở CUỐI, không tách ra worksheet riêng.
+def test_summary_uses_bidder_sheet_names_multi_bidder(tmp_path: Path):
+    # 2 nhà thầu; PL01 đặt tên sheet KHÁC nhà thầu. Bảng tổng hợp phải giữ theo
+    # sheet của FILE NHÀ THẦU (file gốc), không đổi sang tên sheet của PL01; phát
+    # sinh của từng nhà thầu nằm ở CUỐI trang đó.
     rows = [
         _matched_x("HM1", pl01_row=5, name="Tủ điện tổng", bidder="NT A", bidder_row=5, price=100),
         _matched_x("HM2", pl01_row=6, name="Cáp điện CU XLPE", bidder="NT A", bidder_row=6, price=200),
@@ -142,16 +143,16 @@ def test_phatsinh_gathered_into_reference_sheet_multi_bidder(tmp_path: Path):
     export_consolidated_summary(result, out)
 
     wb = load_workbook(out)
-    # Phát sinh KHÔNG tạo worksheet riêng theo tên sheet nhà thầu.
-    assert BIDDER_SHEET not in wb.sheetnames
-    assert PL01_SHEET in wb.sheetnames
+    # Giữ tên sheet của nhà thầu; KHÔNG dùng tên sheet của PL01.
+    assert BIDDER_SHEET in wb.sheetnames
+    assert PL01_SHEET not in wb.sheetnames
 
-    names = _diengiai_order(wb[PL01_SHEET])
+    names = _diengiai_order(wb[BIDDER_SHEET])
 
     def idx(part):
         return next(i for i, n in enumerate(names) if part in n)
 
-    # Hạng mục khớp theo thứ tự PL01, rồi phát sinh của cả hai nhà thầu ở cuối.
+    # Hạng mục khớp giữ thứ tự, rồi phát sinh của cả hai nhà thầu ở cuối.
     assert idx("Tủ điện tổng") < idx("Cáp điện CU XLPE")
     assert idx("Cáp điện CU XLPE") < idx("Bổ sung của NT A")
     assert idx("Cáp điện CU XLPE") < idx("Bổ sung của NT B")
