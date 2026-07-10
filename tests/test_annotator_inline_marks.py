@@ -1,5 +1,5 @@
-"""File đánh dấu: KHÔNG thêm cột AI bên cạnh dữ liệu, chỉ tô màu + chú thích
-(comment) trực tiếp lên ô có vấn đề; giữ 2 sheet phụ AI_TONG_QUAN/AI_KIEM_TRA.
+"""File đánh dấu: KHÔNG thêm cột AI; chỉ tô màu + chú thích (comment) lên ĐÚNG
+những ô có sai lệch. Hạng mục khớp (kể cả khác sheet) không bị đánh dấu.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ from core.config import EnterpriseConfig
 from core.tender_package import compare_appendices_with_bidders
 
 _AI_COLUMNS = {"AI MỨC ĐỘ", "AI LÝ DO", "AI GHI CHÚ"}
-BIDDER_SHEET = "1. HT điện"
+SHEET = "1. HT điện"
+NAME_COL, QTY_COL = 3, 6  # Tên hạng mục, Khối lượng nhà thầu chào
 
 
 def _cfg(**kw) -> EnterpriseConfig:
@@ -24,27 +25,31 @@ def _cfg(**kw) -> EnterpriseConfig:
     return cfg
 
 
-def _pl1(path: Path) -> None:
-    wb = Workbook(); ws = wb.active; ws.title = "KLMT"
+def _has_fill(cell) -> bool:
+    return bool(cell.fill and cell.fill.patternType and cell.fill.fgColor.rgb not in (None, "00000000"))
+
+
+def _bidder_header(ws) -> None:
+    ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng mời thầu",
+               "Khối lượng nhà thầu chào", "Đơn giá tổng hợp", "Thành tiền"])
+
+
+def _run(tmp_path: Path, pl1_sheet: str, bidder_rows: list[list]) -> Path:
+    pl1 = tmp_path / "pl1.xlsx"
+    wb = Workbook(); ws = wb.active; ws.title = pl1_sheet
     ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng"])
     ws.append(["1", "M-01", "Tủ điện tổng", "Cái", 2])
     ws.append(["2", "M-02", "Cáp đồng XLPE 4x10", "m", 100])
-    wb.save(path)
+    ws.append(["3", "M-03", "Máy bơm nước", "Bộ", 1])
+    wb.save(pl1)
 
+    bidder = tmp_path / "b.xlsx"
+    wb = Workbook(); ws = wb.active; ws.title = SHEET
+    _bidder_header(ws)
+    for r in bidder_rows:
+        ws.append(r)
+    wb.save(bidder)
 
-def _bidder(path: Path) -> None:
-    wb = Workbook(); ws = wb.active; ws.title = BIDDER_SHEET
-    ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng mời thầu",
-               "Khối lượng nhà thầu chào", "Đơn giá tổng hợp", "Thành tiền"])
-    ws.append(["1", "M-01", "Tủ điện tổng", "Cái", 2, 2, 1_000_000, 2_000_000])
-    # Khối lượng chào 130 vs KLMT 100 -> lệch, phải bị đánh dấu.
-    ws.append(["2", "M-02", "Cáp đồng XLPE 4x10", "m", 100, 130, 50_000, 6_500_000])
-    wb.save(path)
-
-
-def _annotate(tmp_path: Path) -> Path:
-    pl1 = tmp_path / "pl1.xlsx"; _pl1(pl1)
-    bidder = tmp_path / "b.xlsx"; _bidder(bidder)
     out = compare_appendices_with_bidders(
         [("NT A", bidder)], tmp_path / "out", pl1_path=pl1,
         config=_cfg(annotate_workers=1, parse_cache_size=0, match_cache_size=0),
@@ -52,33 +57,54 @@ def _annotate(tmp_path: Path) -> Path:
     return Path(out.annotated_files["NT A"])
 
 
+# Cùng tên sheet với PL01 -> ghép chắc chắn theo mã/cấu trúc.
+def _annotate_same_sheet(tmp_path: Path) -> Path:
+    return _run(tmp_path, SHEET, [
+        # Dòng 2: TÊN khác (mã/STT/khối lượng giống) -> chỉ lệch tên.
+        ["1", "M-01", "Máy phát điện dự phòng 500kVA", "Cái", 2, 2, 1_000_000, 2_000_000],
+        # Dòng 3: KHỐI LƯỢNG chào khác (tên giống) -> chỉ lệch khối lượng.
+        ["2", "M-02", "Cáp đồng XLPE 4x10", "m", 100, 130, 50_000, 6_500_000],
+        # Dòng 4: khớp hoàn toàn -> KHÔNG đánh dấu gì.
+        ["3", "M-03", "Máy bơm nước", "Bộ", 1, 1, 3_000_000, 3_000_000],
+    ])
+
+
 def test_no_ai_columns_added_beside_data(tmp_path: Path):
-    wb = load_workbook(_annotate(tmp_path))
-    ws = wb[BIDDER_SHEET]
+    ws = load_workbook(_annotate_same_sheet(tmp_path))[SHEET]
     headers = {str(c.value) for c in ws[1] if c.value is not None}
-    # Không còn bất kỳ cột AI nào bên cạnh dữ liệu.
     assert not (headers & _AI_COLUMNS), headers
     assert not any(str(h).startswith("AI ") for h in headers)
-    # Số cột đúng bằng file gốc (8), không phình thêm cột.
-    assert ws.max_column == 8
+    assert ws.max_column == 8  # đúng số cột file gốc, không phình
 
 
 def test_front_sheets_kept(tmp_path: Path):
-    wb = load_workbook(_annotate(tmp_path))
+    wb = load_workbook(_annotate_same_sheet(tmp_path))
     assert "AI_TONG_QUAN" in wb.sheetnames
     assert "AI_KIEM_TRA" in wb.sheetnames
 
 
-def test_problem_cells_have_fill_and_hover_comment(tmp_path: Path):
-    wb = load_workbook(_annotate(tmp_path))
-    ws = wb[BIDDER_SHEET]
+def test_only_the_problem_cell_is_marked(tmp_path: Path):
+    ws = load_workbook(_annotate_same_sheet(tmp_path))[SHEET]
 
-    commented = [c for row in ws.iter_rows() for c in row if c.comment is not None]
-    filled = [c for row in ws.iter_rows() for c in row
-              if c.fill is not None and c.fill.patternType and c.fill.fgColor.rgb not in (None, "00000000")]
+    # Dòng lệch TÊN: chỉ ô tên hạng mục bị bôi + chú thích, ô khối lượng thì không.
+    assert ws.cell(2, NAME_COL).comment is not None and _has_fill(ws.cell(2, NAME_COL))
+    assert ws.cell(2, QTY_COL).comment is None and not _has_fill(ws.cell(2, QTY_COL))
 
-    # Có ít nhất một ô được gắn chú thích (di chuột hiện ra) và một ô được tô màu.
-    assert commented, "Phải có ô mang chú thích khi di chuột"
-    assert filled, "Phải có ô được tô màu"
-    # Chú thích nằm ngay trên ô dữ liệu (không phải trên cột phụ nào).
-    assert all(c.column <= 8 for c in commented)
+    # Dòng lệch KHỐI LƯỢNG: chỉ ô khối lượng bị bôi + chú thích, ô tên thì không.
+    assert ws.cell(3, QTY_COL).comment is not None and _has_fill(ws.cell(3, QTY_COL))
+    assert ws.cell(3, NAME_COL).comment is None and not _has_fill(ws.cell(3, NAME_COL))
+
+    # Dòng khớp hoàn toàn: KHÔNG có ô nào bị bôi hay chú thích.
+    assert all(ws.cell(4, c).comment is None and not _has_fill(ws.cell(4, c)) for c in range(1, 9))
+
+
+def test_matched_but_different_sheet_is_not_marked(tmp_path: Path):
+    # PL01 tên sheet KHÁC nhà thầu, hạng mục khớp hoàn toàn -> chỉ là "khác sheet",
+    # KHÔNG được tô màu hay chú thích.
+    ann = _run(tmp_path, "KLMT", [
+        ["1", "M-01", "Tủ điện tổng", "Cái", 2, 2, 1_000_000, 2_000_000],
+        ["2", "M-02", "Cáp đồng XLPE 4x10", "m", 100, 100, 50_000, 5_000_000],
+    ])
+    ws = load_workbook(ann)[SHEET]
+    for row in (2, 3):
+        assert all(ws.cell(row, c).comment is None and not _has_fill(ws.cell(row, c)) for c in range(1, 9))

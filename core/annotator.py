@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Iterable
 
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
@@ -23,12 +22,7 @@ _FONT = {
     Severity.WARNING: "C65911",
     Severity.CRITICAL: "9C0006",
 }
-_RANK = {Severity.OK: 0, Severity.INFO: 1, Severity.REVIEW: 2, Severity.WARNING: 3, Severity.CRITICAL: 4}
 _THIN = Side(style="thin", color="D9E1F2")
-
-
-def _worst(rows: Iterable[ComparedItem]) -> Severity:
-    return max((row.severity for row in rows), key=lambda s: _RANK[s], default=Severity.OK)
 
 
 def _sheet_meta(workbook: WorkbookData) -> dict[str, dict]:
@@ -167,17 +161,15 @@ def annotate_bidder_workbook(
     try:
         summary_ws, review_ws = _prepare_review_sheet(wb, bidder_workbook.bidder)
         meta = _sheet_meta(bidder_workbook)
+        # CHỈ đánh dấu các dòng có sai lệch (severity khác OK). Hạng mục khớp —
+        # kể cả khớp nhưng khác tên sheet (chỉ là ghi chú, không phải lỗi) — KHÔNG
+        # được tô màu hay gắn chú thích trong file nhà thầu.
         grouped_by_location: dict[tuple[str, int], list[ComparedItem]] = defaultdict(list)
-        notes_by_location: dict[tuple[str, int], list[str]] = defaultdict(list)
         for compared in rows:
-            if compared.candidate is None:
+            if compared.candidate is None or compared.severity is Severity.OK:
                 continue
             location = (compared.candidate.sheet, compared.candidate.row_number)
-            if compared.severity is not Severity.OK:
-                grouped_by_location[location].append(compared)
-            for note in compared.notes:
-                if note not in notes_by_location[location]:
-                    notes_by_location[location].append(note)
+            grouped_by_location[location].append(compared)
 
         review_row = 2
         counts = defaultdict(int)
@@ -268,51 +260,32 @@ def annotate_bidder_workbook(
         # Bản đồ cột cho từng sheet — KHÔNG thêm bất kỳ cột nào vào file dữ liệu.
         # Chỉ dùng để biết ô giá trị nào cần tô màu và gắn chú thích trực tiếp.
         sheet_fields: dict[str, dict[str, int]] = {}
-        item_cols: dict[str, int] = {}
         for sheet_name, info in meta.items():
             if sheet_name not in wb.sheetnames:
                 continue
-            fields = {str(k): int(v) for k, v in (info.get("field_columns") or {}).items()}
-            sheet_fields[sheet_name] = fields
-            item_cols[sheet_name] = fields.get("item_name", 2)
+            sheet_fields[sheet_name] = {str(k): int(v) for k, v in (info.get("field_columns") or {}).items()}
 
-        # Ghi chú thông tin (ví dụ khác tên sheet) cho cả dòng OK lẫn dòng bất
-        # thường -> gắn CHÚ THÍCH lên ô tên hạng mục, KHÔNG tô màu, KHÔNG đổi mức
-        # độ, và không đưa vào AI_KIEM_TRA.
-        for (sheet_name, row_number), notes in notes_by_location.items():
-            if sheet_name not in wb.sheetnames or sheet_name not in sheet_fields:
-                continue
-            ws = wb[sheet_name]
-            note_text = "Ghi chú:\n" + "\n".join(f"- {note}" for note in dict.fromkeys(notes))
-            _append_comment(ws.cell(row_number, item_cols[sheet_name]), note_text[:6000])
-
+        # CHỈ tô màu + gắn CHÚ THÍCH lên ĐÚNG những ô có sai lệch. Mỗi sai lệch chỉ
+        # đánh dấu đúng ô của nó (tên hạng mục khác -> bôi ô tên; khối lượng khác ->
+        # bôi ô khối lượng...). KHÔNG bôi ô tên hạng mục nếu tên không sai. Sai lệch
+        # không gắn với ô cụ thể (ví dụ một số thông số kỹ thuật) chỉ được liệt kê ở
+        # sheet AI_KIEM_TRA, không tô màu bừa lên dòng.
         for (sheet_name, row_number), location_rows in grouped_by_location.items():
             if sheet_name not in wb.sheetnames or sheet_name not in sheet_fields:
                 continue
             ws = wb[sheet_name]
             fields = sheet_fields[sheet_name]
-            severity = _worst(location_rows)
-
-            # Điểm neo của dòng = ô tên hạng mục: tô màu theo mức độ nặng nhất và
-            # gắn CHÚ THÍCH tổng hợp (mức độ, điểm, lý do, PL02) — di chuột để xem.
-            anchor = ws.cell(row_number, item_cols[sheet_name])
-            anchor.fill = _FILL.get(severity, PatternFill())
-            anchor.font = Font(
-                name="Arial", size=anchor.font.sz, bold=True, italic=anchor.font.italic,
-                color=_FONT.get(severity, "000000"), underline=anchor.font.underline,
-            )
-            _append_comment(anchor, "\n\n".join(_comment_text(compared) for compared in location_rows)[:6000])
-
-            # Tô màu + gắn CHÚ THÍCH riêng lên từng ô giá trị có sai lệch, để di
-            # chuột vào đúng ô đó là thấy ngay vấn đề của ô.
             for compared in location_rows:
                 for diff in compared.differences:
+                    fill = _FILL.get(diff.severity)
+                    if fill is None:
+                        continue  # sai lệch mức OK -> không đánh dấu
                     key = _field_key(diff)
                     col = fields.get(key) if key else None
                     if not col:
-                        continue
+                        continue  # không xác định được ô -> để AI_KIEM_TRA liệt kê
                     cell = ws.cell(row_number, col)
-                    cell.fill = _FILL.get(diff.severity, _FILL.get(severity, PatternFill()))
+                    cell.fill = fill
                     _append_comment(cell, f"{diff.field}: {diff.message}"[:2000])
 
         # Highlight exact error cells and also write the AI reason on that row.
