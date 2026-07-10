@@ -127,6 +127,58 @@ def test_summary_no_marks_when_prices_close(tmp_path: Path):
                 assert cell.comment is None
 
 
+def _bidder_book_with_components(path: Path, price: float) -> None:
+    """Một hạng mục cha (có STT) kèm các vật tư con (không đánh STT)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "1. HT điện"
+    ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng", "Đơn giá tổng hợp", "Thành tiền"])
+    ws.append(["1", "M-01", "Tủ điện tổng LV-G.1", "Tủ", 1, price, price])
+    ws.append(["", "", "Vỏ tủ form 3B", "Cái", 1, price * 0.1, price * 0.1])
+    ws.append(["", "", "ACB Fixed 4P 1600AT", "Cái", 2, price * 0.2, price * 0.4])
+    wb.save(path)
+
+
+def _summary_diengiai_column(ws) -> list[str]:
+    """Đọc cột 'Diễn giải' (khối KLMT, cột thứ 3) từ dòng dữ liệu (sau tiêu đề)."""
+    names = []
+    for row in range(5, ws.max_row + 1):
+        val = ws.cell(row, 3).value
+        if val is not None and str(val).strip():
+            names.append(str(val).strip())
+    return names
+
+
+def test_summary_includes_component_rows_under_parent(tmp_path: Path):
+    # Vật tư con (không có STT) phải xuất hiện trong bảng tổng hợp, NGAY DƯỚI
+    # hạng mục cha — không bị loại bỏ như trước.
+    bidder_files = []
+    for name, price in {"NT A": 100, "NT B": 110}.items():
+        path = tmp_path / f"{name}.xlsx"
+        _bidder_book_with_components(path, price)
+        bidder_files.append((name, path))
+
+    result = compare_bidder_files(bidder_files, config=_cfg())
+    summary_path = tmp_path / "Bang_tong_hop.xlsx"
+    export_consolidated_summary(result, summary_path)
+
+    wb = load_workbook(summary_path)
+    ws = wb["1. HT điện"]
+    names = _summary_diengiai_column(ws)
+
+    # Cả hạng mục cha lẫn 2 vật tư con đều có mặt.
+    assert any("Tủ điện tổng" in n for n in names), names
+    assert any("Vỏ tủ form 3B" in n for n in names), names
+    assert any("ACB Fixed 4P 1600AT" in n for n in names), names
+
+    # Vật tư con nằm SAU hạng mục cha (đúng cấu trúc file gốc).
+    i_parent = next(i for i, n in enumerate(names) if "Tủ điện tổng" in n)
+    i_votu = next(i for i, n in enumerate(names) if "Vỏ tủ form 3B" in n)
+    i_acb = next(i for i, n in enumerate(names) if "ACB Fixed 4P 1600AT" in n)
+    assert i_parent < i_votu
+    assert i_parent < i_acb
+
+
 def test_summary_splits_multiple_hangmuc_into_separate_sheets(tmp_path: Path):
     # Mỗi nhà thầu có 2 sheet hạng mục khác nhau -> file tổng hợp phải có 2 sheet.
     bidder_files = []

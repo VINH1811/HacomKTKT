@@ -10,7 +10,6 @@ from typing import Any, Iterable, Iterator, Sequence
 import xlsxwriter
 
 from .models import ComparisonResult, ComparedItem, MatchKind, RowType, Severity
-from .text_normalizer import stt_sort_key
 
 EXCEL_MAX_ROWS = 1_048_576
 
@@ -333,7 +332,10 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
     meta: dict[str, tuple] = {}
     for row in result.rows:
         item = row.reference or row.candidate
-        if not item or item.row_type is not RowType.DETAIL:
+        # Lấy cả hạng mục chính (DETAIL) LẪN vật tư chi tiết (COMPONENT, không đánh
+        # STT nằm dưới hạng mục cha) để bảng tổng hợp đầy đủ như file gốc. Chỉ bỏ
+        # dòng nhóm/tiêu đề và dòng tổng cộng (GROUP/SUMMARY).
+        if not item or not item.is_comparable:
             continue
         cid = row.canonical_id
         if row.reference is not None and grouped[cid]["ref"] is None:
@@ -362,6 +364,54 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
                          (ref.unit if ref else anchor.unit),
                          (ref.reference_quantity if ref else None))
     return grouped, meta
+
+
+_PHATSINH_OFFSET = 10 ** 9
+
+
+def _summary_order_keys(result: ComparisonResult) -> dict[str, tuple]:
+    """Khóa sắp xếp bảng tổng hợp theo KHỐI hạng mục (cha + vật tư con).
+
+    - Hạng mục KHỚP chuẩn (PL01) và vật tư con của nó: giữ theo thứ tự của bản
+      chuẩn (số thứ tự), con nằm ngay dưới cha.
+    - Hạng mục PHÁT SINH — nhà thầu tự thêm, không có trong bản chuẩn — cùng toàn
+      bộ vật tư con của nó: dồn nguyên KHỐI XUỐNG CUỐI trang, kể cả khi bị chèn
+      giữa sheet.
+
+    Cha của mỗi dòng được xác định bằng dòng DETAIL gần nhất phía trên trong cùng
+    file nhà thầu khi đi theo thứ tự tài liệu — đúng cách bộ đọc gán hạng mục cha.
+    Khối phát sinh được nhận biết khi dòng cha (DETAIL) không ghép được với chuẩn.
+    """
+    order: dict[str, tuple] = {}
+    rows_by_bidder: dict[str, list[ComparedItem]] = defaultdict(list)
+    for row in result.rows:
+        item = row.reference or row.candidate
+        if item and item.is_comparable:
+            rows_by_bidder[row.bidder].append(row)
+
+    for rows in rows_by_bidder.values():
+        rows.sort(key=lambda r: (
+            (r.candidate or r.reference).sheet,
+            (r.candidate or r.reference).row_number,
+        ))
+        block_is_extra = 0
+        block_order = 0
+        for row in rows:
+            item = row.candidate or row.reference
+            matched = row.reference is not None
+            if item.row_type is RowType.DETAIL:
+                # Mở một khối hạng mục mới; con phía sau kế thừa trạng thái khối này.
+                block_is_extra = 0 if matched else 1
+                block_order = row.reference.row_number if matched else (_PHATSINH_OFFSET + item.row_number)
+                within = 0
+            else:
+                # Vật tư con: bám theo khối cha, xếp sau cha theo thứ tự tài liệu.
+                within = item.row_number
+            key = ((row.reference or row.candidate).sheet, block_is_extra, block_order, within)
+            cid = row.canonical_id
+            if cid not in order or key < order[cid]:
+                order[cid] = key
+    return order
 
 
 def _write_quote_header(ws, f, bidders: list[str], title: str) -> None:
@@ -520,19 +570,13 @@ def export_consolidated_summary(result: ComparisonResult, output_path: str | Pat
             ws.write(0, 0, "Không có dữ liệu hạng mục để tổng hợp.", f["text"])
             return output_path
 
-        # Gom hạng mục theo từng sheet gốc và CHUẨN HÓA thứ tự trong mỗi trang:
-        # xếp theo STT tự nhiên, và dồn các hạng mục PHÁT SINH (không có bản chuẩn
-        # PL01/đồng thuận) xuống cuối trang thay vì chèn giữa theo vị trí dòng.
+        # Gom hạng mục theo từng sheet gốc và CHUẨN HÓA thứ tự trong mỗi trang theo
+        # KHỐI cha–con: hạng mục khớp chuẩn giữ thứ tự PL01 (kéo theo vật tư con
+        # ngay dưới), hạng mục phát sinh do nhà thầu tự chèn bị dồn cả khối xuống
+        # cuối trang. Nhờ đó vật tư con không bị tách khỏi cha khi đẩy phát sinh.
+        cid_order = _summary_order_keys(result)
         by_sheet: dict[str, list[str]] = defaultdict(list)
-        for cid in sorted(
-            grouped,
-            key=lambda c: (
-                meta[c][0],                    # sheet gốc (một trang)
-                grouped[c]["ref"] is None,     # hạng mục phát sinh -> xuống cuối
-                stt_sort_key(meta[c][2]),      # thứ tự STT tự nhiên
-                meta[c][1],                    # dòng (dự phòng khi trùng STT)
-            ),
-        ):
+        for cid in sorted(grouped, key=lambda c: cid_order.get(c, (meta[c][0], 1, _PHATSINH_OFFSET, meta[c][1]))):
             by_sheet[meta[cid][0]].append(cid)
 
         used_names: set[str] = set()

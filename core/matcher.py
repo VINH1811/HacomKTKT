@@ -13,7 +13,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from .config import EnterpriseConfig
 from .models import ItemRecord, MatchKind, MatchResult, RowType, WorkbookData
-from .text_normalizer import normalize_name, stt_sort_key, token_set
+from .text_normalizer import normalize_name, token_set
 
 
 # ---------------------------------------------------------------------------
@@ -1172,11 +1172,13 @@ def match_items(
                 )
             )
 
-    # Thứ tự xuất ổn định + CHUẨN HÓA theo số thứ tự (STT):
-    # - Hạng mục ĐÃ GHÉP và THIẾU bám theo bản chuẩn, xếp theo sheet rồi STT tự
-    #   nhiên (không theo vị trí vật lý bị lệch trong file nhà thầu).
-    # - Hạng mục PHÁT SINH ngoài danh mục (EXTRA) luôn bị dồn xuống cuối, sau đó
-    #   mới xếp theo sheet/STT của chính nó.
+    # Thứ tự xuất ổn định + CHUẨN HÓA thứ tự đầu vào:
+    # - Hạng mục ĐÃ GHÉP và THIẾU bám theo BẢN CHUẨN, xếp theo thứ tự tài liệu của
+    #   bản chuẩn (sheet, dòng). Vì bản chuẩn được lập theo số thứ tự nên đây chính
+    #   là thứ tự STT, không phụ thuộc vị trí bị lệch trong file nhà thầu; đồng thời
+    #   giữ vật tư con NGAY DƯỚI hạng mục cha đúng cấu trúc gốc.
+    # - Hạng mục PHÁT SINH ngoài danh mục (EXTRA) luôn bị dồn XUỐNG CUỐI, rồi mới
+    #   xếp theo thứ tự tài liệu của chính file nhà thầu.
     def _order_key(match: MatchResult) -> tuple:
         is_extra = match.reference_index is None
         item = (
@@ -1187,7 +1189,6 @@ def match_items(
         return (
             is_extra,
             item.sheet,
-            stt_sort_key(item.stt),
             item.row_number,
             match.candidate_index if match.candidate_index is not None else -1,
         )
