@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import median
 from typing import Any, Iterable, Iterator, Sequence
@@ -322,7 +322,41 @@ _KLMT_COLS = len(_KLMT_LEAVES)
 _BLOCK_COLS = len(_BLOCK_LEAVES)
 
 
-def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, Any]], dict[str, tuple]]:
+def _bidder_sheet_to_reference_sheet(result: ComparisonResult) -> dict[str, str]:
+    """Ánh xạ mỗi sheet nhà thầu → sheet chuẩn (PL01) mà phần lớn hạng mục khớp
+    của nó trỏ tới.
+
+    Dùng để gom hạng mục PHÁT SINH (không khớp chuẩn, thường mang tên sheet của
+    nhà thầu) về ĐÚNG TRANG chuẩn tương ứng, thay vì tách ra một worksheet riêng.
+    Nhờ vậy phát sinh nằm ở cuối đúng trang khi PL01 và nhà thầu đặt tên sheet
+    khác nhau.
+    """
+    votes: dict[str, Counter] = defaultdict(Counter)
+    for row in result.rows:
+        if row.reference is not None and row.candidate is not None:
+            votes[row.candidate.sheet][row.reference.sheet] += 1
+    return {bidder_sheet: counter.most_common(1)[0][0] for bidder_sheet, counter in votes.items() if counter}
+
+
+def _display_sheet(row: ComparedItem, sheet_map: dict[str, str]) -> str:
+    """Trang hiển thị của một dòng trong bảng tổng hợp.
+
+    - Hạng mục khớp chuẩn: theo sheet của PL01.
+    - Hạng mục/vật tư phát sinh: ánh xạ sheet nhà thầu về sheet PL01 tương ứng
+      (nếu có), để nằm cùng trang với phần khớp; không có ánh xạ thì giữ nguyên
+      sheet nhà thầu.
+    """
+    if row.reference is not None:
+        return row.reference.sheet
+    if row.candidate is not None:
+        return sheet_map.get(row.candidate.sheet, row.candidate.sheet)
+    return ""
+
+
+def _build_quote_groups(
+    result: ComparisonResult,
+    sheet_map: dict[str, str],
+) -> tuple[dict[str, dict[str, Any]], dict[str, tuple]]:
     """Gom các dòng so sánh theo từng hạng mục (canonical_id).
 
     Mỗi nhóm giữ lại bản tham chiếu (PL01/đồng thuận) và bản chào của từng nhà
@@ -358,7 +392,8 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
         if cid not in meta:
             ref = row.reference
             anchor = ref or row.candidate
-            meta[cid] = (anchor.sheet, anchor.row_number, anchor.stt,
+            # Trang hiển thị: phát sinh được gom về sheet PL01 tương ứng (nếu có).
+            meta[cid] = (_display_sheet(row, sheet_map), anchor.row_number, anchor.stt,
                          (ref.item_code if ref else anchor.item_code),
                          (ref.item_name if ref else anchor.item_name),
                          (ref.unit if ref else anchor.unit),
@@ -369,7 +404,7 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
 _PHATSINH_OFFSET = 10 ** 9
 
 
-def _summary_order_keys(result: ComparisonResult) -> dict[str, tuple]:
+def _summary_order_keys(result: ComparisonResult, sheet_map: dict[str, str]) -> dict[str, tuple]:
     """Khóa sắp xếp bảng tổng hợp theo KHỐI hạng mục (cha + vật tư con).
 
     - Hạng mục KHỚP chuẩn (PL01) và vật tư con của nó: giữ theo thứ tự của bản
@@ -407,7 +442,7 @@ def _summary_order_keys(result: ComparisonResult) -> dict[str, tuple]:
             else:
                 # Vật tư con: bám theo khối cha, xếp sau cha theo thứ tự tài liệu.
                 within = item.row_number
-            key = ((row.reference or row.candidate).sheet, block_is_extra, block_order, within)
+            key = (_display_sheet(row, sheet_map), block_is_extra, block_order, within)
             cid = row.canonical_id
             if cid not in order or key < order[cid]:
                 order[cid] = key
@@ -563,7 +598,8 @@ def export_consolidated_summary(result: ComparisonResult, output_path: str | Pat
         thresholds = result.audit.get("thresholds") or {}
         warn_pct = float(thresholds.get("price_warn_pct", 0.10))
         critical_pct = float(thresholds.get("price_critical_pct", 0.25))
-        grouped, meta = _build_quote_groups(result)
+        sheet_map = _bidder_sheet_to_reference_sheet(result)
+        grouped, meta = _build_quote_groups(result, sheet_map)
 
         if not bidders or not grouped:
             ws = wb.add_worksheet("Tổng hợp chào giá")
@@ -574,7 +610,7 @@ def export_consolidated_summary(result: ComparisonResult, output_path: str | Pat
         # KHỐI cha–con: hạng mục khớp chuẩn giữ thứ tự PL01 (kéo theo vật tư con
         # ngay dưới), hạng mục phát sinh do nhà thầu tự chèn bị dồn cả khối xuống
         # cuối trang. Nhờ đó vật tư con không bị tách khỏi cha khi đẩy phát sinh.
-        cid_order = _summary_order_keys(result)
+        cid_order = _summary_order_keys(result, sheet_map)
         by_sheet: dict[str, list[str]] = defaultdict(list)
         for cid in sorted(grouped, key=lambda c: cid_order.get(c, (meta[c][0], 1, _PHATSINH_OFFSET, meta[c][1]))):
             by_sheet[meta[cid][0]].append(cid)
