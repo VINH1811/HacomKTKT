@@ -156,9 +156,10 @@ def annotate_bidder_workbook(
 ) -> str:
     """Create an annotated copy while preserving original formulas and layout.
 
-    The original workbook is never overwritten. Each source sheet receives two
-    additional columns (AI MỨC ĐỘ, AI LÝ DO, AI GHI CHÚ), and a front review sheet links
-    directly back to the source row.
+    The original workbook is never overwritten. Problematic cells are marked IN
+    PLACE with a fill colour and a hover comment (chú thích) — NO extra columns
+    are added next to the data. Two front sheets (AI_TONG_QUAN overview and
+    AI_KIEM_TRA linked findings) are still provided.
     """
     source_path, output_path = Path(source_path), Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -264,86 +265,60 @@ def annotate_bidder_workbook(
         summary_ws["A18"] = "External links trong workbook"
         summary_ws["B18"] = bidder_workbook.external_link_count
 
-        # Fix the AI columns once per sheet. Recomputing from ws.max_column after
-        # every row would keep appending new columns and make the file explode.
-        ai_columns: dict[str, tuple[int, int, int, int, dict[str, int]]] = {}
-        # Cột tên hạng mục được tính MỘT lần/sheet. ws.max_column quét toàn bộ ô
-        # nên nếu gọi trong vòng lặp từng ô sẽ rất chậm; ở đây tính sẵn để dùng lại.
+        # Bản đồ cột cho từng sheet — KHÔNG thêm bất kỳ cột nào vào file dữ liệu.
+        # Chỉ dùng để biết ô giá trị nào cần tô màu và gắn chú thích trực tiếp.
+        sheet_fields: dict[str, dict[str, int]] = {}
         item_cols: dict[str, int] = {}
         for sheet_name, info in meta.items():
             if sheet_name not in wb.sheetnames:
                 continue
-            ws = wb[sheet_name]
             fields = {str(k): int(v) for k, v in (info.get("field_columns") or {}).items()}
-            header_row = int(info.get("header_end") or 1)
-            original_max = max(int(info.get("max_column") or 1), int(ws.max_column or 1))
-            # Default = 2 khớp đúng hành vi cũ: ở vòng lặp đánh dấu, sheet luôn đã
-            # có thêm cột AI nên ws.max_column >= 2, tức default cũ luôn cho 2.
+            sheet_fields[sheet_name] = fields
             item_cols[sheet_name] = fields.get("item_name", 2)
-            ai_sev_col, ai_reason_col, ai_note_col = original_max + 2, original_max + 3, original_max + 4
-            ai_columns[sheet_name] = (ai_sev_col, ai_reason_col, ai_note_col, header_row, fields)
-            ws.cell(header_row, ai_sev_col, "AI MỨC ĐỘ")
-            ws.cell(header_row, ai_reason_col, "AI LÝ DO")
-            ws.cell(header_row, ai_note_col, "AI GHI CHÚ")
-            for col in (ai_sev_col, ai_reason_col, ai_note_col):
-                ws.cell(header_row, col).fill = PatternFill("solid", fgColor="17365D")
-                ws.cell(header_row, col).font = Font(name="Arial", bold=True, color="FFFFFF")
-                ws.cell(header_row, col).alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-            ws.column_dimensions[get_column_letter(ai_sev_col)].width = 18
-            ws.column_dimensions[get_column_letter(ai_reason_col)].width = 80
-            ws.column_dimensions[get_column_letter(ai_note_col)].width = 70
 
-        # Informational notes are written for both OK and anomalous rows.  They
-        # never enter AI_KIEM_TRA and never change the row colour or severity.
+        # Ghi chú thông tin (ví dụ khác tên sheet) cho cả dòng OK lẫn dòng bất
+        # thường -> gắn CHÚ THÍCH lên ô tên hạng mục, KHÔNG tô màu, KHÔNG đổi mức
+        # độ, và không đưa vào AI_KIEM_TRA.
         for (sheet_name, row_number), notes in notes_by_location.items():
-            if sheet_name not in wb.sheetnames or sheet_name not in ai_columns:
+            if sheet_name not in wb.sheetnames or sheet_name not in sheet_fields:
                 continue
             ws = wb[sheet_name]
-            _, _, ai_note_col, _, _ = ai_columns[sheet_name]
-            note_text = " | ".join(dict.fromkeys(notes))[:32000]
-            ws.cell(row_number, ai_note_col, note_text)
-            ws.cell(row_number, ai_note_col).alignment = Alignment(vertical="top", wrap_text=True)
+            note_text = "Ghi chú:\n" + "\n".join(f"- {note}" for note in dict.fromkeys(notes))
+            _append_comment(ws.cell(row_number, item_cols[sheet_name]), note_text[:6000])
 
         for (sheet_name, row_number), location_rows in grouped_by_location.items():
-            if sheet_name not in wb.sheetnames or sheet_name not in ai_columns:
+            if sheet_name not in wb.sheetnames or sheet_name not in sheet_fields:
                 continue
             ws = wb[sheet_name]
-            ai_sev_col, ai_reason_col, _, _, fields = ai_columns[sheet_name]
+            fields = sheet_fields[sheet_name]
             severity = _worst(location_rows)
-            reasons: list[str] = []
-            for compared in location_rows:
-                reasons.extend(compared.flags)
-            reasons = list(dict.fromkeys(reasons))
-            reason_text = " | ".join(reasons)[:32000]
 
-            ws.cell(row_number, ai_sev_col, severity.value)
-            ws.cell(row_number, ai_reason_col, reason_text)
-            for col in (ai_sev_col, ai_reason_col):
-                ws.cell(row_number, col).fill = _FILL.get(severity, PatternFill())
-                ws.cell(row_number, col).font = Font(name="Arial", color=_FONT.get(severity, "000000"), bold=col == ai_sev_col)
-                ws.cell(row_number, col).alignment = Alignment(vertical="top", wrap_text=True)
-
-            item_col = item_cols[sheet_name]
-            anchor = ws.cell(row_number, item_col)
+            # Điểm neo của dòng = ô tên hạng mục: tô màu theo mức độ nặng nhất và
+            # gắn CHÚ THÍCH tổng hợp (mức độ, điểm, lý do, PL02) — di chuột để xem.
+            anchor = ws.cell(row_number, item_cols[sheet_name])
             anchor.fill = _FILL.get(severity, PatternFill())
             anchor.font = Font(
                 name="Arial", size=anchor.font.sz, bold=True, italic=anchor.font.italic,
                 color=_FONT.get(severity, "000000"), underline=anchor.font.underline,
             )
+            _append_comment(anchor, "\n\n".join(_comment_text(compared) for compared in location_rows)[:6000])
 
-            # Highlight the actual value cells, while keeping formula/value intact.
+            # Tô màu + gắn CHÚ THÍCH riêng lên từng ô giá trị có sai lệch, để di
+            # chuột vào đúng ô đó là thấy ngay vấn đề của ô.
             for compared in location_rows:
                 for diff in compared.differences:
                     key = _field_key(diff)
                     col = fields.get(key) if key else None
-                    if col:
-                        ws.cell(row_number, col).fill = _FILL.get(diff.severity, _FILL.get(severity, PatternFill()))
+                    if not col:
+                        continue
+                    cell = ws.cell(row_number, col)
+                    cell.fill = _FILL.get(diff.severity, _FILL.get(severity, PatternFill()))
+                    _append_comment(cell, f"{diff.field}: {diff.message}"[:2000])
 
         # Highlight exact error cells and also write the AI reason on that row.
         for issue in bidder_workbook.formula_issues:
             sheet_name = str(issue.get("sheet", ""))
             cell_ref = str(issue.get("cell", ""))
-            row_number = int(issue.get("row", 0) or 0)
             kind = str(issue.get("kind", ""))
             message = str(issue.get("message", ""))
             severity = Severity.CRITICAL if kind == "FORMULA_ERROR" else Severity.REVIEW
@@ -357,18 +332,6 @@ def annotate_bidder_workbook(
                 italic=target.font.italic, color=_FONT[severity], underline=target.font.underline,
             )
             _append_comment(target, message)
-            if sheet_name in ai_columns and row_number > 0:
-                ai_sev_col, ai_reason_col, _, _, _ = ai_columns[sheet_name]
-                existing = str(ws.cell(row_number, ai_reason_col).value or "").strip()
-                combined = " | ".join(value for value in (existing, message) if value)[:32000]
-                current_severity = str(ws.cell(row_number, ai_sev_col).value or "")
-                if severity is Severity.CRITICAL or not current_severity:
-                    ws.cell(row_number, ai_sev_col, severity.value)
-                ws.cell(row_number, ai_reason_col, combined)
-                for col in (ai_sev_col, ai_reason_col):
-                    ws.cell(row_number, col).fill = _FILL[severity]
-                    ws.cell(row_number, col).font = Font(name="Arial", color=_FONT[severity], bold=col == ai_sev_col)
-                    ws.cell(row_number, col).alignment = Alignment(vertical="top", wrap_text=True)
 
         review_ws.auto_filter.ref = f"A1:M{max(1, review_row - 1)}"
         wb.calculation.fullCalcOnLoad = True

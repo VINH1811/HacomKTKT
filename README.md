@@ -17,7 +17,7 @@ Hệ thống hỗ trợ kiểm tra hồ sơ đấu thầu, so sánh nhiều hồ
 
 - Tên sheet khác nhau **không phải bất thường** khi hệ thống đã ghép đúng hạng mục.
 - Nếu tên hạng mục, đơn vị và khối lượng khớp, dòng giữ mức `OK`.
-- Thông tin khác sheet chỉ xuất hiện ở cột `Ghi chú` của báo cáo và `AI GHI CHÚ` trong file nhà thầu đã đánh dấu.
+- Thông tin khác sheet chỉ xuất hiện ở cột `Ghi chú` của báo cáo và trong **chú thích (comment) trên ô tên hạng mục** của file nhà thầu đã đánh dấu (di chuột để xem, không thêm cột).
 - Ghi chú khác sheet không làm tăng điểm bất thường, không xuất hiện trong `AI_KIEM_TRA` và không tính vào thống kê cảnh báo.
 - Giá không so với Phụ lục 01. Cảnh báo giá được tạo bằng so sánh ngang giữa các nhà thầu.
 

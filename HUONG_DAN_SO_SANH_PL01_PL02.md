@@ -23,7 +23,7 @@ Sau đó tải từ 2 file chào giá nhà thầu trở lên.
 - Ma trận đơn giá và khối lượng.
 - Danh sách thiếu/phát sinh.
 - Cảnh báo dữ liệu và công thức.
-- Bản sao từng file nhà thầu có `AI_TONG_QUAN`, `AI_KIEM_TRA`, `AI MỨC ĐỘ`, `AI LÝ DO`.
+- Bản sao từng file nhà thầu có `AI_TONG_QUAN`, `AI_KIEM_TRA`; các ô có vấn đề được **tô màu và gắn chú thích (comment) trực tiếp** — di chuột vào ô để xem, KHÔNG thêm cột bên cạnh dữ liệu.
 
 ## Màu đánh dấu
 

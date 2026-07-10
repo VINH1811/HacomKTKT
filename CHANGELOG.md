@@ -2,6 +2,7 @@
 
 ## 8.3.0
 
+- File nhà thầu đã đánh dấu KHÔNG còn thêm cột `AI MỨC ĐỘ`/`AI LÝ DO`/`AI GHI CHÚ` bên cạnh dữ liệu; thay vào đó **tô màu và gắn chú thích (comment) trực tiếp lên ô có vấn đề** — di chuột để xem. Vẫn giữ hai sheet `AI_TONG_QUAN` và `AI_KIEM_TRA`.
 - Cho phép chức năng đối chiếu phụ lục nhận một hoặc nhiều hồ sơ nhà thầu.
 - Khi có một hồ sơ, chỉ kiểm tra theo PL01/PL02 và không tạo cảnh báo so sánh giá ngang hàng.
 - Khi có từ hai hồ sơ, bổ sung so sánh ngang chỉ cho các trường giá; tên, đơn vị và khối lượng tiếp tục được kiểm tra riêng theo phụ lục.
