@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .config import EnterpriseConfig
 from .matcher import match_items
+from .text_normalizer import stt_sort_key
 from .models import (
     ComparedItem,
     FieldDifference,
@@ -101,9 +102,14 @@ def build_peer_consensus(
     components: dict[int, list[int]] = {}
     for index in range(len(nodes)):
         components.setdefault(dsu.find(index), []).append(index)
+    # Xếp cụm theo sheet rồi STT tự nhiên của thành viên sớm nhất, để danh mục
+    # đồng thuận bám theo số thứ tự thay vì vị trí dòng bị lệch trong từng file.
     ordered_components = sorted(
         components.values(),
-        key=lambda component: min((nodes[index][2].sheet, nodes[index][2].row_number) for index in component),
+        key=lambda component: min(
+            (nodes[index][2].sheet, stt_sort_key(nodes[index][2].stt), nodes[index][2].row_number)
+            for index in component
+        ),
     )
 
     consensus_items: list[ItemRecord] = []

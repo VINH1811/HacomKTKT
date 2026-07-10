@@ -224,6 +224,44 @@ def normalize_stt(value: str) -> str:
     return normalized.strip(".-")
 
 
+_STT_SPLIT = re.compile(r"[.\-]")
+_STT_NUM_PREFIX = re.compile(r"(\d+)(.*)")
+# Khóa sentinel cho STT rỗng: xếp sau mọi phần có STT trong cùng nhóm.
+_STT_EMPTY_KEY: tuple = ((2, 0, "~"),)
+
+
+@lru_cache(maxsize=100_000)
+def stt_sort_key(value: str) -> tuple:
+    """Khóa sắp xếp TỰ NHIÊN, phân cấp cho số thứ tự hạng mục.
+
+    Mục đích: khi file nhà thầu bị đảo/lệch thứ tự dòng, ta xếp lại các hạng mục
+    về đúng thứ tự STT thay vì theo vị trí vật lý trong file. Sắp theo giá trị số
+    nên '1.2' đứng trước '1.10' (khác với so sánh chuỗi thô). Mỗi cấp là bộ
+    ``(rank, number, suffix)`` với kiểu đồng nhất để so sánh an toàn:
+
+    - rank 0: phần bắt đầu bằng số (so theo giá trị số, rồi phần đuôi chữ).
+    - rank 1: phần thuần chữ (ví dụ số La Mã) — xếp sau phần số cùng cấp.
+
+    STT rỗng trả về khóa lớn nhất để dồn các dòng không có STT xuống cuối nhóm.
+    """
+
+    normalized = normalize_stt(value)
+    if not normalized:
+        return _STT_EMPTY_KEY
+
+    key: list[tuple[int, int, str]] = []
+    for part in _STT_SPLIT.split(normalized):
+        if not part:
+            continue
+        match = _STT_NUM_PREFIX.match(part)
+        if match:
+            key.append((0, int(match.group(1)), match.group(2)))
+        else:
+            key.append((1, 0, part))
+
+    return tuple(key) or _STT_EMPTY_KEY
+
+
 # =============================================================================
 # CHUẨN HÓA ĐƠN VỊ
 # =============================================================================

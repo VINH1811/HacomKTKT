@@ -13,7 +13,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from .config import EnterpriseConfig
 from .models import ItemRecord, MatchKind, MatchResult, RowType, WorkbookData
-from .text_normalizer import normalize_name, token_set
+from .text_normalizer import normalize_name, stt_sort_key, token_set
 
 
 # ---------------------------------------------------------------------------
@@ -1172,18 +1172,27 @@ def match_items(
                 )
             )
 
-    # Stable output order for deterministic reports and tests.
-    results.sort(
-        key=lambda match: (
-            refs[match.reference_index].sheet
+    # Thứ tự xuất ổn định + CHUẨN HÓA theo số thứ tự (STT):
+    # - Hạng mục ĐÃ GHÉP và THIẾU bám theo bản chuẩn, xếp theo sheet rồi STT tự
+    #   nhiên (không theo vị trí vật lý bị lệch trong file nhà thầu).
+    # - Hạng mục PHÁT SINH ngoài danh mục (EXTRA) luôn bị dồn xuống cuối, sau đó
+    #   mới xếp theo sheet/STT của chính nó.
+    def _order_key(match: MatchResult) -> tuple:
+        is_extra = match.reference_index is None
+        item = (
+            refs[match.reference_index]
             if match.reference_index is not None
-            else cands[match.candidate_index].sheet,
-            refs[match.reference_index].row_number
-            if match.reference_index is not None
-            else cands[match.candidate_index].row_number,
+            else cands[match.candidate_index]
+        )
+        return (
+            is_extra,
+            item.sheet,
+            stt_sort_key(item.stt),
+            item.row_number,
             match.candidate_index if match.candidate_index is not None else -1,
         )
-    )
+
+    results.sort(key=_order_key)
 
     return results
 

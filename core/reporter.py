@@ -10,6 +10,7 @@ from typing import Any, Iterable, Iterator, Sequence
 import xlsxwriter
 
 from .models import ComparisonResult, ComparedItem, MatchKind, RowType, Severity
+from .text_normalizer import stt_sort_key
 
 EXCEL_MAX_ROWS = 1_048_576
 
@@ -519,9 +520,19 @@ def export_consolidated_summary(result: ComparisonResult, output_path: str | Pat
             ws.write(0, 0, "Không có dữ liệu hạng mục để tổng hợp.", f["text"])
             return output_path
 
-        # Gom hạng mục theo từng sheet gốc, giữ thứ tự xuất hiện theo dòng.
+        # Gom hạng mục theo từng sheet gốc và CHUẨN HÓA thứ tự trong mỗi trang:
+        # xếp theo STT tự nhiên, và dồn các hạng mục PHÁT SINH (không có bản chuẩn
+        # PL01/đồng thuận) xuống cuối trang thay vì chèn giữa theo vị trí dòng.
         by_sheet: dict[str, list[str]] = defaultdict(list)
-        for cid in sorted(grouped, key=lambda c: (meta[c][0], meta[c][1])):
+        for cid in sorted(
+            grouped,
+            key=lambda c: (
+                meta[c][0],                    # sheet gốc (một trang)
+                grouped[c]["ref"] is None,     # hạng mục phát sinh -> xuống cuối
+                stt_sort_key(meta[c][2]),      # thứ tự STT tự nhiên
+                meta[c][1],                    # dòng (dự phòng khi trùng STT)
+            ),
+        ):
             by_sheet[meta[cid][0]].append(cid)
 
         used_names: set[str] = set()
