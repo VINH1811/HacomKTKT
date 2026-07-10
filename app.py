@@ -347,7 +347,7 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                 return
             elif mode == "package":
                 pairs = [(entry["name"], folder / entry["file"]) for entry in request["bidders"]]
-                _update(job_id, progress=20, message="Đang đọc PL01/PL02 và hồ sơ nhà thầu bằng Calamine")
+                _update(job_id, progress=20, message="Đang đọc PL01/PL02 và hồ sơ nhà thầu")
                 outputs = compare_pl1_pl2_with_bidders(
                     folder / request["pl1_file"] if request.get("pl1_file") else None,
                     folder / request["pl2_file"] if request.get("pl2_file") else None,
