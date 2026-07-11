@@ -1,5 +1,10 @@
-"""File đánh dấu: thêm sheet '<tên> — sắp xếp' (bản sao chỉ giá trị) dồn hạng
-mục phát sinh xuống cuối, KHÔNG đụng vào sheet gốc.
+"""File đánh dấu: bản SẮP XẾP mang tên gốc, bản gốc thành '— gốc'.
+
+- Sheet mang tên gốc là bản đã sắp xếp: đầu mục giữ nguyên, hạng mục khớp theo
+  thứ tự, khối phát sinh dồn xuống cuối sau dòng phân cách, có tổng dựng lại.
+- Công thức TRONG-DÒNG được dịch địa chỉ theo dòng mới (vẫn "sống").
+- Bản gốc ('— gốc') giữ nguyên từng dòng và công thức; mọi tham chiếu chéo
+  (sheet khác, hyperlink AI_KIEM_TRA) được viết lại trỏ về bản gốc.
 """
 
 from __future__ import annotations
@@ -12,8 +17,9 @@ from core.config import EnterpriseConfig
 from core.tender_package import compare_appendices_with_bidders
 
 SHEET = "1. HT điện"
-SORTED = "1. HT điện — sắp xếp"
+GOC = "1. HT điện — gốc"
 NAME_COL = 3
+AMOUNT_COL = 8  # Thành tiền
 
 
 def _cfg(**kw) -> EnterpriseConfig:
@@ -27,8 +33,7 @@ def _cfg(**kw) -> EnterpriseConfig:
 
 def _annotate(tmp_path: Path) -> Path:
     pl1 = tmp_path / "pl1.xlsx"
-    # PL01 đặt tên sheet KHÁC bidder -> ghép theo MÃ hiệu (không theo STT/vị trí),
-    # nên M-99 (không có mã trong PL01) chắc chắn là phát sinh.
+    # PL01 đặt tên sheet KHÁC bidder -> ghép theo MÃ hiệu, M-99 chắc chắn phát sinh.
     wb = Workbook(); ws = wb.active; ws.title = "KLMT"
     ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng"])
     ws.append(["1", "M-01", "Tủ điện tổng", "Cái", 2])
@@ -39,10 +44,14 @@ def _annotate(tmp_path: Path) -> Path:
     wb = Workbook(); ws = wb.active; ws.title = SHEET
     ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng mời thầu",
                "Khối lượng nhà thầu chào", "Đơn giá tổng hợp", "Thành tiền"])
-    ws.append(["1", "M-01", "Tủ điện tổng", "Cái", 2, 2, 1_000_000, 2_000_000])
-    # Hạng mục PHÁT SINH nằm GIỮA (không có trong PL01).
-    ws.append(["2", "M-99", "Phát sinh giữa file", "Cái", 5, 5, 500_000, 2_500_000])
-    ws.append(["3", "M-02", "Cáp đồng XLPE", "m", 100, 100, 50_000, 5_000_000])
+    # Dòng đầu mục (GROUP) + công thức thành tiền TRONG-DÒNG (=F*G).
+    ws.append(["I", "", "Tủ điện hạ thế", "", None, None, None, None])
+    ws.append(["1", "M-01", "Tủ điện tổng", "Cái", 2, 2, 1_000_000, "=F3*G3"])
+    ws.append(["2", "M-99", "Phát sinh giữa file", "Cái", 5, 5, 500_000, "=F4*G4"])
+    ws.append(["3", "M-02", "Cáp đồng XLPE", "m", 100, 100, 50_000, "=F5*G5"])
+    # Sheet khác tham chiếu chéo vào sheet BOQ theo dòng gốc.
+    tk = wb.create_sheet("Tong ket")
+    tk["A1"] = "='1. HT điện'!H3"
     wb.save(bidder)
 
     out = compare_appendices_with_bidders(
@@ -61,35 +70,68 @@ def _names(ws) -> list[str]:
     return out
 
 
-def test_sorted_companion_sheet_created(tmp_path: Path):
+def _row_of(ws, part: str) -> int:
+    for r in range(2, ws.max_row + 1):
+        v = ws.cell(r, NAME_COL).value
+        if v is not None and part in str(v):
+            return r
+    raise AssertionError(f"Không thấy dòng chứa '{part}'")
+
+
+def test_sorted_sheet_takes_original_name_goc_kept(tmp_path: Path):
     wb = load_workbook(_annotate(tmp_path))
-    assert SHEET in wb.sheetnames          # sheet gốc vẫn còn
-    assert SORTED in wb.sheetnames         # có thêm sheet sắp xếp
+    assert SHEET in wb.sheetnames     # bản sắp xếp mang tên gốc
+    assert GOC in wb.sheetnames       # bản gốc vẫn còn với hậu tố '— gốc'
 
 
-def test_phatsinh_moved_to_bottom_in_sorted_sheet(tmp_path: Path):
-    ws = load_workbook(_annotate(tmp_path))[SORTED]
+def test_phatsinh_block_at_bottom_with_divider_and_totals(tmp_path: Path):
+    ws = load_workbook(_annotate(tmp_path))[SHEET]
     names = _names(ws)
 
     def idx(part):
         return next(i for i, n in enumerate(names) if part in n)
 
-    # Trong sheet sắp xếp: hạng mục khớp trước, phát sinh xuống cuối.
-    assert idx("Phát sinh giữa file") > idx("Tủ điện tổng")
-    assert idx("Phát sinh giữa file") > idx("Cáp đồng XLPE")
-    assert names[-1].startswith("Phát sinh")
+    # Đầu mục đi trước nhóm của nó; hạng mục khớp giữ thứ tự.
+    assert idx("Tủ điện hạ thế") < idx("Tủ điện tổng") < idx("Cáp đồng XLPE")
+    # Phát sinh nằm sau dòng phân cách, sau toàn bộ hạng mục khớp.
+    assert idx("Cáp đồng XLPE") < idx("PHÁT SINH NGOÀI DANH MỤC") < idx("Phát sinh giữa file")
+    # Có tổng phát sinh riêng.
+    assert any("CỘNG PHÁT SINH" in n for n in names)
 
 
-def test_original_sheet_is_unchanged(tmp_path: Path):
+def test_row_formulas_translated_to_new_rows(tmp_path: Path):
     ws = load_workbook(_annotate(tmp_path))[SHEET]
-    # Sheet gốc GIỮ NGUYÊN thứ tự: phát sinh vẫn ở dòng 3 (giữa file).
-    assert ws.cell(3, NAME_COL).value == "Phát sinh giữa file"
+    # Công thức trong-dòng phải "sống" và trỏ đúng dòng MỚI của chính nó.
+    for part in ("Tủ điện tổng", "Cáp đồng XLPE", "Phát sinh giữa file"):
+        r = _row_of(ws, part)
+        assert ws.cell(r, AMOUNT_COL).value == f"=F{r}*G{r}", part
 
 
-def test_marks_carried_into_sorted_sheet(tmp_path: Path):
-    ws = load_workbook(_annotate(tmp_path))[SORTED]
-    names = _names(ws)
-    ps_row = 2 + next(i for i, n in enumerate(names) if n.startswith("Phát sinh"))
-    cell = ws.cell(ps_row, NAME_COL)
-    # Ô tên hạng mục phát sinh giữ chú thích đã đánh dấu.
-    assert cell.comment is not None and "phát sinh" in cell.comment.text.lower()
+def test_rebuilt_subtotal_is_live_formula(tmp_path: Path):
+    ws = load_workbook(_annotate(tmp_path))[SHEET]
+    r = _row_of(ws, "Cộng: Tủ điện hạ thế")
+    value = str(ws.cell(r, AMOUNT_COL).value or "")
+    assert value.startswith("=SUM(")
+
+
+def test_goc_sheet_unchanged_and_cross_refs_rewritten(tmp_path: Path):
+    wb = load_workbook(_annotate(tmp_path))
+    goc = wb[GOC]
+    # Bản gốc giữ nguyên vị trí dòng và công thức gốc.
+    assert goc.cell(4, NAME_COL).value == "Phát sinh giữa file"
+    assert goc.cell(4, AMOUNT_COL).value == "=F4*G4"
+    # Tham chiếu chéo từ sheet khác được viết lại trỏ về bản gốc.
+    assert wb["Tong ket"]["A1"].value == f"='{GOC}'!H3"
+
+
+def test_ai_kiem_tra_hyperlinks_point_to_goc(tmp_path: Path):
+    wb = load_workbook(_annotate(tmp_path))
+    review = wb["AI_KIEM_TRA"]
+    links = []
+    for row in review.iter_rows():
+        for c in row:
+            hl = c.hyperlink
+            if hl is not None:
+                links.append(str(getattr(hl, "target", "") or "") + str(getattr(hl, "location", "") or ""))
+    assert links, "AI_KIEM_TRA phải có liên kết tới dòng gốc"
+    assert all("— gốc" in link for link in links if SHEET in link or GOC in link)

@@ -25,6 +25,7 @@ from .models import (
     MatchKind,
     MatchResult,
     MaterialRequirement,
+    RowType,
     Severity,
     UserFacingError,
     WorkbookData,
@@ -151,13 +152,21 @@ def _requirements_audit(requirements: list[MaterialRequirement]) -> list[dict]:
 def _annotation_payload(bidder: WorkbookData, rows: list[ComparedItem]) -> tuple[WorkbookData, list[ComparedItem]]:
     """Bản rút gọn gửi sang tiến trình con ghi file đánh dấu.
 
-    annotate_bidder_workbook chỉ đọc bidder/sheet_info/formula_issues/
-    external_link_count của workbook và các trường hiển thị của rows — KHÔNG
-    đọc items/raw/technical_specs. Loại chúng khỏi payload giảm ~10 lần chi phí
-    truyền dữ liệu giữa tiến trình mà file kết quả giữ nguyên từng byte nội dung
-    (đã có test đối chứng process-vs-tuần-tự bảo vệ).
+    annotate_bidder_workbook đọc bidder/sheet_info/formula_issues/
+    external_link_count, các trường hiển thị của rows, và các dòng ĐẦU MỤC
+    (GROUP) trong items để dựng sheet sắp xếp — KHÔNG đọc raw/technical_specs.
+    Payload chỉ giữ items loại GROUP (annotator cũng tự lọc GROUP, nên đường
+    chạy tuần tự với items đầy đủ cho kết quả y hệt; test đối chứng
+    process-vs-tuần-tự bảo vệ điều này).
     """
-    lite_workbook = replace(bidder, items=[])
+    lite_workbook = replace(
+        bidder,
+        items=[
+            replace(item, raw={}, technical_specs={})
+            for item in bidder.items
+            if item.row_type is RowType.GROUP
+        ],
+    )
 
     def lite_item(item):
         if item is None:

@@ -2,6 +2,7 @@
 
 ## 8.3.0
 
+- File nhà thầu đã đánh dấu: mỗi sheet có hạng mục phát sinh được **sắp xếp lại ngay trên sheet mang TÊN GỐC** (hạng mục khớp giữ thứ tự, khối phát sinh dồn xuống cuối sau dòng phân cách, có tổng dựng lại); bản gốc được đổi tên thành `<tên> — gốc` và giữ NGUYÊN toàn bộ công thức. Công thức trong-dòng (thành tiền = KL × đơn giá...) được dịch địa chỉ theo dòng mới nên vẫn "sống"; tổng nhóm/`CỘNG PHÁT SINH`/`TỔNG CỘNG` dựng lại bằng `=SUM(...)`. Mọi tham chiếu chéo (sheet `Tổng hợp`, hyperlink `AI_KIEM_TRA`, chart) được viết lại để trỏ đúng bản `— gốc`.
 - Bảng tổng hợp giữ ĐÚNG cấu trúc sheet của **file nhà thầu (file gốc)** — ví dụ `1. HT điện`, `2. HT điện nhẹ`... Hạng mục khớp PL01 KHÔNG còn bị đổi sang tên sheet khó hiểu của PL01; chỉ dòng nhà thầu không chào (thiếu so với PL01) mới nằm ở sheet của PL01. Phát sinh nằm ở cuối đúng trang.
 - File nhà thầu đã đánh dấu KHÔNG còn thêm cột `AI MỨC ĐỘ`/`AI LÝ DO`/`AI GHI CHÚ` bên cạnh dữ liệu; thay vào đó **tô màu và gắn chú thích (comment) trực tiếp lên ĐÚNG ô có sai lệch** — di chuột để xem. Chỉ đánh dấu đúng ô sai (tên khác thì bôi ô tên, khối lượng khác thì bôi ô khối lượng...), không bôi cả dòng. Hạng mục khớp — kể cả khớp nhưng khác tên sheet — không bị đánh dấu. Vẫn giữ hai sheet `AI_TONG_QUAN` và `AI_KIEM_TRA`.
 - Cho phép chức năng đối chiếu phụ lục nhận một hoặc nhiều hồ sơ nhà thầu.

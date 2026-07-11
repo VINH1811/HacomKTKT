@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from pathlib import Path
 
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
+from openpyxl.formula import Tokenizer
+from openpyxl.formula.tokenizer import Token
+from openpyxl.formula.translate import Translator
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
@@ -90,6 +94,7 @@ def _append_comment(cell, text: str) -> None:
 
 
 _SORTED_SUFFIX = " — sắp xếp"
+_GOC_SUFFIX = " — gốc"
 
 
 def _phatsinh_block_rows(rows: list[ComparedItem]) -> dict[str, set[int]]:
@@ -115,11 +120,11 @@ def _phatsinh_block_rows(rows: list[ComparedItem]) -> dict[str, set[int]]:
     return result
 
 
-def _sorted_sheet_name(base: str, used: set[str]) -> str:
+def _suffixed_sheet_name(base: str, suffix: str, used: set[str]) -> str:
     limit = 31
-    name = base + _SORTED_SUFFIX
+    name = base + suffix
     if len(name) > limit:
-        name = base[: limit - len(_SORTED_SUFFIX)] + _SORTED_SUFFIX
+        name = base[: limit - len(suffix)] + suffix
     final, index = name, 2
     while final.lower() in used:
         tail = f" ({index})"
@@ -129,74 +134,323 @@ def _sorted_sheet_name(base: str, used: set[str]) -> str:
     return final
 
 
+_CELL_REF = re.compile(r"^(\$?)([A-Za-z]{1,3})(\$?)(\d+)$")
+_NAME_REF = re.compile(r"^[A-Za-z_\\][A-Za-z0-9_.\\]*$")
+
+
+def _same_row_formula(formula: str, row: int) -> bool:
+    """True nếu công thức chỉ tham chiếu ô CÙNG DÒNG, cùng sheet, dòng tương đối.
+
+    Các công thức này (ví dụ Thành tiền = KL × Đơn giá cùng dòng) dời dòng được
+    an toàn bằng cách dịch lại địa chỉ. Mọi trường hợp khác (tham chiếu dòng
+    khác, dòng tuyệt đối $5, sheet khác, vùng nhiều dòng) trả False.
+    """
+    try:
+        tokens = Tokenizer(formula).items
+    except Exception:
+        return False
+    for tok in tokens:
+        if tok.type != Token.OPERAND or tok.subtype != Token.RANGE:
+            continue
+        ref = tok.value
+        if "!" in ref:
+            return False
+        for part in ref.split(":"):
+            m = _CELL_REF.match(part)
+            if not m:
+                # Defined name (độc lập vị trí) thì cho phép; còn lại từ chối.
+                if _NAME_REF.match(part):
+                    continue
+                return False
+            if m.group(3) == "$" or int(m.group(4)) != row:
+                return False
+    return True
+
+
+def _translate_row_formula(formula: str, col_letter: str, src_row: int, dst_row: int):
+    try:
+        return Translator(formula, origin=f"{col_letter}{src_row}").translate_formula(f"{col_letter}{dst_row}")
+    except Exception:
+        return None
+
+
+def _rewrite_sheet_references(wb, renames: dict[str, str]) -> None:
+    """Đổi mọi tham chiếu `'tên cũ'!` sang `'tên mới'!` trong toàn workbook.
+
+    openpyxl không tự cập nhật tham chiếu khi đổi tên sheet (khác Excel), nên
+    phải tự sửa: công thức, hyperlink nội bộ, defined names và chart series —
+    để sheet `Tổng hợp`/biểu đồ tiếp tục trỏ đúng bản `— gốc` còn nguyên bố cục.
+    """
+    if not renames:
+        return
+
+    def fix(text: str) -> str:
+        for old, new in renames.items():
+            oq, nq = old.replace("'", "''"), new.replace("'", "''")
+            text = text.replace(f"'{oq}'!", f"'{nq}'!")
+        return text
+
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for c in row:
+                v = c.value
+                if isinstance(v, str) and v.startswith("=") and "!" in v:
+                    nv = fix(v)
+                    if nv != v:
+                        c.value = nv
+                hl = getattr(c, "hyperlink", None)
+                if hl is not None:
+                    for attr in ("target", "location"):
+                        val = getattr(hl, attr, None)
+                        if isinstance(val, str) and "!" in val:
+                            nv = fix(val)
+                            if nv != val:
+                                setattr(hl, attr, nv)
+    try:
+        names = wb.defined_names
+        for key in list(names.keys()):
+            dn = names[key]
+            if isinstance(getattr(dn, "value", None), str):
+                nv = fix(dn.value)
+                if nv != dn.value:
+                    dn.value = nv
+    except Exception:
+        pass
+    try:
+        for ws in list(wb.worksheets) + list(getattr(wb, "chartsheets", [])):
+            for chart in list(getattr(ws, "_charts", []) or []):
+                for ser in list(getattr(chart, "series", []) or []):
+                    for holder in (getattr(ser, "val", None), getattr(ser, "cat", None), getattr(ser, "tx", None)):
+                        if holder is None:
+                            continue
+                        for kind in ("numRef", "strRef", "multiLvlStrRef"):
+                            ref = getattr(holder, kind, None)
+                            f = getattr(ref, "f", None)
+                            if isinstance(f, str):
+                                nf = fix(f)
+                                if nf != f:
+                                    ref.f = nf
+    except Exception:
+        pass
+
+
 def _add_sorted_companion_sheets(
     wb,
     source_path: Path,
     rows: list[ComparedItem],
-    header_ends: dict[str, int],
+    bidder_workbook: WorkbookData,
+    meta: dict[str, dict],
 ) -> None:
-    """Thêm sheet '<tên> — sắp xếp' cho mỗi sheet có hạng mục phát sinh.
+    """Với mỗi sheet có hạng mục phát sinh, dựng bản SẮP XẾP mang TÊN GỐC.
 
-    An toàn: KHÔNG đụng vào sheet gốc. Sheet mới là bản sao CHỈ GIÁ TRỊ (công
-    thức đã được thay bằng giá trị Excel tính sẵn) đã xếp lại: hạng mục khớp giữ
-    thứ tự, phát sinh dồn xuống cuối; giữ tô màu và chú thích đã đánh dấu.
+    - Bản gốc được đổi tên thành '<tên> — gốc' và GIỮ NGUYÊN toàn bộ công thức;
+      mọi tham chiếu chéo (sheet Tổng hợp, hyperlink AI_KIEM_TRA, chart) được
+      viết lại để tiếp tục trỏ đúng bản gốc.
+    - Bản sắp xếp: giữ dòng đầu mục (A, I, II...); hạng mục khớp theo thứ tự tài
+      liệu; khối phát sinh (cha + vật tư con) dồn xuống cuối sau dòng phân cách.
+    - Công thức TRONG-DÒNG (thành tiền = KL × đơn giá...) được dịch địa chỉ theo
+      dòng mới nên vẫn "sống"; công thức tham chiếu dòng khác/sheet khác chuyển
+      thành giá trị tĩnh. Dòng tổng phụ cũ được thay bằng tổng dựng lại theo
+      nhóm mới + tổng riêng cho phần phát sinh.
     """
     ps_rows = _phatsinh_block_rows(rows)
-    # Các dòng hạng mục (đã so sánh) theo từng sheet, giữ thứ tự tài liệu.
-    items_by_sheet: dict[str, list[int]] = defaultdict(list)
-    seen: dict[str, set[int]] = defaultdict(set)
+    cand_by_sheet: dict[str, dict[int, object]] = defaultdict(dict)
     for row in rows:
         cand = row.candidate
-        if cand is None or cand.row_number in seen[cand.sheet]:
-            continue
-        seen[cand.sheet].add(cand.row_number)
-        items_by_sheet[cand.sheet].append(cand.row_number)
+        if cand is not None:
+            cand_by_sheet[cand.sheet].setdefault(cand.row_number, cand)
 
-    target_sheets = [s for s in items_by_sheet if ps_rows.get(s) and s in wb.sheetnames]
-    if not target_sheets:
+    # Dòng đầu mục (GROUP) lấy từ items của workbook; payload tiến trình con chỉ
+    # giữ các dòng GROUP nên lọc lại ở đây cho cả hai đường chạy như nhau.
+    group_rows_by_sheet: dict[str, dict[int, str]] = defaultdict(dict)
+    for it in bidder_workbook.items:
+        if it.row_type is RowType.GROUP:
+            group_rows_by_sheet[it.sheet][it.row_number] = it.item_name
+
+    targets = [s for s in cand_by_sheet if ps_rows.get(s) and s in wb.sheetnames]
+    if not targets:
         return
 
     value_wb = load_workbook(source_path, data_only=True)
     used = {name.lower() for name in wb.sheetnames}
+    bold = Font(name="Arial", bold=True)
+    fill_total = PatternFill("solid", fgColor="DDEBF7")
+    fill_ps = PatternFill("solid", fgColor="FCE4D6")
+    promotions: list[tuple[str, object]] = []
+
     try:
-        for sheet_name in target_sheets:
+        for sheet_name in targets:
             src = wb[sheet_name]
             vsrc = value_wb[sheet_name] if sheet_name in value_wb.sheetnames else None
+            info = meta.get(sheet_name) or {}
+            fields = {str(k): int(v) for k, v in (info.get("field_columns") or {}).items()}
+            header_end = int(info.get("header_end") or 1)
+            name_col = fields.get("item_name", 2)
+            amount_cols = [fields[k] for k in ("reference_amount", "bid_amount") if k in fields]
             ncol = src.max_column
-            header_end = header_ends.get(sheet_name, 1)
-            new = wb.create_sheet(_sorted_sheet_name(sheet_name, used))
+            new = wb.create_sheet(_suffixed_sheet_name(sheet_name, _SORTED_SUFFIX, used))
 
             for col in range(1, ncol + 1):
                 letter = get_column_letter(col)
-                if letter in src.column_dimensions and src.column_dimensions[letter].width:
-                    new.column_dimensions[letter].width = src.column_dimensions[letter].width
+                dim = src.column_dimensions.get(letter)
+                if dim is not None and dim.width:
+                    new.column_dimensions[letter].width = dim.width
 
-            def _copy(dst_row: int, src_row: int, with_comment: bool) -> None:
+            def copy_row(dst_row: int, src_row: int, *, with_comment: bool = True, translate: bool = True) -> None:
                 for col in range(1, ncol + 1):
                     s = src.cell(src_row, col)
-                    value = vsrc.cell(src_row, col).value if vsrc is not None else s.value
-                    d = new.cell(dst_row, col, value)
+                    v = s.value
+                    if isinstance(v, str) and v.startswith("="):
+                        translated = None
+                        if translate and _same_row_formula(v, src_row):
+                            translated = _translate_row_formula(v, get_column_letter(col), src_row, dst_row)
+                        if translated is not None:
+                            v = translated
+                        else:
+                            v = vsrc.cell(src_row, col).value if vsrc is not None else None
+                    elif type(v).__name__ in ("ArrayFormula", "DataTableFormula"):
+                        v = vsrc.cell(src_row, col).value if vsrc is not None else None
+                    d = new.cell(dst_row, col, v)
                     d._style = s._style
                     if with_comment and s.comment is not None:
                         d.comment = Comment(s.comment.text, s.comment.author or "HSMT Enterprise AI")
                 if src.row_dimensions[src_row].height is not None:
                     new.row_dimensions[dst_row].height = src.row_dimensions[src_row].height
 
-            out_row = 1
-            for r in range(1, header_end + 1):  # vùng tiêu đề: giữ nguyên
-                _copy(out_row, r, with_comment=False)
-                out_row += 1
+            def write_label_row(dst_row: int, label: str, fill: PatternFill, sums: dict[int, object] | None = None) -> None:
+                for col in range(1, ncol + 1):
+                    cell = new.cell(dst_row, col)
+                    cell.fill = fill
+                    cell.font = bold
+                new.cell(dst_row, name_col, label)
+                for col, value in (sums or {}).items():
+                    cell = new.cell(dst_row, col, value)
+                    cell.number_format = "#,##0"
 
+            def sum_over(col: int, pairs: list[tuple[int, int]]):
+                """=SUM(ô các dòng DETAIL mới); quá dài thì trả tổng tĩnh."""
+                if not pairs:
+                    return None
+                letter = get_column_letter(col)
+                if len(pairs) <= 150:
+                    return "=SUM(" + ",".join(f"{letter}{new_row}" for _, new_row in pairs) + ")"
+                total, seen = 0.0, False
+                if vsrc is not None:
+                    for src_row, _ in pairs:
+                        value = vsrc.cell(src_row, col).value
+                        if isinstance(value, (int, float)):
+                            total += float(value)
+                            seen = True
+                return total if seen else None
+
+            items = cand_by_sheet[sheet_name]
+            groups = group_rows_by_sheet.get(sheet_name, {})
             ps = ps_rows.get(sheet_name, set())
-            ordered = [rn for rn in items_by_sheet[sheet_name] if rn not in ps]
-            ordered += [rn for rn in items_by_sheet[sheet_name] if rn in ps]
-            for rn in ordered:
-                _copy(out_row, rn, with_comment=True)
-                out_row += 1
+            all_rows = sorted(set(items) | set(groups))
+
+            out = 1
+            for r in range(1, header_end + 1):
+                copy_row(out, r, with_comment=False, translate=False)
+                out += 1
+
+            group_subtotal_refs: dict[int, list[str]] = {c: [] for c in amount_cols}
+            current_details: list[tuple[int, int]] = []
+            current_label = ""
+
+            def close_group() -> None:
+                nonlocal out, current_details
+                if current_details and amount_cols:
+                    sums: dict[int, object] = {}
+                    for c in amount_cols:
+                        value = sum_over(c, current_details)
+                        if value is not None:
+                            sums[c] = value
+                    if sums:
+                        label = f"Cộng: {current_label}" if current_label else "Cộng"
+                        write_label_row(out, label, fill_total, sums)
+                        for c in sums:
+                            group_subtotal_refs[c].append(f"{get_column_letter(c)}{out}")
+                        out += 1
+                current_details = []
+
+            for r in all_rows:
+                if r in groups:
+                    close_group()
+                    current_label = groups[r]
+                    copy_row(out, r, with_comment=False, translate=False)
+                    out += 1
+                    continue
+                if r in ps:
+                    continue
+                copy_row(out, r)
+                cand = items[r]
+                if getattr(cand, "row_type", None) is RowType.DETAIL:
+                    current_details.append((r, out))
+                out += 1
+            close_group()
+
+            pl01_total_ref: dict[int, str] = {}
+            if any(group_subtotal_refs.get(c) for c in amount_cols):
+                sums = {}
+                for c in amount_cols:
+                    refs = group_subtotal_refs[c]
+                    if refs and len(refs) <= 150:
+                        sums[c] = "=SUM(" + ",".join(refs) + ")"
+                if sums:
+                    write_label_row(out, "CỘNG THEO DANH MỤC ĐỐI CHIẾU", fill_total, sums)
+                    pl01_total_ref = {c: f"{get_column_letter(c)}{out}" for c in sums}
+                    out += 1
+
+            if ps:
+                write_label_row(out, "HẠNG MỤC PHÁT SINH NGOÀI DANH MỤC (nhà thầu tự thêm)", fill_ps)
+                out += 1
+                ps_details: list[tuple[int, int]] = []
+                for r in sorted(ps):
+                    copy_row(out, r)
+                    cand = items.get(r)
+                    if cand is not None and getattr(cand, "row_type", None) is RowType.DETAIL:
+                        ps_details.append((r, out))
+                    out += 1
+                if amount_cols:
+                    sums = {}
+                    for c in amount_cols:
+                        value = sum_over(c, ps_details)
+                        if value is not None:
+                            sums[c] = value
+                    if sums:
+                        write_label_row(out, "CỘNG PHÁT SINH", fill_ps, sums)
+                        ps_total_ref = {c: f"{get_column_letter(c)}{out}" for c in sums}
+                        out += 1
+                        grand: dict[int, object] = {}
+                        for c in amount_cols:
+                            a, b = pl01_total_ref.get(c), ps_total_ref.get(c)
+                            if a and b:
+                                grand[c] = f"={a}+{b}"
+                            elif a or b:
+                                grand[c] = f"={a or b}"
+                        if grand:
+                            write_label_row(out, "TỔNG CỘNG SAU SẮP XẾP", fill_total, grand)
+                            out += 1
 
             new.freeze_panes = new.cell(header_end + 1, 1)
+            promotions.append((sheet_name, new))
     finally:
         value_wb.close()
+
+    # Bản sắp xếp mang TÊN GỐC; bản gốc đổi thành '— gốc' và mọi tham chiếu chéo
+    # được viết lại để tiếp tục trỏ đúng bản gốc (openpyxl không tự làm như Excel).
+    renames: dict[str, str] = {}
+    used_names = {name.lower() for name in wb.sheetnames}
+    for original, sorted_ws in promotions:
+        old_ws = wb[original]
+        goc_name = _suffixed_sheet_name(original, _GOC_SUFFIX, used_names)
+        renames[original] = goc_name
+        index = wb._sheets.index(old_ws)
+        old_ws.title = goc_name
+        sorted_ws.title = original
+        wb._sheets.remove(sorted_ws)
+        wb._sheets.insert(index, sorted_ws)
+    _rewrite_sheet_references(wb, renames)
 
 
 def _prepare_review_sheet(wb, bidder: str):
@@ -370,12 +624,10 @@ def annotate_bidder_workbook(
         # Bản đồ cột cho từng sheet — KHÔNG thêm bất kỳ cột nào vào file dữ liệu.
         # Chỉ dùng để biết ô giá trị nào cần tô màu và gắn chú thích trực tiếp.
         sheet_fields: dict[str, dict[str, int]] = {}
-        header_ends: dict[str, int] = {}
         for sheet_name, info in meta.items():
             if sheet_name not in wb.sheetnames:
                 continue
             sheet_fields[sheet_name] = {str(k): int(v) for k, v in (info.get("field_columns") or {}).items()}
-            header_ends[sheet_name] = int(info.get("header_end") or 1)
 
         # CHỈ tô màu + gắn CHÚ THÍCH lên ĐÚNG những ô có sai lệch. Mỗi sai lệch chỉ
         # đánh dấu đúng ô của nó (tên hạng mục khác -> bôi ô tên; khối lượng khác ->
@@ -420,9 +672,10 @@ def annotate_bidder_workbook(
 
         review_ws.auto_filter.ref = f"A1:M{max(1, review_row - 1)}"
 
-        # Với mỗi sheet có hạng mục phát sinh, thêm một sheet '— sắp xếp' (bản sao
-        # chỉ giá trị) dồn phát sinh xuống cuối; KHÔNG đụng vào sheet gốc.
-        _add_sorted_companion_sheets(wb, source_path, rows, header_ends)
+        # Với mỗi sheet có hạng mục phát sinh: dựng bản sắp xếp mang TÊN GỐC (dồn
+        # phát sinh xuống cuối, công thức trong-dòng sống, tổng dựng lại); bản gốc
+        # đổi tên '— gốc' giữ nguyên công thức và mọi tham chiếu được trỏ lại đúng.
+        _add_sorted_companion_sheets(wb, source_path, rows, bidder_workbook, meta)
 
         wb.calculation.fullCalcOnLoad = True
         wb.calculation.forceFullCalc = True
