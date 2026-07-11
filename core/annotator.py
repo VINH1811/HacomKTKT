@@ -8,7 +8,7 @@ from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .models import ComparedItem, FieldDifference, Severity, WorkbookData
+from .models import ComparedItem, FieldDifference, RowType, Severity, WorkbookData
 
 _FILL = {
     Severity.INFO: PatternFill("solid", fgColor="DDEBF7"),
@@ -87,6 +87,116 @@ def _append_comment(cell, text: str) -> None:
     if cell.comment and cell.comment.text:
         text = cell.comment.text + "\n\n--- HSMT Enterprise AI ---\n" + text
     cell.comment = Comment(text, "HSMT Enterprise AI")
+
+
+_SORTED_SUFFIX = " — sắp xếp"
+
+
+def _phatsinh_block_rows(rows: list[ComparedItem]) -> dict[str, set[int]]:
+    """Xác định các dòng thuộc KHỐI phát sinh theo từng sheet nhà thầu.
+
+    Đi theo thứ tự tài liệu: một dòng cha (DETAIL) không ghép được PL01 mở một
+    khối phát sinh; các vật tư con phía sau kế thừa. Vật tư con dưới hạng mục cha
+    ĐÃ KHỚP thì KHÔNG bị coi là phát sinh (không bị dời).
+    """
+    by_sheet: dict[str, list[ComparedItem]] = defaultdict(list)
+    for row in rows:
+        if row.candidate is not None:
+            by_sheet[row.candidate.sheet].append(row)
+    result: dict[str, set[int]] = defaultdict(set)
+    for sheet_name, sheet_rows in by_sheet.items():
+        sheet_rows.sort(key=lambda r: r.candidate.row_number)
+        block_extra = False
+        for row in sheet_rows:
+            if row.candidate.row_type is RowType.DETAIL:
+                block_extra = row.reference is None
+            if block_extra:
+                result[sheet_name].add(row.candidate.row_number)
+    return result
+
+
+def _sorted_sheet_name(base: str, used: set[str]) -> str:
+    limit = 31
+    name = base + _SORTED_SUFFIX
+    if len(name) > limit:
+        name = base[: limit - len(_SORTED_SUFFIX)] + _SORTED_SUFFIX
+    final, index = name, 2
+    while final.lower() in used:
+        tail = f" ({index})"
+        final = name[: limit - len(tail)] + tail
+        index += 1
+    used.add(final.lower())
+    return final
+
+
+def _add_sorted_companion_sheets(
+    wb,
+    source_path: Path,
+    rows: list[ComparedItem],
+    header_ends: dict[str, int],
+) -> None:
+    """Thêm sheet '<tên> — sắp xếp' cho mỗi sheet có hạng mục phát sinh.
+
+    An toàn: KHÔNG đụng vào sheet gốc. Sheet mới là bản sao CHỈ GIÁ TRỊ (công
+    thức đã được thay bằng giá trị Excel tính sẵn) đã xếp lại: hạng mục khớp giữ
+    thứ tự, phát sinh dồn xuống cuối; giữ tô màu và chú thích đã đánh dấu.
+    """
+    ps_rows = _phatsinh_block_rows(rows)
+    # Các dòng hạng mục (đã so sánh) theo từng sheet, giữ thứ tự tài liệu.
+    items_by_sheet: dict[str, list[int]] = defaultdict(list)
+    seen: dict[str, set[int]] = defaultdict(set)
+    for row in rows:
+        cand = row.candidate
+        if cand is None or cand.row_number in seen[cand.sheet]:
+            continue
+        seen[cand.sheet].add(cand.row_number)
+        items_by_sheet[cand.sheet].append(cand.row_number)
+
+    target_sheets = [s for s in items_by_sheet if ps_rows.get(s) and s in wb.sheetnames]
+    if not target_sheets:
+        return
+
+    value_wb = load_workbook(source_path, data_only=True)
+    used = {name.lower() for name in wb.sheetnames}
+    try:
+        for sheet_name in target_sheets:
+            src = wb[sheet_name]
+            vsrc = value_wb[sheet_name] if sheet_name in value_wb.sheetnames else None
+            ncol = src.max_column
+            header_end = header_ends.get(sheet_name, 1)
+            new = wb.create_sheet(_sorted_sheet_name(sheet_name, used))
+
+            for col in range(1, ncol + 1):
+                letter = get_column_letter(col)
+                if letter in src.column_dimensions and src.column_dimensions[letter].width:
+                    new.column_dimensions[letter].width = src.column_dimensions[letter].width
+
+            def _copy(dst_row: int, src_row: int, with_comment: bool) -> None:
+                for col in range(1, ncol + 1):
+                    s = src.cell(src_row, col)
+                    value = vsrc.cell(src_row, col).value if vsrc is not None else s.value
+                    d = new.cell(dst_row, col, value)
+                    d._style = s._style
+                    if with_comment and s.comment is not None:
+                        d.comment = Comment(s.comment.text, s.comment.author or "HSMT Enterprise AI")
+                if src.row_dimensions[src_row].height is not None:
+                    new.row_dimensions[dst_row].height = src.row_dimensions[src_row].height
+
+            out_row = 1
+            for r in range(1, header_end + 1):  # vùng tiêu đề: giữ nguyên
+                _copy(out_row, r, with_comment=False)
+                out_row += 1
+
+            ps = ps_rows.get(sheet_name, set())
+            ordered = [rn for rn in items_by_sheet[sheet_name] if rn not in ps]
+            ordered += [rn for rn in items_by_sheet[sheet_name] if rn in ps]
+            for rn in ordered:
+                _copy(out_row, rn, with_comment=True)
+                out_row += 1
+
+            new.freeze_panes = new.cell(header_end + 1, 1)
+    finally:
+        value_wb.close()
 
 
 def _prepare_review_sheet(wb, bidder: str):
@@ -260,10 +370,12 @@ def annotate_bidder_workbook(
         # Bản đồ cột cho từng sheet — KHÔNG thêm bất kỳ cột nào vào file dữ liệu.
         # Chỉ dùng để biết ô giá trị nào cần tô màu và gắn chú thích trực tiếp.
         sheet_fields: dict[str, dict[str, int]] = {}
+        header_ends: dict[str, int] = {}
         for sheet_name, info in meta.items():
             if sheet_name not in wb.sheetnames:
                 continue
             sheet_fields[sheet_name] = {str(k): int(v) for k, v in (info.get("field_columns") or {}).items()}
+            header_ends[sheet_name] = int(info.get("header_end") or 1)
 
         # CHỈ tô màu + gắn CHÚ THÍCH lên ĐÚNG những ô có sai lệch. Mỗi sai lệch chỉ
         # đánh dấu đúng ô của nó (tên hạng mục khác -> bôi ô tên; khối lượng khác ->
@@ -307,6 +419,11 @@ def annotate_bidder_workbook(
             _append_comment(target, message)
 
         review_ws.auto_filter.ref = f"A1:M{max(1, review_row - 1)}"
+
+        # Với mỗi sheet có hạng mục phát sinh, thêm một sheet '— sắp xếp' (bản sao
+        # chỉ giá trị) dồn phát sinh xuống cuối; KHÔNG đụng vào sheet gốc.
+        _add_sorted_companion_sheets(wb, source_path, rows, header_ends)
+
         wb.calculation.fullCalcOnLoad = True
         wb.calculation.forceFullCalc = True
         wb.save(output_path)
