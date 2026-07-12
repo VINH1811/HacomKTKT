@@ -87,6 +87,27 @@ def test_brand_and_origin_deviation_cells_are_marked(tmp_path: Path):
     assert _marked(ws.cell(row, origin_cols[2])), "Ô xuất xứ khác của NT C phải được đánh dấu"
 
 
+def test_mahieu_difference_between_bidders_is_marked(tmp_path: Path):
+    # 2 nhà thầu KHÁC mã hiệu cho cùng hạng mục -> ô mã hiệu phải được đánh dấu.
+    files = []
+    for name, ma in {"NT A": "M-01", "NT B": "X-99"}.items():
+        p = tmp_path / f"{name}.xlsx"
+        wb = Workbook(); ws = wb.active; ws.title = SHEET
+        ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng nhà thầu chào",
+                   "Đơn giá tổng hợp", "Thành tiền", "Thương hiệu", "Xuất xứ"])
+        ws.append(["1", ma, "Tủ điện tổng", "Cái", 1, 1_000_000, 1_000_000, "Schneider", "Pháp"])
+        wb.save(p)
+        files.append((name, p))
+    result = compare_bidder_files(files, config=_cfg())
+    out = tmp_path / "tong_hop.xlsx"
+    export_consolidated_summary(result, out)
+    ws = load_workbook(out)[SHEET]
+    cols = _leaf_columns(ws)
+    ma_cols = [c for c in cols["Mã hiệu"] if c > 5]  # bỏ cột Mã hiệu của khối KLMT
+    row = _data_row(ws, ma_cols)
+    assert any(_marked(ws.cell(row, c)) for c in ma_cols), "Ô mã hiệu khác giữa các nhà thầu phải được đánh dấu"
+
+
 def test_equal_price_cell_not_marked(tmp_path: Path):
     ws = _build(tmp_path)
     cols = _leaf_columns(ws)

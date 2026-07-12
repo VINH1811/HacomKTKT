@@ -249,6 +249,7 @@ def enrich_peer_comparison(
         for field in numeric_fields:
             stats["numeric_flags"] += _peer_numeric(group, field, config)
         if not price_only:
+            stats["text_flags"] += _peer_text(group, "Mã hiệu", lambda r: r.candidate.item_code if r.candidate else "", warning=True, threshold=0.95)
             stats["text_flags"] += _peer_text(group, "Đơn vị tính", lambda r: r.candidate.unit if r.candidate else "", warning=True, threshold=0.98)
             stats["text_flags"] += _peer_text(group, "Vật tư/Quy cách", lambda r: r.candidate.material if r.candidate else "", threshold=0.82)
             stats["text_flags"] += _peer_text(group, "Thương hiệu", lambda r: r.candidate.brand if r.candidate else "", threshold=0.88)
