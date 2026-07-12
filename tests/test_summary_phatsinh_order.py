@@ -98,6 +98,36 @@ def test_phatsinh_block_pushed_to_bottom_with_components(tmp_path: Path):
     assert idx("Phụ kiện bổ sung") == idx("Bổ sung ngoài thầu") + 1
 
 
+def _row_containing(ws, text: str) -> int:
+    for r in range(1, ws.max_row + 1):
+        for c in range(1, ws.max_column + 1):
+            v = ws.cell(r, c).value
+            if v is not None and text in str(v):
+                return r
+    raise AssertionError(f"Không thấy dòng chứa '{text}'")
+
+
+def test_summary_has_section_b_header_before_phatsinh(tmp_path: Path):
+    rows = [
+        _matched("HM1", pl01_row=5, stt="1", name="Tủ điện tổng", bidder_row=5, price=100),
+        _matched("HM2", pl01_row=6, stt="2", name="Cáp điện CU XLPE", bidder_row=6, price=200),
+        _extra("PS", bidder_row=7, stt="1B", name="Bổ sung ngoài thầu", row_type=RowType.DETAIL, price=99),
+    ]
+    summary = ComparisonSummary("PL01", 1, 2, len(rows), 0, 0, 0, 0, 0, 0, 0, 0.0, {}, "")
+    result = ComparisonResult(rows=rows, summary=summary, warnings=[], audit={"bidder_sha256": {"NT A": ""}, "thresholds": {}})
+
+    out = tmp_path / "tong_hop.xlsx"
+    export_consolidated_summary(result, out)
+    ws = load_workbook(out)[SHEET]
+
+    r_matched = _row_containing(ws, "Cáp điện CU XLPE")
+    r_b_header = _row_containing(ws, "PHÁT SINH NGOÀI KLMT")
+    r_phatsinh = _row_containing(ws, "Bổ sung ngoài thầu")
+
+    # Tiêu đề mục B nằm SAU hạng mục khớp và NGAY TRƯỚC hạng mục phát sinh.
+    assert r_matched < r_b_header < r_phatsinh
+
+
 PL01_SHEET = "2 - PHAN TU HA THE"
 BIDDER_SHEET = "1. HT điện"
 

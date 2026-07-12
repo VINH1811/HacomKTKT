@@ -59,6 +59,8 @@ def _formats(wb):
         "grp_bidder": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#2E75B6", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
         "grp_sub": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#1F3864", "bg_color": "#DDEBF7", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
         "leaf": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#1F4E78", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
+        # Dòng tiêu đề phân mục A/B trong bảng tổng hợp chào giá.
+        "section_ps": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#9C4500", "bg_color": "#FCE4D6", "align": "left", "valign": "vcenter", "border": 1}),
     }
 
 
@@ -678,12 +680,22 @@ def export_consolidated_summary(result: ComparisonResult, output_path: str | Pat
             by_sheet[meta[cid][0]].append(cid)
 
         used_names: set[str] = set()
+        total_cols = _KLMT_COLS + _BLOCK_COLS * len(bidders)
         for sheet_name, cids in by_sheet.items():
             ws = wb.add_worksheet(_safe_sheet_name(sheet_name, used_names))
             ws.set_tab_color("#1F4E78")
             _write_quote_header(ws, f, bidders, f"BẢNG CHÀO GIÁ TỔNG HỢP — {sheet_name}")
             r = 4
+            phatsinh_started = False
             for cid in cids:
+                # Chèn tiêu đề phân mục B trước khối hạng mục phát sinh (theo đúng
+                # cấu trúc A/B của file chào giá: A là theo KLMT, B là phát sinh).
+                is_extra = cid_order.get(cid, (None, 1))[1] == 1
+                if is_extra and not phatsinh_started:
+                    ws.merge_range(r, 0, r, total_cols - 1,
+                                   "B — HẠNG MỤC PHÁT SINH NGOÀI KLMT (nhà thầu tự thêm)", f["section_ps"])
+                    r += 1
+                    phatsinh_started = True
                 _write_quote_row(ws, f, r, bidders, cid, grouped, meta, warn_pct, critical_pct)
                 r += 1
     finally:

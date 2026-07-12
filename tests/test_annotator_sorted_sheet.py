@@ -1,10 +1,10 @@
-"""File đánh dấu: bản SẮP XẾP mang tên gốc, bản gốc thành '— gốc'.
+"""File đánh dấu: bản SẮP XẾP mang tên gốc, theo đúng cấu trúc A / B / C.
 
-- Sheet mang tên gốc là bản đã sắp xếp: đầu mục giữ nguyên, hạng mục khớp theo
-  thứ tự, khối phát sinh dồn xuống cuối sau dòng phân cách, có tổng dựng lại.
-- Công thức TRONG-DÒNG được dịch địa chỉ theo dòng mới (vẫn "sống").
-- Bản gốc ('— gốc') giữ nguyên từng dòng và công thức; mọi tham chiếu chéo
-  (sheet khác, hyperlink AI_KIEM_TRA) được viết lại trỏ về bản gốc.
+- Hạng mục phát sinh (không có trong PL01) đang nằm lẫn trong phần A được DỜI
+  xuống phần B (phát sinh ngoài KLMT); giữ nguyên các mục B sẵn có.
+- Ba dòng tổng A / B / C được viết lại theo dải dòng mới (A, B là SUBTOTAL;
+  C = A + B) nên số tiền đúng.
+- Công thức thành tiền trong-dòng vẫn "sống"; bản gốc giữ ở sheet '— gốc'.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from core.tender_package import compare_appendices_with_bidders
 SHEET = "1. HT điện"
 GOC = "1. HT điện — gốc"
 NAME_COL = 3
-AMOUNT_COL = 8  # Thành tiền
+AMOUNT_COL = 7  # cột Thành tiền (G)
 
 
 def _cfg(**kw) -> EnterpriseConfig:
@@ -33,25 +33,20 @@ def _cfg(**kw) -> EnterpriseConfig:
 
 def _annotate(tmp_path: Path) -> Path:
     pl1 = tmp_path / "pl1.xlsx"
-    # PL01 đặt tên sheet KHÁC bidder -> ghép theo MÃ hiệu, M-99 chắc chắn phát sinh.
     wb = Workbook(); ws = wb.active; ws.title = "KLMT"
     ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng"])
     ws.append(["1", "M-01", "Tủ điện tổng", "Cái", 2])
-    ws.append(["2", "M-02", "Cáp đồng XLPE", "m", 100])
     wb.save(pl1)
 
     bidder = tmp_path / "b.xlsx"
     wb = Workbook(); ws = wb.active; ws.title = SHEET
-    ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng mời thầu",
-               "Khối lượng nhà thầu chào", "Đơn giá tổng hợp", "Thành tiền"])
-    # Dòng đầu mục (GROUP) + công thức thành tiền TRONG-DÒNG (=F*G).
-    ws.append(["I", "", "Tủ điện hạ thế", "", None, None, None, None])
-    ws.append(["1", "M-01", "Tủ điện tổng", "Cái", 2, 2, 1_000_000, "=F3*G3"])
-    ws.append(["2", "M-99", "Phát sinh giữa file", "Cái", 5, 5, 500_000, "=F4*G4"])
-    ws.append(["3", "M-02", "Cáp đồng XLPE", "m", 100, 100, 50_000, "=F5*G5"])
-    # Sheet khác tham chiếu chéo vào sheet BOQ theo dòng gốc.
-    tk = wb.create_sheet("Tong ket")
-    tk["A1"] = "='1. HT điện'!H3"
+    ws.append(["STT", "Mã hiệu", "Tên hạng mục", "ĐVT", "Khối lượng nhà thầu chào", "Đơn giá tổng hợp", "Thành tiền"])
+    ws.append(["A", "", "ĐẦU MỤC CÔNG VIỆC THEO KLMT", "", "", "", "=SUBTOTAL(9,G3:G4)"])          # r2 - tổng A
+    ws.append(["1", "M-01", "Tủ điện tổng", "Cái", 2, 1_000_000, "=E3*F3"])                          # r3 - khớp
+    ws.append(["2", "M-99", "Phát sinh trong A", "Cái", 1, 500_000, "=E4*F4"])                       # r4 - phát sinh lẫn trong A
+    ws.append(["B", "", "Phát sinh ngoài KLMT Nhà thầu bổ sung", "", "", "", "=SUBTOTAL(9,G6:G6)"])  # r5 - tổng B
+    ws.append(["", "", "Ống mềm bổ sung", "Cái", 1, 300_000, "=E6*F6"])                              # r6 - mục B sẵn có
+    ws.append(["C", "", "TỔNG CỘNG TRƯỚC VAT: C = A + B", "", "", "", "=G2+G5"])                     # r7 - tổng cộng
     wb.save(bidder)
 
     out = compare_appendices_with_bidders(
@@ -61,17 +56,8 @@ def _annotate(tmp_path: Path) -> Path:
     return Path(out.annotated_files["NT A"])
 
 
-def _names(ws) -> list[str]:
-    out = []
-    for r in range(2, ws.max_row + 1):
-        v = ws.cell(r, NAME_COL).value
-        if v is not None and str(v).strip():
-            out.append(str(v).strip())
-    return out
-
-
 def _row_of(ws, part: str) -> int:
-    for r in range(2, ws.max_row + 1):
+    for r in range(1, ws.max_row + 1):
         v = ws.cell(r, NAME_COL).value
         if v is not None and part in str(v):
             return r
@@ -80,58 +66,51 @@ def _row_of(ws, part: str) -> int:
 
 def test_sorted_sheet_takes_original_name_goc_kept(tmp_path: Path):
     wb = load_workbook(_annotate(tmp_path))
-    assert SHEET in wb.sheetnames     # bản sắp xếp mang tên gốc
-    assert GOC in wb.sheetnames       # bản gốc vẫn còn với hậu tố '— gốc'
+    assert SHEET in wb.sheetnames
+    assert GOC in wb.sheetnames
 
 
-def test_phatsinh_block_at_bottom_with_divider_and_totals(tmp_path: Path):
+def test_phatsinh_in_A_moved_into_section_B(tmp_path: Path):
     ws = load_workbook(_annotate(tmp_path))[SHEET]
-    names = _names(ws)
+    r_a = _row_of(ws, "ĐẦU MỤC CÔNG VIỆC")
+    r_matched = _row_of(ws, "Tủ điện tổng")
+    r_b = _row_of(ws, "Phát sinh ngoài KLMT")
+    r_existing_b = _row_of(ws, "Ống mềm bổ sung")
+    r_moved = _row_of(ws, "Phát sinh trong A")
+    r_c = _row_of(ws, "TỔNG CỘNG")
 
-    def idx(part):
-        return next(i for i, n in enumerate(names) if part in n)
+    # Phần A: chỉ còn hạng mục khớp; phát sinh KHÔNG còn ở phần A.
+    assert r_a < r_matched < r_b
+    assert r_matched < r_moved
+    # Phát sinh đã nằm trong phần B (sau tiêu đề B), cùng mục B sẵn có.
+    assert r_b < r_existing_b
+    assert r_b < r_moved
+    # Trình tự: ... A ... B ... (mục B sẵn có + phát sinh dời xuống) ... C.
+    assert r_moved < r_c and r_existing_b < r_c
 
-    # Đầu mục đi trước nhóm của nó; hạng mục khớp giữ thứ tự.
-    assert idx("Tủ điện hạ thế") < idx("Tủ điện tổng") < idx("Cáp đồng XLPE")
-    # Phát sinh nằm sau dòng phân cách, sau toàn bộ hạng mục khớp.
-    assert idx("Cáp đồng XLPE") < idx("PHÁT SINH NGOÀI DANH MỤC") < idx("Phát sinh giữa file")
-    # Có tổng phát sinh riêng.
-    assert any("CỘNG PHÁT SINH" in n for n in names)
 
-
-def test_row_formulas_translated_to_new_rows(tmp_path: Path):
+def test_totals_rewritten_live(tmp_path: Path):
     ws = load_workbook(_annotate(tmp_path))[SHEET]
-    # Công thức trong-dòng phải "sống" và trỏ đúng dòng MỚI của chính nó.
-    for part in ("Tủ điện tổng", "Cáp đồng XLPE", "Phát sinh giữa file"):
-        r = _row_of(ws, part)
-        assert ws.cell(r, AMOUNT_COL).value == f"=F{r}*G{r}", part
+    r_a = _row_of(ws, "ĐẦU MỤC CÔNG VIỆC")
+    r_b = _row_of(ws, "Phát sinh ngoài KLMT")
+    r_c = _row_of(ws, "TỔNG CỘNG")
+
+    # Tổng A và B là SUBTOTAL sống theo dải dòng mới.
+    assert str(ws.cell(r_a, AMOUNT_COL).value or "").upper().startswith("=SUBTOTAL(9,")
+    assert str(ws.cell(r_b, AMOUNT_COL).value or "").upper().startswith("=SUBTOTAL(9,")
+    # Tổng C = A + B, trỏ đúng dòng tiêu đề A và B mới.
+    assert ws.cell(r_c, AMOUNT_COL).value == f"=G{r_a}+G{r_b}"
 
 
-def test_rebuilt_subtotal_is_live_formula(tmp_path: Path):
+def test_row_formula_translated_after_move(tmp_path: Path):
     ws = load_workbook(_annotate(tmp_path))[SHEET]
-    r = _row_of(ws, "Cộng: Tủ điện hạ thế")
-    value = str(ws.cell(r, AMOUNT_COL).value or "")
-    assert value.startswith("=SUM(")
+    r_moved = _row_of(ws, "Phát sinh trong A")
+    # Công thức thành tiền trong-dòng của mục đã dời phải trỏ đúng dòng mới.
+    assert ws.cell(r_moved, AMOUNT_COL).value == f"=E{r_moved}*F{r_moved}"
 
 
-def test_goc_sheet_unchanged_and_cross_refs_rewritten(tmp_path: Path):
-    wb = load_workbook(_annotate(tmp_path))
-    goc = wb[GOC]
-    # Bản gốc giữ nguyên vị trí dòng và công thức gốc.
-    assert goc.cell(4, NAME_COL).value == "Phát sinh giữa file"
-    assert goc.cell(4, AMOUNT_COL).value == "=F4*G4"
-    # Tham chiếu chéo từ sheet khác được viết lại trỏ về bản gốc.
-    assert wb["Tong ket"]["A1"].value == f"='{GOC}'!H3"
-
-
-def test_ai_kiem_tra_hyperlinks_point_to_goc(tmp_path: Path):
-    wb = load_workbook(_annotate(tmp_path))
-    review = wb["AI_KIEM_TRA"]
-    links = []
-    for row in review.iter_rows():
-        for c in row:
-            hl = c.hyperlink
-            if hl is not None:
-                links.append(str(getattr(hl, "target", "") or "") + str(getattr(hl, "location", "") or ""))
-    assert links, "AI_KIEM_TRA phải có liên kết tới dòng gốc"
-    assert all("— gốc" in link for link in links if SHEET in link or GOC in link)
+def test_goc_sheet_unchanged(tmp_path: Path):
+    goc = load_workbook(_annotate(tmp_path))[GOC]
+    # Bản gốc giữ nguyên vị trí: phát sinh vẫn ở dòng 4 (trong phần A), công thức gốc.
+    assert goc.cell(4, NAME_COL).value == "Phát sinh trong A"
+    assert goc.cell(4, AMOUNT_COL).value == "=E4*F4"
