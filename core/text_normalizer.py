@@ -224,6 +224,38 @@ def normalize_stt(value: str) -> str:
     return normalized.strip(".-")
 
 
+_STT_SPLIT = re.compile(r"[.\-]")
+_STT_NUM_PREFIX = re.compile(r"(\d+)(.*)")
+_STT_EMPTY_KEY: tuple = ((2, 0, "~"),)
+
+
+@lru_cache(maxsize=100_000)
+def stt_sort_key(value: str) -> tuple:
+    """Khóa sắp xếp TỰ NHIÊN, phân cấp cho số thứ tự hạng mục.
+
+    Dùng để chuẩn hóa thứ tự về STT khi file nhà thầu bị lệch thứ tự: '1.2' đứng
+    trước '1.10' (so theo giá trị số, không phải chuỗi thô). Mỗi cấp là bộ
+    ``(rank, number, suffix)`` với kiểu đồng nhất để so sánh an toàn. STT rỗng
+    trả về khóa lớn nhất để dồn dòng không có STT xuống cuối nhóm.
+    """
+
+    normalized = normalize_stt(value)
+    if not normalized:
+        return _STT_EMPTY_KEY
+
+    key: list[tuple[int, int, str]] = []
+    for part in _STT_SPLIT.split(normalized):
+        if not part:
+            continue
+        match = _STT_NUM_PREFIX.match(part)
+        if match:
+            key.append((0, int(match.group(1)), match.group(2)))
+        else:
+            key.append((1, 0, part))
+
+    return tuple(key) or _STT_EMPTY_KEY
+
+
 # =============================================================================
 # CHUẨN HÓA ĐƠN VỊ
 # =============================================================================

@@ -10,6 +10,7 @@ from typing import Any, Iterable, Iterator, Sequence
 import xlsxwriter
 
 from .models import ComparisonResult, ComparedItem, MatchKind, RowType, Severity
+from .text_normalizer import stt_sort_key
 
 EXCEL_MAX_ROWS = 1_048_576
 
@@ -483,16 +484,17 @@ def _summary_order_keys(result: ComparisonResult) -> dict[str, tuple]:
             (r.candidate or r.reference).row_number,
         ))
         block_is_extra = 0
-        block_order = 0
+        block_order: object = 0
         for row in rows:
             item = row.candidate or row.reference
             matched = row.reference is not None
             if item.row_type is RowType.DETAIL:
                 # Mở một khối hạng mục mới; con phía sau kế thừa trạng thái khối này.
                 block_is_extra = 0 if matched else 1
-                # Vị trí theo thứ tự tài liệu của FILE NHÀ THẦU (item = candidate
-                # khi đã chào); phát sinh bị đẩy xuống cuối bằng offset.
-                block_order = item.row_number if matched else (_PHATSINH_OFFSET + item.row_number)
+                # Hạng mục KHỚP: xếp theo SỐ THỨ TỰ của bản chuẩn (chuẩn hóa lại khi
+                # file nhà thầu bị lệch thứ tự). Hạng mục PHÁT SINH: dồn xuống cuối
+                # (mục B) theo thứ tự tài liệu của nhà thầu.
+                block_order = stt_sort_key(row.reference.stt) if matched else (_PHATSINH_OFFSET + item.row_number)
                 within = 0
             else:
                 # Vật tư con: bám theo khối cha, xếp sau cha theo thứ tự tài liệu.

@@ -128,6 +128,24 @@ def test_summary_has_section_b_header_before_phatsinh(tmp_path: Path):
     assert r_matched < r_b_header < r_phatsinh
 
 
+def test_matched_items_normalized_to_stt_when_bidder_shifted(tmp_path: Path):
+    # Nhà thầu chào LỆCH thứ tự (theo dòng là 3, 1, 2) -> bảng tổng hợp phải xếp
+    # lại theo SỐ THỨ TỰ của bản chuẩn: 1, 2, 3.
+    rows = [
+        _matched("HM3", pl01_row=7, stt="3", name="Đèn LED", bidder_row=5, price=50),
+        _matched("HM1", pl01_row=5, stt="1", name="Tủ điện", bidder_row=6, price=100),
+        _matched("HM2", pl01_row=6, stt="2", name="Cáp đồng", bidder_row=7, price=200),
+    ]
+    summary = ComparisonSummary("PL01", 1, 3, len(rows), 0, 0, 0, 0, 0, 0, 0, 0.0, {}, "")
+    result = ComparisonResult(rows=rows, summary=summary, warnings=[], audit={"bidder_sha256": {"NT A": ""}, "thresholds": {}})
+
+    out = tmp_path / "tong_hop.xlsx"
+    export_consolidated_summary(result, out)
+    names = _diengiai_order(load_workbook(out)[SHEET])
+
+    assert names == ["Tủ điện", "Cáp đồng", "Đèn LED"]
+
+
 PL01_SHEET = "2 - PHAN TU HA THE"
 BIDDER_SHEET = "1. HT điện"
 
