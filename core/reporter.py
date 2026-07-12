@@ -40,7 +40,7 @@ def _formats(wb):
         "header": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#1F4E78", "align": "center", "valign": "vcenter", "text_wrap": True, "bottom": 1}),
         "text": wb.add_format({"font_name": "Arial", "valign": "top"}),
         "long": wb.add_format({"font_name": "Arial", "valign": "top", "text_wrap": True}),
-        "num": wb.add_format({"font_name": "Arial", "num_format": "#,##0.000;[Red]-#,##0.000", "valign": "top"}),
+        "num": wb.add_format({"font_name": "Arial", "num_format": "#,##0.###;[Red]-#,##0.###", "valign": "top"}),
         "money": wb.add_format({"font_name": "Arial", "num_format": "#,##0;[Red]-#,##0", "valign": "top"}),
         "pct": wb.add_format({"font_name": "Arial", "num_format": "0.00%;[Red]-0.00%", "valign": "top"}),
         "score": wb.add_format({"font_name": "Arial", "num_format": "0.0", "valign": "top"}),
@@ -306,24 +306,24 @@ _BLOCK_LEAVES = [
     ("ĐG tổng hợp", "money"),
     ("Thành tiền\nKLMT", "money"),
     ("Thành tiền\nNT chào", "money"),
-    ("Ghi chú", "long"),
 ]
 _BLOCK_GROUPS = [
     (None, 0, 0),
     ("THÔNG TIN VỀ VẬT LIỆU CHÍNH", 1, 4),
     ("ĐƠN GIÁ (chưa gồm VAT)", 5, 10),
     ("THÀNH TIỀN", 11, 12),
-    (None, 13, 13),
 ]
-_BLOCK_WIDTHS = [10, 30, 14, 16, 13, 14, 14, 14, 14, 14, 16, 18, 18, 26]
+_BLOCK_WIDTHS = [15, 30, 14, 16, 13, 14, 14, 14, 14, 14, 16, 18, 18]
 _KL_IDX = 0
 _BRAND_IDX = 3
 _ORIGIN_IDX = 4
 _UNIT_PRICE_IDX = 10
 _BID_AMOUNT_IDX = 12
-_NOTE_IDX = 13
+# Sai lệch không gắn với ô riêng (tên hạng mục, ĐVT, thông số) -> gắn chú thích
+# lên ô Mô tả/Quy cách (đã bỏ cột Ghi chú).
+_NOTE_IDX = 1
 _KLMT_LEAVES = ["STT", "Mã hiệu", "Diễn giải", "ĐVT", "KL\nMời thầu"]
-_KLMT_WIDTHS = [6, 16, 46, 9, 13]
+_KLMT_WIDTHS = [6, 16, 46, 9, 15]
 _KLMT_COLS = len(_KLMT_LEAVES)
 _BLOCK_COLS = len(_BLOCK_LEAVES)
 
@@ -448,8 +448,9 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
             ref = row.reference
             anchor = ref or row.candidate
             # Trang hiển thị theo sheet của file nhà thầu (giữ cấu trúc file gốc).
-            meta[cid] = (_display_sheet(row), anchor.row_number, anchor.stt,
-                         (ref.item_code if ref else anchor.item_code),
+            # Mã hiệu: ưu tiên mã PL01, nếu trống thì lấy mã của nhà thầu.
+            code = (ref.item_code if ref and ref.item_code else "") or (row.candidate.item_code if row.candidate else "")
+            meta[cid] = (_display_sheet(row), anchor.row_number, anchor.stt, code,
                          (ref.item_name if ref else anchor.item_name),
                          (ref.unit if ref else anchor.unit),
                          (ref.reference_quantity if ref else None))
@@ -597,7 +598,6 @@ def _write_quote_row(ws, f, r: int, bidders: list[str], cid: str,
             cand.unit_price_total if cand else None,
             cand.reference_amount if cand else None,
             cand.bid_amount if cand else None,
-            cand.note if cand else "",
         ]
         comments: dict[int, str] = {}
         styles: dict[int, str] = {}
