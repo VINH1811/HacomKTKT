@@ -146,6 +146,31 @@ def test_matched_items_normalized_to_stt_when_bidder_shifted(tmp_path: Path):
     assert names == ["Tủ điện", "Cáp đồng", "Đèn LED"]
 
 
+def test_matched_component_after_phatsinh_stays_in_A(tmp_path: Path):
+    # Vật tư con ĐÃ KHỚP đứng NGAY SAU một hạng mục phát sinh phải ở mục A (không
+    # bị cuốn xuống B theo khối).
+    matched_comp_ref = _rec(role=DocumentRole.HSMT, sheet=SHEET, row=6, stt="", name="MCB đã khớp", row_type=RowType.COMPONENT, ref_qty=1)
+    matched_comp_cand = _rec(role=DocumentRole.HSDT, sheet=SHEET, row=7, stt="", name="MCB đã khớp", row_type=RowType.COMPONENT, bid_qty=1, price=10)
+    rows = [
+        _matched("HM1", pl01_row=5, stt="1", name="Tủ điện tổng", bidder_row=5, price=100),
+        _extra("PS", bidder_row=6, stt="9", name="Bổ sung ngoài thầu", row_type=RowType.DETAIL, price=99),
+        ComparedItem("MC", "NT A", matched_comp_ref, matched_comp_cand, MatchResult(0, 0, MatchKind.EXACT_NAME, 1.0)),
+    ]
+    summary = ComparisonSummary("PL01", 1, 2, len(rows), 0, 0, 0, 0, 0, 0, 0, 0.0, {}, "")
+    result = ComparisonResult(rows=rows, summary=summary, warnings=[], audit={"bidder_sha256": {"NT A": ""}, "thresholds": {}})
+
+    out = tmp_path / "tong_hop.xlsx"
+    export_consolidated_summary(result, out)
+    ws = load_workbook(out)[SHEET]
+
+    r_matched_comp = _row_containing(ws, "MCB đã khớp")
+    r_b_header = _row_containing(ws, "PHÁT SINH NGOÀI KLMT")
+    r_phatsinh = _row_containing(ws, "Bổ sung ngoài thầu")
+
+    # Vật tư con đã khớp nằm ở mục A (TRƯỚC tiêu đề B); phát sinh ở mục B.
+    assert r_matched_comp < r_b_header < r_phatsinh
+
+
 PL01_SHEET = "2 - PHAN TU HA THE"
 BIDDER_SHEET = "1. HT điện"
 

@@ -61,6 +61,7 @@ def _formats(wb):
         "grp_sub": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#1F3864", "bg_color": "#DDEBF7", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
         "leaf": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#1F4E78", "align": "center", "valign": "vcenter", "text_wrap": True, "border": 1}),
         # Dòng tiêu đề phân mục A/B trong bảng tổng hợp chào giá.
+        "section_a": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#2F75B5", "align": "left", "valign": "vcenter", "border": 1}),
         "section_ps": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#9C4500", "bg_color": "#FCE4D6", "align": "left", "valign": "vcenter", "border": 1}),
     }
 
@@ -478,28 +479,41 @@ def _summary_order_keys(result: ComparisonResult) -> dict[str, tuple]:
         if item and item.is_comparable:
             rows_by_bidder[row.bidder].append(row)
 
+    empty_stt = stt_sort_key("")
     for rows in rows_by_bidder.values():
         rows.sort(key=lambda r: (
             (r.candidate or r.reference).sheet,
             (r.candidate or r.reference).row_number,
         ))
-        block_is_extra = 0
-        block_order: object = 0
+        # Vị trí khối gần nhất theo TỪNG phân mục (A: khóa STT của hạng mục khớp
+        # gần nhất; B: vị trí dòng của hạng mục phát sinh gần nhất) — để vật tư con
+        # bám đúng cha CÙNG PHÂN MỤC.
+        matched_order: object = empty_stt
+        extra_order: int | None = None
         for row in rows:
             item = row.candidate or row.reference
             matched = row.reference is not None
             if item.row_type is RowType.DETAIL:
-                # Mở một khối hạng mục mới; con phía sau kế thừa trạng thái khối này.
-                block_is_extra = 0 if matched else 1
-                # Hạng mục KHỚP: xếp theo SỐ THỨ TỰ của bản chuẩn (chuẩn hóa lại khi
-                # file nhà thầu bị lệch thứ tự). Hạng mục PHÁT SINH: dồn xuống cuối
-                # (mục B) theo thứ tự tài liệu của nhà thầu.
-                block_order = stt_sort_key(row.reference.stt) if matched else (_PHATSINH_OFFSET + item.row_number)
+                # Hạng mục KHỚP -> mục A, xếp theo SỐ THỨ TỰ bản chuẩn (chuẩn hóa khi
+                # file nhà thầu lệch thứ tự). Hạng mục PHÁT SINH -> mục B, theo thứ tự
+                # tài liệu.
+                if matched:
+                    matched_order = stt_sort_key(row.reference.stt)
+                    block_order = matched_order
+                else:
+                    extra_order = _PHATSINH_OFFSET + item.row_number
+                    block_order = extra_order
                 within = 0
             else:
-                # Vật tư con: bám theo khối cha, xếp sau cha theo thứ tự tài liệu.
+                # Vật tư con: PHÂN MỤC theo CHÍNH nó (đã khớp -> A, phát sinh -> B),
+                # KHÔNG cuốn theo khối cha khác mục. Nhờ vậy dòng đã khớp đứng sau một
+                # hạng mục phát sinh vẫn ở mục A, không bị đẩy sang B.
+                if matched:
+                    block_order = matched_order
+                else:
+                    block_order = extra_order if extra_order is not None else (_PHATSINH_OFFSET + item.row_number)
                 within = item.row_number
-            key = (_display_sheet(row), block_is_extra, block_order, within)
+            key = (_display_sheet(row), 0 if matched else 1, block_order, within)
             cid = row.canonical_id
             if cid not in order or key < order[cid]:
                 order[cid] = key
@@ -688,11 +702,17 @@ def export_consolidated_summary(result: ComparisonResult, output_path: str | Pat
             ws.set_tab_color("#1F4E78")
             _write_quote_header(ws, f, bidders, f"BẢNG CHÀO GIÁ TỔNG HỢP — {sheet_name}")
             r = 4
+            a_started = False
             phatsinh_started = False
             for cid in cids:
-                # Chèn tiêu đề phân mục B trước khối hạng mục phát sinh (theo đúng
-                # cấu trúc A/B của file chào giá: A là theo KLMT, B là phát sinh).
+                # Chèn tiêu đề phân mục A / B theo đúng cấu trúc file chào giá gốc:
+                # A = đầu mục theo KLMT (khớp chuẩn), B = hạng mục phát sinh ngoài.
                 is_extra = cid_order.get(cid, (None, 1))[1] == 1
+                if not is_extra and not a_started:
+                    ws.merge_range(r, 0, r, total_cols - 1,
+                                   "A — ĐẦU MỤC CÔNG VIỆC THEO KLMT", f["section_a"])
+                    r += 1
+                    a_started = True
                 if is_extra and not phatsinh_started:
                     ws.merge_range(r, 0, r, total_cols - 1,
                                    "B — HẠNG MỤC PHÁT SINH NGOÀI KLMT (nhà thầu tự thêm)", f["section_ps"])
