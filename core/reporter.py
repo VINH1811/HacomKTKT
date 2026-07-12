@@ -312,14 +312,60 @@ _BLOCK_GROUPS = [
     (None, 13, 13),
 ]
 _BLOCK_WIDTHS = [10, 30, 14, 16, 13, 14, 14, 14, 14, 14, 16, 18, 18, 26]
+_KL_IDX = 0
 _BRAND_IDX = 3
 _ORIGIN_IDX = 4
 _UNIT_PRICE_IDX = 10
 _BID_AMOUNT_IDX = 12
+_NOTE_IDX = 13
 _KLMT_LEAVES = ["STT", "Mã hiệu", "Diễn giải", "ĐVT", "KL\nMời thầu"]
 _KLMT_WIDTHS = [6, 16, 46, 9, 13]
 _KLMT_COLS = len(_KLMT_LEAVES)
 _BLOCK_COLS = len(_BLOCK_LEAVES)
+
+_SEV_RANK = {Severity.OK: 0, Severity.INFO: 1, Severity.REVIEW: 2, Severity.WARNING: 3, Severity.CRITICAL: 4}
+
+
+def _leaf_for_field(field: str) -> "int | None":
+    """Ánh xạ tên trường sai lệch -> chỉ số ô trong block nhà thầu (nếu có)."""
+    f = field.lower()
+    if "khối lượng" in f:
+        return _KL_IDX
+    if "vật tư" in f or "quy cách" in f:
+        return 1
+    if "mã hiệu" in f:
+        return 2
+    if "thương hiệu" in f:
+        return _BRAND_IDX
+    if "xuất xứ" in f:
+        return _ORIGIN_IDX
+    if "vl chính" in f:
+        return 5
+    if "vl phụ" in f:
+        return 6
+    if "nc & máy" in f or "nc&m" in f or "nc & m" in f:
+        return 7
+    if "quản lý" in f:
+        return 8
+    if "lợi nhuận" in f:
+        return 9
+    if "thành tiền theo klmt" in f:
+        return 11
+    if "đơn giá" in f:
+        return _UNIT_PRICE_IDX
+    if "thành tiền" in f:
+        return _BID_AMOUNT_IDX
+    return None
+
+
+def _mark_style_key(severity: Severity, kind: str) -> str:
+    if kind == "money":
+        return "money_crit" if severity is Severity.CRITICAL else "money_warn"
+    if severity is Severity.CRITICAL:
+        return "critical"
+    if severity is Severity.WARNING:
+        return "warning"
+    return "review"
 
 
 def _display_sheet(row: ComparedItem) -> str:
@@ -341,7 +387,7 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
     Mỗi nhóm giữ lại bản tham chiếu (PL01/đồng thuận) và bản chào của từng nhà
     thầu, kèm metadata để dựng khối KLMT bên trái.
     """
-    grouped: dict[str, dict[str, Any]] = defaultdict(lambda: {"ref": None, "bidders": {}, "pl2": {}})
+    grouped: dict[str, dict[str, Any]] = defaultdict(lambda: {"ref": None, "bidders": {}, "pl2": {}, "marks": {}})
     meta: dict[str, tuple] = {}
     for row in result.rows:
         item = row.reference or row.candidate
@@ -368,6 +414,32 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
                     pl2_issues[key] = (str(diff.message), is_critical)
             if pl2_issues:
                 grouped[cid]["pl2"][row.bidder] = pl2_issues
+
+            # Gom MỌI sai lệch bị gắn cờ (khối lượng, vật tư/quy cách, thương hiệu,
+            # xuất xứ, thành phần giá, đơn giá, thành tiền...) để tô ĐÚNG ô tương
+            # ứng — bảng tổng hợp khớp với danh sách cảnh báo trên web, không bỏ
+            # sót. Sai lệch không có ô riêng (tên hạng mục, ĐVT, thông số) gom vào
+            # ô Ghi chú.
+            leaf_marks: dict[int, tuple[Severity, str]] = {}
+            note_msgs: list[str] = []
+            note_sev = Severity.OK
+            for diff in row.differences:
+                field = str(diff.field)
+                if field.startswith("Phụ lục 02") or diff.severity is Severity.OK:
+                    continue
+                leaf = _leaf_for_field(field)
+                if leaf is None:
+                    note_msgs.append(f"{field}: {diff.message}")
+                    if _SEV_RANK[diff.severity] > _SEV_RANK[note_sev]:
+                        note_sev = diff.severity
+                    continue
+                prev = leaf_marks.get(leaf)
+                if prev is None or _SEV_RANK[diff.severity] > _SEV_RANK[prev[0]]:
+                    leaf_marks[leaf] = (diff.severity, str(diff.message))
+            if note_msgs and _NOTE_IDX not in leaf_marks:
+                leaf_marks[_NOTE_IDX] = (note_sev, " | ".join(dict.fromkeys(note_msgs))[:1500])
+            if leaf_marks:
+                grouped[cid]["marks"][row.bidder] = leaf_marks
         if cid not in meta:
             ref = row.reference
             anchor = ref or row.candidate
@@ -533,6 +605,16 @@ def _write_quote_row(ws, f, r: int, bidders: list[str], cid: str,
                 msg, is_critical = issue
                 styles[leaf_idx] = "critical" if is_critical else "warning"
                 comments[leaf_idx] = f"Phụ lục 02 — {msg}"
+
+        # Đánh dấu MỌI ô còn lại có sai lệch bị gắn cờ (khối lượng, vật tư, thương
+        # hiệu, xuất xứ, thành phần giá, ghi chú...) để khớp với cảnh báo trên web,
+        # không bỏ sót. Ô ĐƠN GIÁ và THÀNH TIỀN NT chào do logic lệch-trung-vị ở
+        # trên lo (tránh đánh dấu trùng/nhiễu); các ô đã đặt màu ở trên được giữ.
+        for leaf_idx, (severity, message) in grouped[cid].get("marks", {}).get(bidder, {}).items():
+            if leaf_idx in styles or leaf_idx in (_UNIT_PRICE_IDX, _BID_AMOUNT_IDX):
+                continue
+            styles[leaf_idx] = _mark_style_key(severity, _BLOCK_LEAVES[leaf_idx][1])
+            comments[leaf_idx] = message
 
         for j, value in enumerate(leaf_values):
             kind = _BLOCK_LEAVES[j][1]
