@@ -13,8 +13,31 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 
+from core.annotator import _phatsinh_block_rows
 from core.config import EnterpriseConfig
+from core.models import ComparedItem, DocumentRole, ItemRecord, MatchKind, MatchResult, RowType
 from core.tender_package import compare_appendices_with_bidders
+
+
+def _cmp(row: int, row_type: RowType, matched: bool) -> ComparedItem:
+    cand = ItemRecord(source_id="c", role=DocumentRole.HSDT, bidder="NT A", workbook="w",
+                      sheet="S", row_number=row, row_type=row_type)
+    ref = (ItemRecord(source_id="r", role=DocumentRole.HSMT, bidder="PL01", workbook="w",
+                      sheet="S", row_number=row, row_type=row_type) if matched else None)
+    kind = MatchKind.EXACT_NAME if matched else MatchKind.EXTRA
+    return ComparedItem("cid", "NT A", ref, cand, MatchResult(0 if matched else None, row, kind, 1.0))
+
+
+def test_only_individually_marked_phatsinh_rows_are_moved():
+    # Dòng ĐÃ KHỚP đứng ngay sau một hạng mục phát sinh KHÔNG bị coi là phát sinh
+    # (không bị dời theo khối).
+    rows = [
+        _cmp(1, RowType.DETAIL, True),       # khớp
+        _cmp(2, RowType.DETAIL, False),      # phát sinh
+        _cmp(3, RowType.COMPONENT, True),    # ĐÃ KHỚP, ngay sau phát sinh -> KHÔNG dời
+        _cmp(4, RowType.COMPONENT, False),   # phát sinh (con của mục phát sinh) -> dời
+    ]
+    assert _phatsinh_block_rows(rows)["S"] == {2, 4}
 
 SHEET = "1. HT điện"
 GOC = "1. HT điện — gốc"

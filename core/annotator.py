@@ -12,7 +12,7 @@ from openpyxl.formula.translate import Translator
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .models import ComparedItem, FieldDifference, RowType, Severity, WorkbookData
+from .models import ComparedItem, FieldDifference, Severity, WorkbookData
 from .text_normalizer import normalize_stt
 
 _FILL = {
@@ -99,25 +99,17 @@ _GOC_SUFFIX = " — gốc"
 
 
 def _phatsinh_block_rows(rows: list[ComparedItem]) -> dict[str, set[int]]:
-    """Xác định các dòng thuộc KHỐI phát sinh theo từng sheet nhà thầu.
+    """Các dòng ĐƯỢC ĐÁNH DẤU phát sinh ngoài (không ghép được PL01) theo sheet.
 
-    Đi theo thứ tự tài liệu: một dòng cha (DETAIL) không ghép được PL01 mở một
-    khối phát sinh; các vật tư con phía sau kế thừa. Vật tư con dưới hạng mục cha
-    ĐÃ KHỚP thì KHÔNG bị coi là phát sinh (không bị dời).
+    Chỉ lấy đúng những dòng bản thân là phát sinh (``reference is None`` — tức có
+    đánh dấu "Hạng mục phát sinh ngoài"). KHÔNG kéo theo cả khối: một dòng đã khớp
+    PL01 (dù đứng ngay sau một hạng mục phát sinh) sẽ KHÔNG bị dời — tránh cuốn
+    nhầm các dòng không đánh dấu xuống mục B.
     """
-    by_sheet: dict[str, list[ComparedItem]] = defaultdict(list)
-    for row in rows:
-        if row.candidate is not None:
-            by_sheet[row.candidate.sheet].append(row)
     result: dict[str, set[int]] = defaultdict(set)
-    for sheet_name, sheet_rows in by_sheet.items():
-        sheet_rows.sort(key=lambda r: r.candidate.row_number)
-        block_extra = False
-        for row in sheet_rows:
-            if row.candidate.row_type is RowType.DETAIL:
-                block_extra = row.reference is None
-            if block_extra:
-                result[sheet_name].add(row.candidate.row_number)
+    for row in rows:
+        if row.candidate is not None and row.reference is None:
+            result[row.candidate.sheet].add(row.candidate.row_number)
     return result
 
 
