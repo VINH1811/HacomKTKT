@@ -4,7 +4,13 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from .anomaly import enrich_consensus_anomalies
-from .comparison import build_bidder_rows, low_match_warnings, make_result, misplacement_warnings
+from .comparison import (
+    build_bidder_rows,
+    low_match_warnings,
+    make_result,
+    misplacement_warnings,
+    scope_mismatch_warnings,
+)
 from .config import EnterpriseConfig
 from .excel_reader import file_sha256
 from .matcher import match_items_cached
@@ -79,6 +85,7 @@ def compare_tender_files(
     # HSDT chưa có giá), và nếu tỷ lệ ghép cặp thấp bất thường (định dạng lạ).
     result.warnings.extend(misplacement_warnings(reference, "HSMT", bidders))
     result.warnings.extend(low_match_warnings(reference, "HSMT", rows))
+    result.warnings.extend(scope_mismatch_warnings("HSMT", rows))
     if output_path:
         _write_report(result, output_path, config)
     return result

@@ -85,6 +85,59 @@ def low_match_warnings(reference, reference_label: str, rows: list) -> list[str]
     return warnings
 
 
+# Ngưỡng nghi bản chuẩn không bao phủ phạm vi hồ sơ: quá nửa số hạng mục nhà
+# thầu chào không ghép được thì gần như chắc chắn do chọn nhầm/thiếu bản chuẩn,
+# chứ không phải nhà thầu tự thêm ngần ấy hạng mục. Chỉ xét hồ sơ đủ lớn — với
+# hồ sơ vài hạng mục, tỷ lệ phát sinh cao là chuyện bình thường, không phải tín
+# hiệu bản chuẩn sai.
+SCOPE_MISMATCH_RATIO = 0.50
+SCOPE_MISMATCH_MIN_ITEMS = 20
+
+
+def extra_ratio_by_bidder(rows: list) -> dict[str, tuple[int, int]]:
+    """{nhà thầu: (số dòng phát sinh, tổng dòng nhà thầu chào)}."""
+    stats: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+    for row in rows:
+        if row.candidate is None:
+            continue
+        stats[row.bidder][1] += 1
+        if row.reference is None:
+            stats[row.bidder][0] += 1
+    return {bidder: (extra, total) for bidder, (extra, total) in stats.items()}
+
+
+def scope_mismatched_bidders(rows: list) -> set[str]:
+    """Nhà thầu có tỷ lệ phát sinh cao bất thường -> bản chuẩn nhiều khả năng sai."""
+    return {
+        bidder
+        for bidder, (extra, total) in extra_ratio_by_bidder(rows).items()
+        if total >= SCOPE_MISMATCH_MIN_ITEMS and extra / total >= SCOPE_MISMATCH_RATIO
+    }
+
+
+def scope_mismatch_warnings(reference_label: str, rows: list) -> list[str]:
+    """Cảnh báo khi quá nửa hạng mục nhà thầu không ghép được bản chuẩn.
+
+    Khác ``low_match_warnings`` (tính theo phía bản chuẩn và chỉ chạy khi bản
+    chuẩn có từ 10 hạng mục), hàm này tính theo phía NHÀ THẦU nên bắt được cả
+    trường hợp bản chuẩn quá nhỏ hoặc sai phạm vi — ví dụ nạp nhầm một PL01 vài
+    hạng mục cho hồ sơ vài nghìn hạng mục, khiến gần như cả hồ sơ thành 'phát
+    sinh' giả. Chỉ cảnh báo, không đổi kết quả đối chiếu.
+    """
+    warnings: list[str] = []
+    for bidder, (extra, total) in sorted(extra_ratio_by_bidder(rows).items()):
+        if total < SCOPE_MISMATCH_MIN_ITEMS or extra / total < SCOPE_MISMATCH_RATIO:
+            continue
+        warnings.append(
+            f"⚠️ {extra}/{total} ({extra / total:.0%}) hạng mục của '{bidder}' KHÔNG ghép được với "
+            f"{reference_label}. Rất có thể {reference_label} bị chọn nhầm hoặc không bao phủ phạm vi "
+            f"hồ sơ này — phần lớn dòng 'phát sinh ngoài' là GIẢ. Hệ thống GIỮ NGUYÊN thứ tự file gốc "
+            f"(KHÔNG dồn xuống mục B) để tránh tạo ra bản sắp xếp rỗng ruột. Hãy kiểm tra lại "
+            f"{reference_label} trước khi kết luận."
+        )
+    return warnings
+
+
 def misplacement_warnings(reference, reference_label: str, bidders: list) -> list[str]:
     """Cảnh báo (không tự sửa) khi nghi ngờ đặt nhầm vị trí file.
 

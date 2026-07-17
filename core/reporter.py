@@ -9,6 +9,7 @@ from typing import Any, Iterable, Iterator, Sequence
 
 import xlsxwriter
 
+from .comparison import scope_mismatched_bidders
 from .models import ComparisonResult, ComparedItem, MatchKind, RowType, Severity
 from .text_normalizer import stt_sort_key
 
@@ -481,11 +482,29 @@ def _summary_order_keys(result: ComparisonResult) -> dict[str, tuple]:
             rows_by_bidder[row.bidder].append(row)
 
     empty_stt = stt_sort_key("")
-    for rows in rows_by_bidder.values():
+    mismatched = scope_mismatched_bidders(result.rows)
+    for bidder, rows in rows_by_bidder.items():
         rows.sort(key=lambda r: (
             (r.candidate or r.reference).sheet,
             (r.candidate or r.reference).row_number,
         ))
+        if bidder in mismatched:
+            # Bản chuẩn nhiều khả năng bị chọn nhầm/không bao phủ phạm vi: dồn gần
+            # như cả hồ sơ xuống mục B sẽ tạo bảng rỗng ruột (mục A chỉ còn tiêu đề
+            # nhóm). Giữ nguyên thứ tự file gốc — theo STT của chính nhà thầu, vật tư
+            # con bám dưới cha — và để cảnh báo lệch phạm vi lên tiếng.
+            block_order: object = empty_stt
+            for row in rows:
+                item = row.candidate or row.reference
+                if item.row_type is RowType.DETAIL:
+                    block_order, within = stt_sort_key(item.stt), 0
+                else:
+                    within = item.row_number
+                key = (_display_sheet(row), 0, block_order, within)
+                cid = row.canonical_id
+                if cid not in order or key < order[cid]:
+                    order[cid] = key
+            continue
         # Vị trí khối gần nhất theo TỪNG phân mục (A: khóa STT của hạng mục khớp
         # gần nhất; B: vị trí dòng của hạng mục phát sinh gần nhất) — để vật tư con
         # bám đúng cha CÙNG PHÂN MỤC.

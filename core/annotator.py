@@ -12,6 +12,7 @@ from openpyxl.formula.translate import Translator
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .comparison import scope_mismatched_bidders
 from .models import ComparedItem, FieldDifference, Severity, WorkbookData
 from .text_normalizer import normalize_stt
 
@@ -106,6 +107,13 @@ def _phatsinh_block_rows(rows: list[ComparedItem]) -> dict[str, set[int]]:
     PL01 (dù đứng ngay sau một hạng mục phát sinh) sẽ KHÔNG bị dời — tránh cuốn
     nhầm các dòng không đánh dấu xuống mục B.
     """
+    # An toàn: nếu bản chuẩn nhiều khả năng bị chọn nhầm/không bao phủ phạm vi hồ
+    # sơ (quá nửa hạng mục không ghép được), thì dời tất cả xuống mục B sẽ rút rỗng
+    # phần A — chỉ còn tiêu đề nhóm — và tạo ra bản sắp xếp vô nghĩa. Khi đó không
+    # dời gì cả, để cảnh báo lệch phạm vi lên tiếng. Xét theo CẢ HỒ SƠ chứ không
+    # theo từng sheet: bản chuẩn đã sai thì sai với mọi sheet, kể cả sheet ít mục.
+    if scope_mismatched_bidders(rows):
+        return {}
     result: dict[str, set[int]] = defaultdict(set)
     for row in rows:
         if row.candidate is not None and row.reference is None:
