@@ -12,7 +12,7 @@ from openpyxl.formula.translate import Translator
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .comparison import scope_mismatched_bidders
+from .comparison import extra_ratio_by_bidder, scope_mismatched_bidders
 from .models import ComparedItem, FieldDifference, Severity, WorkbookData
 from .text_normalizer import normalize_stt
 
@@ -477,6 +477,29 @@ def _prepare_review_sheet(wb, bidder: str):
     return summary, review
 
 
+def _write_scope_banner(summary_ws, extra: int, total: int) -> None:
+    """Ghi banner đỏ nổi bật lên AI_TONG_QUAN khi nghi bản chuẩn sai phạm vi.
+
+    Giải thích cho người dùng vì sao KHÔNG có sheet sắp xếp: gần như mọi hạng mục
+    không ghép được bản chuẩn nên nếu dồn hết xuống mục B thì phần A rỗng ruột.
+    """
+    pct = (extra / total) if total else 0.0
+    message = (
+        f"⚠️ CẢNH BÁO: {extra}/{total} ({pct:.0%}) hạng mục KHÔNG khớp bản chuẩn (Phụ lục 01/HSMT). "
+        "Rất có thể bản chuẩn bị CHỌN NHẦM hoặc KHÔNG bao phủ phạm vi hồ sơ này — phần lớn dòng "
+        "'phát sinh ngoài' là GIẢ. Vì vậy hệ thống GIỮ NGUYÊN thứ tự file gốc và KHÔNG tạo sheet sắp "
+        "xếp (nếu dồn hết xuống mục B thì phần A sẽ rỗng, chỉ còn tiêu đề nhóm). Hãy kiểm tra lại bản "
+        "chuẩn rồi chạy lại để có sheet sắp xếp đúng."
+    )
+    summary_ws.merge_cells("A3:H3")
+    cell = summary_ws["A3"]
+    cell.value = message
+    cell.fill = PatternFill("solid", fgColor="C00000")
+    cell.font = Font(name="Arial", bold=True, size=11, color="FFFFFF")
+    cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    summary_ws.row_dimensions[3].height = 60
+
+
 def annotate_bidder_workbook(
     source_path: str | Path,
     output_path: str | Path,
@@ -591,6 +614,13 @@ def annotate_bidder_workbook(
         summary_ws["B17"] = len(bidder_workbook.formula_issues)
         summary_ws["A18"] = "External links trong workbook"
         summary_ws["B18"] = bidder_workbook.external_link_count
+
+        # Nếu nghi bản chuẩn sai phạm vi (quá nửa hạng mục không ghép được) thì đã
+        # KHÔNG tạo sheet sắp xếp — ghi banner giải thích ngay đầu AI_TONG_QUAN để
+        # người dùng không tưởng là mất tính năng.
+        if bidder_workbook.bidder in scope_mismatched_bidders(rows):
+            extra, total = extra_ratio_by_bidder(rows).get(bidder_workbook.bidder, (0, 0))
+            _write_scope_banner(summary_ws, extra, total)
 
         # Bản đồ cột cho từng sheet — KHÔNG thêm bất kỳ cột nào vào file dữ liệu.
         # Chỉ dùng để biết ô giá trị nào cần tô màu và gắn chú thích trực tiếp.
