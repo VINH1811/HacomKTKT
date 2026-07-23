@@ -6,7 +6,7 @@
   <meta name="description" content="Kiểm tra hồ sơ mời thầu, so sánh hồ sơ dự thầu và số hóa PDF scan sang Excel.">
   <title>Hệ thống kiểm tra hồ sơ đấu thầu</title>
   <link rel="icon" type="image/png" href="/images/Logodung.png">
-  <link rel="stylesheet" href="/styles.css?v=1.0.2">
+  <link rel="stylesheet" href="/styles.css?v=1.1.0">
 </head>
 <body>
   <div class="app-shell">
@@ -30,6 +30,15 @@
         </button>
         <button class="nav-item" data-mode="tender" type="button">
           <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span><span><b>HSMT với HSDT</b><small>Kiểm tra đáp ứng yêu cầu</small></span>
+        </button>
+        <button class="nav-item" data-mode="version" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span><span><b>So sánh phiên bản</b><small>Chào giá cũ và mới của một nhà thầu</small></span>
+        </button>
+        <button class="nav-item" data-mode="rfi" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"></path></svg></span><span><b>Theo dõi làm rõ</b><small>Ghép yêu cầu CĐT với phản hồi</small></span>
+        </button>
+        <button class="nav-item" data-mode="dossier" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span><span><b>Checklist hồ sơ</b><small>Đánh giá tính đầy đủ tài liệu</small></span>
         </button>
         <button class="nav-item" data-mode="ocr" type="button">
           <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span><span><b>Quét PDF scan</b><small>Chuyển PDF hoặc ảnh sang Excel</small></span>
@@ -153,6 +162,80 @@
               </div>
             </div>
 
+            <div id="versionFields" class="hidden">
+              <div class="form-section">
+                <div class="two-columns">
+                  <label class="upload-box" for="verOld">
+                    <input id="verOld" type="file" accept=".xlsx">
+                    <button id="removeVerOld" class="remove-single-file" type="button" aria-label="Xóa file">×</button>
+                    <span class="upload-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
+                    <span class="upload-badge success-badge">Đã tải lên</span>
+                    <b>Bản chào giá CŨ (V1)</b>
+                    <small>File Excel nhà thầu nộp lần trước</small>
+                    <em id="verOldName">Chưa chọn file</em>
+                  </label>
+                  <label class="upload-box" for="verNew">
+                    <input id="verNew" type="file" accept=".xlsx">
+                    <button id="removeVerNew" class="remove-single-file" type="button" aria-label="Xóa file">×</button>
+                    <span class="upload-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
+                    <span class="upload-badge success-badge">Đã tải lên</span>
+                    <b>Bản chào giá MỚI (V2)</b>
+                    <small>File Excel nộp lại sau làm rõ</small>
+                    <em id="verNewName">Chưa chọn file</em>
+                  </label>
+                </div>
+              </div>
+              <div class="form-section divider-top">
+                <div class="ocr-options">
+                  <label><span>Tên nhà thầu</span><input id="verBidderName" type="text" placeholder="Ví dụ: Linh Anh"></label>
+                </div>
+                <div class="mode-note">Hai file phải là chào giá của CÙNG một nhà thầu. Hệ thống báo cáo hạng mục thay đổi giá/khối lượng/thương hiệu, thêm mới, đã xoá và mức tăng giảm tổng thành tiền.</div>
+              </div>
+            </div>
+
+            <div id="rfiFields" class="hidden">
+              <div class="form-section">
+                <div class="two-columns">
+                  <label class="upload-box" for="rfiRequest">
+                    <input id="rfiRequest" type="file" accept=".xlsx">
+                    <button id="removeRfiRequest" class="remove-single-file" type="button" aria-label="Xóa file">×</button>
+                    <span class="upload-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
+                    <span class="upload-badge success-badge">Đã tải lên</span>
+                    <b>File yêu cầu làm rõ của CĐT</b>
+                    <small>File "Nội dung làm rõ HSCG" gửi nhà thầu</small>
+                    <em id="rfiRequestName">Chưa chọn file</em>
+                  </label>
+                  <label class="upload-box" for="rfiResponse">
+                    <input id="rfiResponse" type="file" accept=".xlsx">
+                    <button id="removeRfiResponse" class="remove-single-file" type="button" aria-label="Xóa file">×</button>
+                    <span class="upload-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
+                    <span class="upload-badge success-badge">Đã tải lên</span>
+                    <b>File phản hồi của nhà thầu</b>
+                    <small>File nhà thầu điền cột "Nhà thầu trả lời làm rõ"</small>
+                    <em id="rfiResponseName">Chưa chọn file</em>
+                  </label>
+                </div>
+              </div>
+              <div class="form-section divider-top">
+                <div class="ocr-options">
+                  <label><span>Tên nhà thầu</span><input id="rfiBidderName" type="text" placeholder="Ví dụ: Linh Anh"></label>
+                </div>
+                <div class="mode-note">Hệ thống ghép từng yêu cầu ở cột "Ý kiến CĐT" với dòng tương ứng trong file phản hồi và báo trạng thái ĐÃ TRẢ LỜI / CHƯA TRẢ LỜI / KHÔNG THẤY TRONG PHẢN HỒI.</div>
+              </div>
+            </div>
+
+            <div id="dossierFields" class="hidden">
+              <div class="form-section">
+                <div class="field-header"><div><h3>Hồ sơ nhà thầu (file ZIP)</h3><p>Nén toàn bộ thư mục hồ sơ của mỗi nhà thầu thành một file .zip rồi tải lên. Có thể chọn nhiều nhà thầu.</p></div><span class="required" id="dossierStatusBadge">Bắt buộc</span></div>
+                <label class="file-picker large" for="dossierFiles">
+                  <input id="dossierFiles" type="file" accept=".zip" multiple>
+                  <span>Chọn file ZIP hồ sơ</span><small>Mỗi ZIP = toàn bộ thư mục hồ sơ một nhà thầu</small>
+                </label>
+                <div id="dossierList" class="selected-list empty-state">Chưa có hồ sơ nào được chọn.</div>
+                <div class="mode-note">Hệ thống quét tên file/thư mục trong ZIP và chấm ĐẠT/THIẾU 12 đầu mục: đơn chào giá, BOQ, danh mục vật tư, BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền.</div>
+              </div>
+            </div>
+
             <div class="form-actions">
               <button id="resetButton" class="button ghost" type="button">Xóa lựa chọn</button>
               <button id="startButton" class="button primary" type="submit"><span id="startButtonText">Bắt đầu kiểm tra</span><span class="button-arrow">→</span></button>
@@ -183,6 +266,6 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script src="/app.js?v=1.0.2"></script>
+  <script src="/app.js?v=1.1.0"></script>
 </body>
 </html>

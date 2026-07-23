@@ -23,6 +23,24 @@ const MODE_COPY = {
     button: "Bắt đầu đối chiếu",
     hint: "Chọn ít nhất một hồ sơ dự thầu. Bạn có thể đổi tên nhà thầu trước khi chạy."
   },
+  version: {
+    title: "So sánh hai phiên bản chào giá",
+    formTitle: "Bản chào giá cũ và mới của cùng nhà thầu",
+    formHelp: "Chọn hai file Excel .xlsx: bản nộp trước và bản nộp lại sau làm rõ.",
+    button: "Bắt đầu so sánh phiên bản"
+  },
+  rfi: {
+    title: "Theo dõi làm rõ hồ sơ (RFI)",
+    formTitle: "File yêu cầu làm rõ và file phản hồi",
+    formHelp: "Chọn file 'Nội dung làm rõ HSCG' của CĐT và file phản hồi của nhà thầu.",
+    button: "Bắt đầu kiểm tra phản hồi"
+  },
+  dossier: {
+    title: "Đánh giá tính đầy đủ hồ sơ",
+    formTitle: "Hồ sơ nhà thầu dạng ZIP",
+    formHelp: "Nén thư mục hồ sơ mỗi nhà thầu thành .zip; có thể chọn nhiều nhà thầu.",
+    button: "Bắt đầu quét hồ sơ"
+  },
   ocr: {
     title: "Quét PDF hoặc ảnh scan sang Excel",
     formTitle: "Tài liệu scan cần số hóa",
@@ -31,9 +49,12 @@ const MODE_COPY = {
   }
 };
 
+const STANDALONE_MODES = ["version", "rfi", "dossier", "ocr"];
+
 let mode = "package";
 let bidderFiles = [];
 let ocrFiles = [];
+let dossierFiles = [];
 let pollTimer = null;
 let currentJobId = null;
 let toastTimer = null;
@@ -185,8 +206,11 @@ function setMode(nextMode) {
   $("#startButtonText").textContent = copy.button;
   const bidderHint = $("#bidderHint");
   if (bidderHint) bidderHint.textContent = copy.hint || "";
-  $("#comparisonFields").classList.toggle("hidden", mode === "ocr");
+  $("#comparisonFields").classList.toggle("hidden", STANDALONE_MODES.includes(mode));
   $("#ocrFields").classList.toggle("hidden", mode !== "ocr");
+  $("#versionFields").classList.toggle("hidden", mode !== "version");
+  $("#rfiFields").classList.toggle("hidden", mode !== "rfi");
+  $("#dossierFields").classList.toggle("hidden", mode !== "dossier");
   $("#packageFields").classList.toggle("hidden", mode !== "package");
   $("#tenderFields").classList.toggle("hidden", mode !== "tender");
   $("#progressPanel").classList.add("hidden");
@@ -355,6 +379,35 @@ function renderOcrFiles() {
   }));
 }
 
+function renderDossierFiles() {
+  const container = $("#dossierList");
+  const badge = $("#dossierStatusBadge");
+  if (!container) return;
+  if (!dossierFiles.length) {
+    container.className = "selected-list empty-state";
+    container.textContent = "Chưa có hồ sơ nào được chọn.";
+    if (badge) { badge.textContent = "Bắt buộc"; badge.className = "required"; }
+    return;
+  }
+  container.className = "selected-list";
+  container.innerHTML = dossierFiles.map((item, index) => `
+    <div class="selected-file" data-index="${index}">
+      <div class="file-info"><b>${escapeHtml(item.file.name)}</b><input class="dossier-name" data-dossier-name="${index}" type="text" value="${escapeHtml(item.name)}" placeholder="Tên nhà thầu" style="margin-top:4px;width:100%;"></div>
+      <div class="file-meta">
+        <span class="file-size">${fileSize(item.file.size)}</span>
+        <button class="remove-file" type="button" data-remove-dossier="${index}" aria-label="Bỏ file">×</button>
+      </div>
+    </div>`).join("");
+  if (badge) { badge.textContent = `Đã chọn ${dossierFiles.length} hồ sơ`; badge.className = "required success-badge"; }
+  $$('[data-remove-dossier]').forEach((button) => button.addEventListener("click", () => {
+    dossierFiles.splice(Number(button.dataset.removeDossier), 1);
+    renderDossierFiles();
+  }));
+  $$('[data-dossier-name]').forEach((input) => input.addEventListener("input", () => {
+    dossierFiles[Number(input.dataset.dossierName)].name = input.value;
+  }));
+}
+
 function resetFiles() {
   const hasPl1 = $("#pl1") && $("#pl1").files && $("#pl1").files.length > 0;
   const hasPl2 = $("#pl2") && $("#pl2").files && $("#pl2").files.length > 0;
@@ -377,18 +430,24 @@ function resetFiles() {
     };
   }
 
-  ["#pl1", "#pl2", "#hsmt", "#bidderFiles", "#ocrFiles"].forEach((id) => { 
+  ["#pl1", "#pl2", "#hsmt", "#bidderFiles", "#ocrFiles", "#verOld", "#verNew", "#rfiRequest", "#rfiResponse", "#dossierFiles"].forEach((id) => {
     const el = $(id);
-    if (el) el.value = ""; 
+    if (el) el.value = "";
   });
-  
+
   bidderFiles = [];
   ocrFiles = [];
+  dossierFiles = [];
   updateSingleFile("#pl1", "#pl1Name");
   updateSingleFile("#pl2", "#pl2Name");
   updateSingleFile("#hsmt", "#hsmtName");
+  updateSingleFile("#verOld", "#verOldName");
+  updateSingleFile("#verNew", "#verNewName");
+  updateSingleFile("#rfiRequest", "#rfiRequestName");
+  updateSingleFile("#rfiResponse", "#rfiResponseName");
   renderBidderFiles();
   renderOcrFiles();
+  renderDossierFiles();
   updatePackageBehavior();
   
   if (lastState) {
@@ -453,6 +512,26 @@ async function submitWork(event) {
     if (!ocrFiles.length) return notify("Cần chọn ít nhất một PDF hoặc ảnh scan.", "error");
     endpoint = "/api/ocr";
     data = buildOcrData();
+  } else if (mode === "version") {
+    if (!$("#verOld").files[0] || !$("#verNew").files[0]) return notify("Cần chọn đủ bản chào giá CŨ và bản MỚI.", "error");
+    endpoint = "/api/compare-versions";
+    data = new FormData();
+    data.append("old_file", $("#verOld").files[0]);
+    data.append("new_file", $("#verNew").files[0]);
+    data.append("bidder_name", $("#verBidderName").value.trim());
+  } else if (mode === "rfi") {
+    if (!$("#rfiRequest").files[0] || !$("#rfiResponse").files[0]) return notify("Cần chọn đủ file yêu cầu của CĐT và file phản hồi của nhà thầu.", "error");
+    endpoint = "/api/track-rfi";
+    data = new FormData();
+    data.append("request_file", $("#rfiRequest").files[0]);
+    data.append("response_file", $("#rfiResponse").files[0]);
+    data.append("bidder_name", $("#rfiBidderName").value.trim());
+  } else if (mode === "dossier") {
+    if (!dossierFiles.length) return notify("Cần chọn ít nhất một file ZIP hồ sơ nhà thầu.", "error");
+    if (dossierFiles.some((item) => !item.name.trim())) return notify("Tên nhà thầu không được để trống.", "error");
+    endpoint = "/api/check-dossier";
+    data = new FormData();
+    dossierFiles.forEach((item) => { data.append("files", item.file); data.append("bidder_names", item.name.trim()); });
   } else {
     const error = validateComparison();
     if (error) return notify(error, "error");
@@ -510,13 +589,82 @@ function resultLink(href, text, primary = false) {
   return `<a class="download-button ${primary ? "primary" : "secondary"}" href="${href}">${escapeHtml(text)}</a>`;
 }
 
+function renderStandaloneResult(jobId, data) {
+  // Kết quả cho các chức năng độc lập: so sánh phiên bản, RFI, checklist hồ sơ.
+  const kind = data.kind;
+  const s = data.summary || {};
+  const labels = {
+    version: {
+      subtitle: `Đã so sánh hai phiên bản chào giá của ${s.bidder || "nhà thầu"}.`,
+      report: "Tải báo cáo so sánh phiên bản",
+      metrics: [
+        ["Tổng bản cũ (đ)", s.total_old], ["Tổng bản mới (đ)", s.total_new],
+        ["Chênh lệch (đ)", s.total_delta], ["Hạng mục thay đổi", s.changed],
+        ["Thêm mới", s.added], ["Đã xoá", s.removed]
+      ]
+    },
+    rfi: {
+      subtitle: `Đã kiểm tra phản hồi làm rõ của ${s.bidder || "nhà thầu"}.`,
+      report: "Tải báo cáo theo dõi làm rõ",
+      metrics: [
+        ["Tổng yêu cầu", s.total], ["Đã trả lời", s.answered],
+        ["Chưa trả lời", s.unanswered], ["Không thấy trong phản hồi", s.not_found]
+      ]
+    },
+    dossier: {
+      subtitle: `Đã quét ${s.bidder_count || 0} hồ sơ (${formatNumber(s.total_files)} file).`,
+      report: "Tải báo cáo checklist hồ sơ",
+      metrics: [
+        ["Số nhà thầu", s.bidder_count], ["Tổng số file", s.total_files],
+        ["Đầu mục bắt buộc còn thiếu", s.missing_total]
+      ]
+    }
+  }[kind];
+  $("#resultSubtitle").textContent = labels.subtitle;
+  $("#resultActions").innerHTML = resultLink(`/api/jobs/${jobId}/download`, labels.report, true);
+  $("#metrics").innerHTML = labels.metrics
+    .map(([label, value]) => `<div class="metric"><b>${formatNumber(value)}</b><span>${escapeHtml(label)}</span></div>`)
+    .join("");
+
+  let details = "";
+  if (kind === "version" && typeof s.total_delta_pct === "number") {
+    const pct = (s.total_delta_pct * 100).toFixed(2);
+    details = `<div class="block-title"><h3>Mức thay đổi tổng thành tiền</h3></div><div class="mode-note ${s.total_delta_pct >= 0 ? "multi" : "single"}">Bản mới ${s.total_delta_pct >= 0 ? "TĂNG" : "GIẢM"} ${Math.abs(pct)}% so với bản cũ.</div>`;
+  }
+  if (kind === "rfi") {
+    const pending = data.pending || [];
+    if (pending.length) {
+      details = `<div class="block-title"><h3>Yêu cầu chưa được trả lời</h3><span>${pending.length} mục</span></div>` +
+        pending.map((it) => `<div class="warning-item"><b>[${escapeHtml(it.sheet)} · STT ${escapeHtml(it.stt || "-")}]</b> ${escapeHtml(it.request)} — <i>${escapeHtml(it.status)}</i></div>`).join("");
+    } else {
+      details = `<div class="mode-note multi">Nhà thầu đã trả lời đầy đủ mọi yêu cầu làm rõ.</div>`;
+    }
+  }
+  if (kind === "dossier") {
+    details = (data.dossiers || []).map((d) => {
+      const missing = d.missing || [];
+      const body = missing.length
+        ? `<span class="severity warning">THIẾU: ${missing.map(escapeHtml).join("; ")}</span>`
+        : `<span class="severity review" style="background:#E2F0D9;color:#375623;">Đủ các đầu mục bắt buộc</span>`;
+      return `<div class="document-card"><div class="document-card-head"><div><h4>${escapeHtml(d.bidder)}</h4><p>${formatNumber(d.total_files)} file</p></div></div><div class="document-stats">${body}</div></div>`;
+    }).join("");
+  }
+  $("#documentResults").innerHTML = details;
+  $("#anomalyBlock").classList.add("hidden");
+  $("#resultPanel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
 function renderResult(jobId, data) {
   $("#progressPanel").classList.add("hidden");
   $("#resultPanel").classList.remove("hidden");
   const isOcr = data.kind === "ocr";
+  const kind = data.kind || "";
   const resultMode = String(data.audit?.mode || "");
   const isPackageResult = resultMode.startsWith("PL01_") || resultMode.startsWith("PL02_");
   $("#resultTitle").textContent = isOcr ? "Đã hoàn tất quét tài liệu" : "Đã hoàn tất kiểm tra";
+  if (kind === "version" || kind === "rfi" || kind === "dossier") {
+    return renderStandaloneResult(jobId, data);
+  }
   if (isOcr) {
     $("#resultSubtitle").textContent = "Các file Excel đã được tạo; những ô chưa chắc chắn được liệt kê để xác nhận.";
   } else if (isPackageResult && data.summary?.peer_price_comparison_enabled) {
@@ -651,7 +799,9 @@ async function checkHealth() {
 }
 
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
-[["#pl1", "#pl1Name"], ["#pl2", "#pl2Name"], ["#hsmt", "#hsmtName"]].forEach(([input, label]) => {
+[["#pl1", "#pl1Name"], ["#pl2", "#pl2Name"], ["#hsmt", "#hsmtName"],
+ ["#verOld", "#verOldName"], ["#verNew", "#verNewName"],
+ ["#rfiRequest", "#rfiRequestName"], ["#rfiResponse", "#rfiResponseName"]].forEach(([input, label]) => {
   const el = $(input);
   if (el) {
     el.addEventListener("change", () => {
@@ -664,7 +814,9 @@ $$(".nav-item").forEach((button) => button.addEventListener("click", () => setMo
     });
   }
 });
-[["#removePl1", "#pl1", "#pl1Name"], ["#removePl2", "#pl2", "#pl2Name"], ["#removeHsmt", "#hsmt", "#hsmtName"]].forEach(([removeBtnId, inputId, labelId]) => {
+[["#removePl1", "#pl1", "#pl1Name"], ["#removePl2", "#pl2", "#pl2Name"], ["#removeHsmt", "#hsmt", "#hsmtName"],
+ ["#removeVerOld", "#verOld", "#verOldName"], ["#removeVerNew", "#verNew", "#verNewName"],
+ ["#removeRfiRequest", "#rfiRequest", "#rfiRequestName"], ["#removeRfiResponse", "#rfiResponse", "#rfiResponseName"]].forEach(([removeBtnId, inputId, labelId]) => {
   const removeBtn = $(removeBtnId);
   if (removeBtn) {
     removeBtn.addEventListener("click", (e) => {
@@ -713,6 +865,27 @@ if (ocrFilesEl) {
     ocrFiles = validFiles;
     event.target.value = "";
     renderOcrFiles();
+  });
+}
+const dossierFilesEl = $("#dossierFiles");
+if (dossierFilesEl) {
+  dossierFilesEl.addEventListener("change", (event) => {
+    const existing = new Set(
+      dossierFiles.map((item) => `${item.file.name}|${item.file.size}|${item.file.lastModified}`)
+    );
+    [...event.target.files].forEach((file) => {
+      if (!file.name.toLowerCase().endsWith(".zip")) {
+        notify("Chỉ nhận file .zip (nén toàn bộ thư mục hồ sơ của nhà thầu).", "error");
+        return;
+      }
+      const key = `${file.name}|${file.size}|${file.lastModified}`;
+      if (!existing.has(key)) {
+        dossierFiles.push({file, name: file.name.replace(/\.zip$/i, "")});
+        existing.add(key);
+      }
+    });
+    event.target.value = "";
+    renderDossierFiles();
   });
 }
 const workFormEl = $("#workForm");

@@ -24,11 +24,27 @@ from security import configure_offline_environment, deny_external_network
 configure_offline_environment()
 
 from core.config import EnterpriseConfig
+from core.dossier_check import evaluate_dossier, export_dossier_report
 from core.excel_io import diagnose_excel_file
 from core.models import CompareThresholds, UserFacingError
 from core.pipeline import compare_bidder_files, compare_tender_files
 from core.reporter import export_consolidated_summary
+from core.rfi_tracker import (
+    STATUS_ANSWERED as RFI_ANSWERED,
+    STATUS_NOT_FOUND as RFI_NOT_FOUND,
+    STATUS_UNANSWERED as RFI_UNANSWERED,
+    export_rfi_report,
+    track_rfi,
+)
 from core.tender_package import compare_pl1_pl2_with_bidders
+from core.version_compare import (
+    STATUS_ADDED as VC_ADDED,
+    STATUS_CHANGED as VC_CHANGED,
+    STATUS_REMOVED as VC_REMOVED,
+    STATUS_UNCHANGED as VC_UNCHANGED,
+    compare_quote_versions,
+    export_version_report,
+)
 from ocr.config import OCRConfig
 from ocr.pipeline import create_ocr_package, run_ocr_batch
 
@@ -384,6 +400,128 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                 )
                 files = {}
                 extra_status = {}
+            elif mode == "version":
+                # So sánh HAI PHIÊN BẢN chào giá của CÙNG nhà thầu (V1 -> V2).
+                bidder = str(request.get("bidder_name") or "Nhà thầu")
+                _update(job_id, progress=25, message="Đang ghép hạng mục giữa hai phiên bản chào giá")
+                vc = compare_quote_versions(
+                    folder / request["old_file"],
+                    folder / request["new_file"],
+                    bidder,
+                    config=cfg,
+                    old_label=str(request.get("old_label") or "Bản cũ (V1)"),
+                    new_label=str(request.get("new_label") or "Bản mới (V2)"),
+                )
+                report = folder / "Bao_cao_so_sanh_phien_ban_chao_gia.xlsx"
+                export_version_report(vc, report)
+                preview = {
+                    "kind": "version",
+                    "summary": {
+                        "bidder": vc.bidder,
+                        "total_old": vc.total_old,
+                        "total_new": vc.total_new,
+                        "total_delta": vc.total_delta,
+                        "total_delta_pct": (vc.total_delta / vc.total_old) if vc.total_old else None,
+                        "changed": vc.count(VC_CHANGED),
+                        "added": vc.count(VC_ADDED),
+                        "removed": vc.count(VC_REMOVED),
+                        "unchanged": vc.count(VC_UNCHANGED),
+                    },
+                    "warnings": [],
+                    "anomalies": [],
+                    "files": {},
+                }
+                _atomic_json(folder / "result.json", preview)
+                elapsed = time.perf_counter() - started
+                _update(job_id, state="done", progress=100,
+                        message=f"Hoàn tất trong {elapsed:.1f} giây",
+                        report=report.name, elapsed_seconds=round(elapsed, 3))
+                return
+            elif mode == "rfi":
+                # Theo dõi vòng làm rõ: ghép yêu cầu của CĐT với phản hồi nhà thầu.
+                bidder = str(request.get("bidder_name") or "Nhà thầu")
+                _update(job_id, progress=25, message="Đang ghép yêu cầu làm rõ với phản hồi nhà thầu")
+                tracked = track_rfi(
+                    folder / request["request_file"],
+                    folder / request["response_file"],
+                    bidder,
+                )
+                if not tracked.items:
+                    raise UserFacingError(
+                        "Không tìm thấy yêu cầu làm rõ nào trong file của CĐT — cần file có các cột "
+                        "'NỘI DUNG ĐÁNH GIÁ' và 'Ý kiến CĐT' (file Nội dung làm rõ HSCG)."
+                    )
+                report = folder / "Bao_cao_theo_doi_lam_ro_RFI.xlsx"
+                export_rfi_report([tracked], report)
+                pending = [
+                    {"sheet": it.request.sheet, "stt": it.request.stt,
+                     "request": it.request.cdt_request[:300], "status": it.status}
+                    for it in tracked.items if it.status != RFI_ANSWERED
+                ]
+                preview = {
+                    "kind": "rfi",
+                    "summary": {
+                        "bidder": bidder,
+                        "total": len(tracked.items),
+                        "answered": tracked.count(RFI_ANSWERED),
+                        "unanswered": tracked.count(RFI_UNANSWERED),
+                        "not_found": tracked.count(RFI_NOT_FOUND),
+                    },
+                    "pending": pending[:100],
+                    "warnings": [],
+                    "anomalies": [],
+                    "files": {},
+                }
+                _atomic_json(folder / "result.json", preview)
+                elapsed = time.perf_counter() - started
+                _update(job_id, state="done", progress=100,
+                        message=f"Hoàn tất trong {elapsed:.1f} giây",
+                        report=report.name, elapsed_seconds=round(elapsed, 3))
+                return
+            elif mode == "dossier":
+                # Đánh giá tính đầy đủ hồ sơ: mỗi file ZIP là hồ sơ một nhà thầu.
+                results = []
+                for index, entry in enumerate(request["bidders"]):
+                    _update(job_id, progress=20 + int(60 * index / max(1, len(request["bidders"]))),
+                            message=f"Đang quét hồ sơ {entry['name']}")
+                    extract_dir = folder / f"dossier_{index:02d}"
+                    extract_dir.mkdir(exist_ok=True)
+                    try:
+                        with zipfile.ZipFile(folder / entry["file"]) as archive:
+                            archive.extractall(extract_dir)
+                    except zipfile.BadZipFile as exc:
+                        raise UserFacingError(
+                            f"File '{entry.get('original_name', entry['file'])}' không phải ZIP hợp lệ. "
+                            "Hãy nén thư mục hồ sơ của nhà thầu thành .zip rồi tải lên."
+                        ) from exc
+                    results.append(evaluate_dossier(entry["name"], extract_dir))
+                report = folder / "Bao_cao_checklist_ho_so.xlsx"
+                export_dossier_report(results, report)
+                preview = {
+                    "kind": "dossier",
+                    "summary": {
+                        "bidder_count": len(results),
+                        "total_files": sum(r.total_files for r in results),
+                        "missing_total": sum(len(r.missing_required) for r in results),
+                    },
+                    "dossiers": [
+                        {
+                            "bidder": r.bidder,
+                            "total_files": r.total_files,
+                            "missing": [c.item.label for c in r.missing_required],
+                        }
+                        for r in results
+                    ],
+                    "warnings": [],
+                    "anomalies": [],
+                    "files": {},
+                }
+                _atomic_json(folder / "result.json", preview)
+                elapsed = time.perf_counter() - started
+                _update(job_id, state="done", progress=100,
+                        message=f"Hoàn tất trong {elapsed:.1f} giây",
+                        report=report.name, elapsed_seconds=round(elapsed, 3))
+                return
             else:
                 raise ValueError(f"Chế độ không hỗ trợ: {mode}")
 
@@ -679,6 +817,94 @@ async def compare_tender_api(
     }
     _atomic_json(folder / "request.json", request)
     _JOB_EXECUTOR.submit(_run_job, job_id, "tender", request)
+    return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
+
+
+@app.post("/api/compare-versions", status_code=202)
+async def compare_versions_api(
+    old_file: Annotated[UploadFile, File(...)],
+    new_file: Annotated[UploadFile, File(...)],
+    bidder_name: Annotated[str, Form()] = "",
+):
+    """So sánh hai phiên bản chào giá (cũ/mới) của cùng một nhà thầu."""
+    _cleanup_expired()
+    job_id, folder = _new_job("version")
+    limit = DEFAULT_CONFIG.max_upload_mb * 1024 * 1024
+    try:
+        old_target = folder / ("000_" + _sanitize(old_file.filename or "", "ban_cu.xlsx"))
+        new_target = folder / ("001_" + _sanitize(new_file.filename or "", "ban_moi.xlsx"))
+        await _save_upload(old_file, old_target, limit)
+        await _save_upload(new_file, new_target, limit)
+    except Exception:
+        shutil.rmtree(folder, ignore_errors=True)
+        raise
+    request = {
+        "old_file": old_target.name,
+        "new_file": new_target.name,
+        "old_label": f"Bản cũ ({old_file.filename})" if old_file.filename else "Bản cũ (V1)",
+        "new_label": f"Bản mới ({new_file.filename})" if new_file.filename else "Bản mới (V2)",
+        "bidder_name": bidder_name.strip() or Path(old_target.name).stem,
+    }
+    _atomic_json(folder / "request.json", request)
+    _JOB_EXECUTOR.submit(_run_job, job_id, "version", request)
+    return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
+
+
+@app.post("/api/track-rfi", status_code=202)
+async def track_rfi_api(
+    request_file: Annotated[UploadFile, File(...)],
+    response_file: Annotated[UploadFile, File(...)],
+    bidder_name: Annotated[str, Form()] = "",
+):
+    """Theo dõi làm rõ: file yêu cầu của CĐT + file phản hồi của nhà thầu."""
+    _cleanup_expired()
+    job_id, folder = _new_job("rfi")
+    limit = DEFAULT_CONFIG.max_upload_mb * 1024 * 1024
+    try:
+        req_target = folder / ("000_" + _sanitize(request_file.filename or "", "yeu_cau.xlsx"))
+        resp_target = folder / ("001_" + _sanitize(response_file.filename or "", "phan_hoi.xlsx"))
+        await _save_upload(request_file, req_target, limit)
+        await _save_upload(response_file, resp_target, limit)
+    except Exception:
+        shutil.rmtree(folder, ignore_errors=True)
+        raise
+    request = {
+        "request_file": req_target.name,
+        "response_file": resp_target.name,
+        "bidder_name": bidder_name.strip() or "Nhà thầu",
+    }
+    _atomic_json(folder / "request.json", request)
+    _JOB_EXECUTOR.submit(_run_job, job_id, "rfi", request)
+    return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
+
+
+@app.post("/api/check-dossier", status_code=202)
+async def check_dossier_api(
+    files: Annotated[list[UploadFile], File(...)],
+    bidder_names: Annotated[list[str], Form(...)],
+):
+    """Đánh giá tính đầy đủ hồ sơ: mỗi file ZIP là toàn bộ thư mục hồ sơ một nhà thầu."""
+    _cleanup_expired()
+    _validate_bidder_uploads(files, bidder_names, 1)
+    job_id, folder = _new_job("dossier")
+    limit = DEFAULT_CONFIG.max_upload_mb * 1024 * 1024
+    entries = []
+    try:
+        for index, (upload, name) in enumerate(zip(files, bidder_names)):
+            original = _sanitize(upload.filename or "", f"ho_so_{index}.zip")
+            target = folder / f"{index:03d}_{original}"
+            await _save_upload(upload, target, limit, allowed_suffixes={".zip"})
+            entries.append({
+                "name": name.strip() or Path(original).stem,
+                "file": target.name,
+                "original_name": upload.filename or original,
+            })
+    except Exception:
+        shutil.rmtree(folder, ignore_errors=True)
+        raise
+    request = {"bidders": entries}
+    _atomic_json(folder / "request.json", request)
+    _JOB_EXECUTOR.submit(_run_job, job_id, "dossier", request)
     return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
 
 
