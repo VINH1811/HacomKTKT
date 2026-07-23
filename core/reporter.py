@@ -64,6 +64,10 @@ def _formats(wb):
         # Dòng tiêu đề phân mục A/B trong bảng tổng hợp chào giá.
         "section_a": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#2F75B5", "align": "left", "valign": "vcenter", "border": 1}),
         "section_ps": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#9C4500", "bg_color": "#FCE4D6", "align": "left", "valign": "vcenter", "border": 1}),
+        # Biến thể có định dạng tiền cho các ô SỐ trên dòng A/B/C của sheet Tổng hợp 03.1.
+        "section_a_money": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#2F75B5", "num_format": "#,##0", "align": "right", "valign": "vcenter", "border": 1}),
+        "section_ps_money": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#9C4500", "bg_color": "#FCE4D6", "num_format": "#,##0", "align": "right", "valign": "vcenter", "border": 1}),
+        "header_money": wb.add_format({"bold": True, "font_name": "Arial", "font_color": "#FFFFFF", "bg_color": "#1F4E78", "num_format": "#,##0", "align": "right", "valign": "vcenter", "border": 1}),
     }
 
 
@@ -677,6 +681,102 @@ def _safe_sheet_name(name: str, used: set[str]) -> str:
     return clean
 
 
+def _write_rollup_sheet(
+    ws,
+    f: dict[str, Any],
+    bidders: list[str],
+    sheet_ranges: list[tuple[str, tuple[int, int] | None, tuple[int, int] | None]],
+) -> None:
+    """Sheet "Tổng hợp 03.1" — mỗi hạng mục (sheet hệ thống) một dòng, mỗi nhà
+    thầu hai cột (Theo KLMT / Nhà thầu chào), TOÀN BỘ số là CÔNG THỨC SỐNG
+    ``=SUM('sheet'!cột dải-A)`` trỏ về các sheet chi tiết — đúng kiểu Mẫu số
+    03.1 mà chủ đầu tư vẫn tự làm tay trong file tổng hợp chào giá.
+    """
+    from xlsxwriter.utility import xl_col_to_name
+
+    ref_idx = next(i for i, (label, _kind) in enumerate(_BLOCK_LEAVES) if "KLMT" in label)
+    money_cols = 2 * len(bidders)
+    ncols = 2 + money_cols + 1  # Stt | Mô tả | (KLMT, NT chào)×n | Ghi chú
+
+    ws.set_column(0, 0, 6)
+    ws.set_column(1, 1, 46)
+    ws.set_column(2, 1 + money_cols, 20)
+    ws.set_column(ncols - 1, ncols - 1, 26)
+    ws.merge_range(0, 0, 0, ncols - 1, "BẢNG CHÀO GIÁ TỔNG HỢP (Mẫu số 03.1)", f["title"])
+    ws.set_row(0, 26)
+    ws.merge_range(1, 0, 2, 0, "Stt", f["header"])
+    ws.merge_range(1, 1, 2, 1, "Mô tả công việc mời thầu", f["header"])
+    for i, bidder in enumerate(bidders):
+        col = 2 + 2 * i
+        ws.merge_range(1, col, 1, col + 1, f"Thành tiền nhà thầu {bidder}", f["header"])
+        ws.write(2, col, "Theo KLMT", f["header"])
+        ws.write(2, col + 1, "Nhà thầu chào", f["header"])
+    ws.merge_range(1, ncols - 1, 2, ncols - 1, "Ghi chú", f["header"])
+
+    def _quote(name: str) -> str:
+        return "'" + name.replace("'", "''") + "'"
+
+    def _bidder_col(i: int, which: str) -> str:
+        idx = ref_idx if which == "ref" else _BID_AMOUNT_IDX
+        return xl_col_to_name(_KLMT_COLS + i * _BLOCK_COLS + idx)
+
+    # Dòng A tổng = cộng các dòng hạng mục ngay bên dưới.
+    row_a = 3
+    first_item, last_item = row_a + 2, row_a + 1 + len(sheet_ranges)  # A1, 1-based
+    ws.write(row_a, 0, "A", f["section_a"])
+    ws.write(row_a, 1, "ĐẦU MỤC CÔNG VIỆC THEO KLMT", f["section_a"])
+    for c in range(money_cols):
+        letter = xl_col_to_name(2 + c)
+        ws.write_formula(row_a, 2 + c, f"=SUM({letter}{first_item}:{letter}{last_item})", f["section_a_money"])
+    ws.write(row_a, ncols - 1, "", f["section_a"])
+
+    r = row_a + 1
+    for order, (sheet_name, a_range, _b_range) in enumerate(sheet_ranges, 1):
+        ws.write_number(r, 0, order, f["text"])
+        ws.write(r, 1, sheet_name, f["text"])
+        for i in range(len(bidders)):
+            for j, which in enumerate(("ref", "bid")):
+                col = 2 + 2 * i + j
+                if a_range is None:
+                    ws.write_number(r, col, 0, f["money"])
+                else:
+                    letter = _bidder_col(i, which)
+                    ws.write_formula(
+                        r, col,
+                        f"=SUM({_quote(sheet_name)}!{letter}{a_range[0]}:{letter}{a_range[1]})",
+                        f["money"],
+                    )
+        r += 1
+
+    # Dòng B: phát sinh ngoài KLMT — cộng dải B của tất cả các sheet.
+    row_b = r
+    ws.write(row_b, 0, "B", f["section_ps"])
+    ws.write(row_b, 1, "HẠNG MỤC PHÁT SINH NGOÀI KLMT (nhà thầu tự thêm)", f["section_ps"])
+    for i in range(len(bidders)):
+        for j, which in enumerate(("ref", "bid")):
+            col = 2 + 2 * i + j
+            letter = _bidder_col(i, which)
+            parts = [
+                f"SUM({_quote(name)}!{letter}{b_range[0]}:{letter}{b_range[1]})"
+                for name, _a, b_range in sheet_ranges if b_range is not None
+            ]
+            if parts:
+                ws.write_formula(row_b, col, "=" + "+".join(parts), f["section_ps_money"])
+            else:
+                ws.write_number(row_b, col, 0, f["section_ps_money"])
+    ws.write(row_b, ncols - 1, "", f["section_ps"])
+
+    # TỔNG CỘNG = A + B.
+    row_c = row_b + 1
+    ws.write(row_c, 0, "C", f["header"])
+    ws.write(row_c, 1, "TỔNG CỘNG (A + B)", f["header"])
+    for c in range(money_cols):
+        letter = xl_col_to_name(2 + c)
+        ws.write_formula(row_c, 2 + c, f"={letter}{row_a + 1}+{letter}{row_b + 1}", f["header_money"])
+    ws.write(row_c, ncols - 1, "", f["header"])
+    ws.freeze_panes(3, 2)
+
+
 def export_consolidated_summary(result: ComparisonResult, output_path: str | Path) -> str:
     """Xuất file tổng hợp độc lập theo đúng format bảng chào giá tổng hợp.
 
@@ -716,13 +816,23 @@ def export_consolidated_summary(result: ComparisonResult, output_path: str | Pat
 
         used_names: set[str] = set()
         total_cols = _KLMT_COLS + _BLOCK_COLS * len(bidders)
+        # Sheet "Tổng hợp 03.1" tạo TRƯỚC (đứng đầu file) nhưng ghi nội dung SAU
+        # khi đã biết dải dòng A/B của từng sheet hệ thống — toàn bộ là công thức
+        # sống trỏ về các sheet chi tiết (kiểu Mẫu số 03.1 chủ đầu tư vẫn làm tay).
+        rollup_title = _safe_sheet_name("Tổng hợp 03.1", used_names)
+        ws_rollup = wb.add_worksheet(rollup_title)
+        ws_rollup.set_tab_color("#C00000")
+        sheet_ranges: list[tuple[str, tuple[int, int] | None, tuple[int, int] | None]] = []
         for sheet_name, cids in by_sheet.items():
-            ws = wb.add_worksheet(_safe_sheet_name(sheet_name, used_names))
+            safe_name = _safe_sheet_name(sheet_name, used_names)
+            ws = wb.add_worksheet(safe_name)
             ws.set_tab_color("#1F4E78")
             _write_quote_header(ws, f, bidders, f"BẢNG CHÀO GIÁ TỔNG HỢP — {sheet_name}")
             r = 4
             a_started = False
             phatsinh_started = False
+            a_rows: list[int] = []
+            b_rows: list[int] = []
             for cid in cids:
                 # Chèn tiêu đề phân mục A / B theo đúng cấu trúc file chào giá gốc:
                 # A = đầu mục theo KLMT (khớp chuẩn), B = hạng mục phát sinh ngoài.
@@ -738,7 +848,14 @@ def export_consolidated_summary(result: ComparisonResult, output_path: str | Pat
                     r += 1
                     phatsinh_started = True
                 _write_quote_row(ws, f, r, bidders, cid, grouped, meta, warn_pct, critical_pct)
+                (b_rows if is_extra else a_rows).append(r + 1)  # dòng Excel 1-based
                 r += 1
+            sheet_ranges.append((
+                safe_name,
+                (min(a_rows), max(a_rows)) if a_rows else None,
+                (min(b_rows), max(b_rows)) if b_rows else None,
+            ))
+        _write_rollup_sheet(ws_rollup, f, bidders, sheet_ranges)
     finally:
         wb.close()
     return output_path
