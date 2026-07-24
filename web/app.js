@@ -74,14 +74,29 @@ function fileSize(bytes) {
 }
 
 // Tự tách tên nhà thầu từ TÊN FILE (bỏ ngày, chỉ số thứ tự, và các từ kỹ thuật
-// như BOQ/MEP/HACOM MALL/Chao gia/V2...). Người dùng vẫn xem và sửa được.
+// đấu thầu CHUNG như BOQ/MEP/Chao gia/HSCG/V2...). KHÔNG gắn cứng tên dự án/gói
+// thầu cụ thể — tên dự án chung được loại tự động bằng stripSharedTokens (bên
+// dưới) khi có nhiều file. Người dùng vẫn xem và sửa được.
 const BIDDER_NOISE = [
   /ho\s*so/gi, /chao\s*gia/gi, /bang\s*chao\s*gia/gi, /chi\s*tiet\s*gia/gi, /tong\s*hop/gi,
-  /noi\s*dung/gi, /phan\s*hoi/gi, /lam\s*ro/gi, /\bhscg\b/gi, /\bhsyc\b/gi, /\bhsdt\b/gi,
-  /\bboq\b/gi, /\bmep\b/gi, /\bme\b/gi, /hacom\s*mall/gi, /\bhacom\b/gi, /\bmall\b/gi,
+  /noi\s*dung/gi, /phan\s*hoi/gi, /lam\s*ro/gi, /\bhscg\b/gi, /\bhsyc\b/gi, /\bhsdt\b/gi, /\bhsmt\b/gi,
+  /\bboq\b/gi, /\bmep\b/gi, /\bme\b/gi,
   /rev\s*\d+/gi, /\btskt\b/gi, /final/gi, /\bv\d\b/gi, /\bthau\b/gi, /goi\s*thau/gi,
   /danh\s*gia/gi, /\bpl\s*0?\d\b/gi, /\brfi\b/gi, /so\s*sanh/gi,
 ];
+// Bỏ các token xuất hiện ở MỌI tên (thường là tên dự án/gói thầu dùng chung cho
+// mọi nhà thầu), giữ lại phần khác biệt = tên nhà thầu. Tổng quát cho mọi dự án.
+function stripSharedTokens(names) {
+  const toks = names.map((n) => String(n || "").split(/\s+/).filter(Boolean));
+  if (toks.length < 2) return names;
+  const low = toks.map((ts) => ts.map((t) => t.toLowerCase()));
+  const shared = new Set(low[0].filter((t) => low.every((list) => list.includes(t))));
+  if (!shared.size) return names;
+  return toks.map((ts) => {
+    const kept = ts.filter((t) => !shared.has(t.toLowerCase()));
+    return (kept.length ? kept : ts).join(" ");   // không để tên rỗng
+  });
+}
 function guessBidderName(filename) {
   let s = String(filename || "").replace(/\.[a-z0-9]+$/i, "");
   s = s.replace(/_+/g, " ");
@@ -412,10 +427,19 @@ function renderOcrFiles() {
   }));
 }
 
+// Đặt lại tên nhà thầu cho các hồ sơ CHƯA bị người dùng sửa tay: đoán từ tên
+// file rồi bỏ phần tên dự án dùng chung (stripSharedTokens) khi có nhiều hồ sơ.
+function reconcileDossierNames() {
+  const guesses = dossierFiles.map((it) => guessBidderName(it.file.name) || it.file.name.replace(/\.zip$/i, ""));
+  const cleaned = stripSharedTokens(guesses);
+  dossierFiles.forEach((it, i) => { if (!it.edited) it.name = cleaned[i] || guesses[i]; });
+}
+
 function renderDossierFiles() {
   const container = $("#dossierList");
   const badge = $("#dossierStatusBadge");
   if (!container) return;
+  reconcileDossierNames();
   if (!dossierFiles.length) {
     container.className = "selected-list empty-state";
     container.textContent = "Chưa có hồ sơ nào được chọn.";
@@ -437,7 +461,9 @@ function renderDossierFiles() {
     renderDossierFiles();
   }));
   $$('[data-dossier-name]').forEach((input) => input.addEventListener("input", () => {
-    dossierFiles[Number(input.dataset.dossierName)].name = input.value;
+    const it = dossierFiles[Number(input.dataset.dossierName)];
+    it.name = input.value;
+    it.edited = true;   // người dùng đã sửa -> không tự đặt lại
   }));
 }
 
@@ -926,7 +952,7 @@ if (dossierFilesEl) {
       }
       const key = `${file.name}|${file.size}|${file.lastModified}`;
       if (!existing.has(key)) {
-        dossierFiles.push({file, name: guessBidderName(file.name) || file.name.replace(/\.zip$/i, "")});
+        dossierFiles.push({file, name: guessBidderName(file.name) || file.name.replace(/\.zip$/i, ""), edited: false});
         existing.add(key);
       }
     });

@@ -105,9 +105,11 @@ def _sanitize(name: str, fallback: str) -> str:
     return clean[:180] or fallback
 
 
+# Chỉ chứa thuật ngữ đấu thầu CHUNG — KHÔNG gắn cứng tên dự án/gói thầu cụ thể.
+# Tên dự án dùng chung được loại tự động bằng _strip_shared_tokens khi có nhiều file.
 _BIDDER_NOISE = re.compile(
     r"ho\s*so|chao\s*gia|bang\s*chao\s*gia|chi\s*tiet\s*gia|tong\s*hop|noi\s*dung|phan\s*hoi|"
-    r"lam\s*ro|\bhscg\b|\bhsyc\b|\bhsdt\b|\bboq\b|\bmep\b|\bme\b|hacom\s*mall|\bhacom\b|\bmall\b|"
+    r"lam\s*ro|\bhscg\b|\bhsyc\b|\bhsdt\b|\bhsmt\b|\bboq\b|\bmep\b|\bme\b|"
     r"rev\s*\d+|\btskt\b|final|\bv\d\b|\bthau\b|goi\s*thau|danh\s*gia|\bpl\s*0?\d\b|\brfi\b|so\s*sanh",
     re.IGNORECASE,
 )
@@ -128,6 +130,23 @@ def _guess_bidder_name(filename: str) -> str:
     if s and s == s.upper() and " " not in s:
         s = s[:1] + s[1:].lower()
     return s
+
+
+def _strip_shared_tokens(names: list[str]) -> list[str]:
+    """Bỏ các token xuất hiện ở MỌI tên (tên dự án/gói thầu dùng chung), giữ phần
+    khác biệt = tên nhà thầu. Tổng quát cho mọi dự án, không gắn cứng."""
+    toks = [str(n or "").split() for n in names]
+    if len(toks) < 2:
+        return names
+    low = [[t.lower() for t in ts] for ts in toks]
+    shared = {t for t in low[0] if all(t in lst for lst in low)}
+    if not shared:
+        return names
+    result = []
+    for ts in toks:
+        kept = [t for t in ts if t.lower() not in shared]
+        result.append(" ".join(kept) if kept else " ".join(ts))
+    return result
 
 
 async def _save_upload(
@@ -919,14 +938,23 @@ async def check_dossier_api(
             original = _sanitize(upload.filename or "", f"ho_so_{index}.zip")
             target = folder / f"{index:03d}_{original}"
             await _save_upload(upload, target, limit, allowed_suffixes={".zip"})
+            user_name = name.strip()
             entries.append({
-                "name": name.strip() or _guess_bidder_name(upload.filename or original) or Path(original).stem,
+                "name": user_name,   # rỗng = để hệ thống tự đặt (bên dưới)
+                "auto": _guess_bidder_name(upload.filename or original) or Path(original).stem,
                 "file": target.name,
                 "original_name": upload.filename or original,
             })
     except Exception:
         shutil.rmtree(folder, ignore_errors=True)
         raise
+    # Với các hồ sơ người dùng KHÔNG tự đặt tên: bỏ phần tên dự án chung giữa các
+    # file để còn lại đúng tên nhà thầu (tổng quát cho mọi gói thầu).
+    cleaned = _strip_shared_tokens([e["auto"] for e in entries])
+    for entry, auto_clean in zip(entries, cleaned):
+        if not entry["name"]:
+            entry["name"] = auto_clean or entry["auto"]
+        entry.pop("auto", None)
     request = {"bidders": entries}
     _atomic_json(folder / "request.json", request)
     _JOB_EXECUTOR.submit(_run_job, job_id, "dossier", request)
