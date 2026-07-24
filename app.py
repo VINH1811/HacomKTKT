@@ -105,6 +105,31 @@ def _sanitize(name: str, fallback: str) -> str:
     return clean[:180] or fallback
 
 
+_BIDDER_NOISE = re.compile(
+    r"ho\s*so|chao\s*gia|bang\s*chao\s*gia|chi\s*tiet\s*gia|tong\s*hop|noi\s*dung|phan\s*hoi|"
+    r"lam\s*ro|\bhscg\b|\bhsyc\b|\bhsdt\b|\bboq\b|\bmep\b|\bme\b|hacom\s*mall|\bhacom\b|\bmall\b|"
+    r"rev\s*\d+|\btskt\b|final|\bv\d\b|\bthau\b|goi\s*thau|danh\s*gia|\bpl\s*0?\d\b|\brfi\b|so\s*sanh",
+    re.IGNORECASE,
+)
+
+
+def _guess_bidder_name(filename: str) -> str:
+    """Tách tên nhà thầu từ tên file (bỏ ngày, chỉ số, từ kỹ thuật). Fallback khi
+    giao diện không gửi tên — logic giống hệt hàm guessBidderName ở web/app.js."""
+    s = re.sub(r"\.[a-z0-9]+$", "", filename or "", flags=re.IGNORECASE).replace("_", " ")
+    s = re.sub(r"\(.*?\)", " ", s)
+    s = re.sub(r"\b\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b", " ", s)
+    s = re.sub(r"\b\d{5,8}\b", " ", s)
+    s = re.sub(r"^\s*\d+\s*[.\-)]\s*", "", s)
+    s = _BIDDER_NOISE.sub(" ", s)
+    s = re.sub(r"\s+", " ", s).strip(" -_.+")
+    s = re.sub(r"^\d+\s+", "", s)
+    s = re.sub(r"\s+\d+$", "", s).strip()
+    if s and s == s.upper() and " " not in s:
+        s = s[:1] + s[1:].lower()
+    return s
+
+
 async def _save_upload(
     upload: UploadFile,
     target: Path,
@@ -843,7 +868,7 @@ async def compare_versions_api(
         "new_file": new_target.name,
         "old_label": f"Bản cũ ({old_file.filename})" if old_file.filename else "Bản cũ (V1)",
         "new_label": f"Bản mới ({new_file.filename})" if new_file.filename else "Bản mới (V2)",
-        "bidder_name": bidder_name.strip() or Path(old_target.name).stem,
+        "bidder_name": bidder_name.strip() or _guess_bidder_name(old_file.filename or "") or "Nhà thầu",
     }
     _atomic_json(folder / "request.json", request)
     _JOB_EXECUTOR.submit(_run_job, job_id, "version", request)
@@ -871,7 +896,7 @@ async def track_rfi_api(
     request = {
         "request_file": req_target.name,
         "response_file": resp_target.name,
-        "bidder_name": bidder_name.strip() or "Nhà thầu",
+        "bidder_name": bidder_name.strip() or _guess_bidder_name(request_file.filename or "") or "Nhà thầu",
     }
     _atomic_json(folder / "request.json", request)
     _JOB_EXECUTOR.submit(_run_job, job_id, "rfi", request)
@@ -895,7 +920,7 @@ async def check_dossier_api(
             target = folder / f"{index:03d}_{original}"
             await _save_upload(upload, target, limit, allowed_suffixes={".zip"})
             entries.append({
-                "name": name.strip() or Path(original).stem,
+                "name": name.strip() or _guess_bidder_name(upload.filename or original) or Path(original).stem,
                 "file": target.name,
                 "original_name": upload.filename or original,
             })

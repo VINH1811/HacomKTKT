@@ -73,6 +73,39 @@ function fileSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// Tự tách tên nhà thầu từ TÊN FILE (bỏ ngày, chỉ số thứ tự, và các từ kỹ thuật
+// như BOQ/MEP/HACOM MALL/Chao gia/V2...). Người dùng vẫn xem và sửa được.
+const BIDDER_NOISE = [
+  /ho\s*so/gi, /chao\s*gia/gi, /bang\s*chao\s*gia/gi, /chi\s*tiet\s*gia/gi, /tong\s*hop/gi,
+  /noi\s*dung/gi, /phan\s*hoi/gi, /lam\s*ro/gi, /\bhscg\b/gi, /\bhsyc\b/gi, /\bhsdt\b/gi,
+  /\bboq\b/gi, /\bmep\b/gi, /\bme\b/gi, /hacom\s*mall/gi, /\bhacom\b/gi, /\bmall\b/gi,
+  /rev\s*\d+/gi, /\btskt\b/gi, /final/gi, /\bv\d\b/gi, /\bthau\b/gi, /goi\s*thau/gi,
+  /danh\s*gia/gi, /\bpl\s*0?\d\b/gi, /\brfi\b/gi, /so\s*sanh/gi,
+];
+function guessBidderName(filename) {
+  let s = String(filename || "").replace(/\.[a-z0-9]+$/i, "");
+  s = s.replace(/_+/g, " ");
+  s = s.replace(/\(.*?\)/g, " ");                                  // (TSKT)
+  s = s.replace(/\b\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b/g, " ");// ngày: 2025.12.08, 25.11.13, 10-10
+  s = s.replace(/\b\d{5,8}\b/g, " ");                              // 09102025, 251106
+  s = s.replace(/^\s*\d+\s*[.\-)]\s*/, "");                        // tiền tố "1. "
+  BIDDER_NOISE.forEach((re) => { s = s.replace(re, " "); });
+  s = s.replace(/\s+/g, " ").replace(/^[\s\-_.+]+|[\s\-_.+]+$/g, "");
+  s = s.replace(/^\d+\s+/, "").replace(/\s+\d+$/, "").trim();      // số lẻ đầu/đuôi
+  if (s && s === s.toUpperCase() && !s.includes(" ")) {
+    s = s.charAt(0) + s.slice(1).toLowerCase();
+  }
+  return s;
+}
+// Điền tên vào ô nếu ô đang trống hoặc người dùng CHƯA tự sửa (data-auto="1").
+function autofillBidderName(inputSel, filename) {
+  const input = $(inputSel);
+  if (!input) return;
+  if (input.value.trim() && input.dataset.auto !== "1") return;    // giữ giá trị người dùng gõ
+  const guess = guessBidderName(filename);
+  if (guess) { input.value = guess; input.dataset.auto = "1"; }
+}
+
 function setInputFiles(inputEl, fileListOrArray) {
   if (!inputEl) return;
   if (!fileListOrArray || fileListOrArray.length === 0) {
@@ -445,6 +478,11 @@ function resetFiles() {
   updateSingleFile("#verNew", "#verNewName");
   updateSingleFile("#rfiRequest", "#rfiRequestName");
   updateSingleFile("#rfiResponse", "#rfiResponseName");
+  // Xóa tên nhà thầu tự điền để lần chọn file sau nhận diện lại từ đầu.
+  ["#verBidderName", "#rfiBidderName"].forEach((sel) => {
+    const el = $(sel);
+    if (el) { el.value = ""; el.dataset.auto = ""; }
+  });
   renderBidderFiles();
   renderOcrFiles();
   renderDossierFiles();
@@ -798,6 +836,11 @@ async function checkHealth() {
   }
 }
 
+// Khi người dùng TỰ sửa ô tên nhà thầu, bỏ cờ auto để không bị ghi đè lần sau.
+["#verBidderName", "#rfiBidderName"].forEach((sel) => {
+  const el = $(sel);
+  if (el) el.addEventListener("input", () => { el.dataset.auto = ""; });
+});
 $$(".nav-item").forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
 [["#pl1", "#pl1Name"], ["#pl2", "#pl2Name"], ["#hsmt", "#hsmtName"],
  ["#verOld", "#verOldName"], ["#verNew", "#verNewName"],
@@ -810,6 +853,9 @@ $$(".nav-item").forEach((button) => button.addEventListener("click", () => setMo
         notify("Không đúng định dạng.", "error");
         el.value = "";
       }
+      // Hệ thống tự đọc tên nhà thầu từ tên file và điền sẵn (người dùng sửa được).
+      if (file && input === "#verOld") autofillBidderName("#verBidderName", file.name);
+      if (file && input === "#rfiRequest") autofillBidderName("#rfiBidderName", file.name);
       updateSingleFile(input, label);
     });
   }
@@ -880,7 +926,7 @@ if (dossierFilesEl) {
       }
       const key = `${file.name}|${file.size}|${file.lastModified}`;
       if (!existing.has(key)) {
-        dossierFiles.push({file, name: file.name.replace(/\.zip$/i, "")});
+        dossierFiles.push({file, name: guessBidderName(file.name) || file.name.replace(/\.zip$/i, "")});
         existing.add(key);
       }
     });

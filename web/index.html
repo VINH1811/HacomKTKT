@@ -6,7 +6,7 @@
   <meta name="description" content="Kiểm tra hồ sơ mời thầu, so sánh hồ sơ dự thầu và số hóa PDF scan sang Excel.">
   <title>Hệ thống kiểm tra hồ sơ đấu thầu</title>
   <link rel="icon" type="image/png" href="/images/Logodung.png">
-  <link rel="stylesheet" href="/styles.css?v=1.1.0">
+  <link rel="stylesheet" href="/styles.css?v=1.2.0">
 </head>
 <body>
   <div class="app-shell">
@@ -187,7 +187,7 @@
               </div>
               <div class="form-section divider-top">
                 <div class="ocr-options">
-                  <label><span>Tên nhà thầu</span><input id="verBidderName" type="text" placeholder="Ví dụ: Linh Anh"></label>
+                  <label><span>Tên nhà thầu (hệ thống tự điền — sửa nếu cần)</span><input id="verBidderName" type="text" placeholder="Tự nhận từ tên file"></label>
                 </div>
                 <div class="mode-note">Hai file phải là chào giá của CÙNG một nhà thầu. Hệ thống báo cáo hạng mục thay đổi giá/khối lượng/thương hiệu, thêm mới, đã xoá và mức tăng giảm tổng thành tiền.</div>
               </div>
@@ -218,7 +218,7 @@
               </div>
               <div class="form-section divider-top">
                 <div class="ocr-options">
-                  <label><span>Tên nhà thầu</span><input id="rfiBidderName" type="text" placeholder="Ví dụ: Linh Anh"></label>
+                  <label><span>Tên nhà thầu (hệ thống tự điền — sửa nếu cần)</span><input id="rfiBidderName" type="text" placeholder="Tự nhận từ tên file"></label>
                 </div>
                 <div class="mode-note">Hệ thống ghép từng yêu cầu ở cột "Ý kiến CĐT" với dòng tương ứng trong file phản hồi và báo trạng thái ĐÃ TRẢ LỜI / CHƯA TRẢ LỜI / KHÔNG THẤY TRONG PHẢN HỒI.</div>
               </div>
@@ -232,7 +232,7 @@
                   <span>Chọn file ZIP hồ sơ</span><small>Mỗi ZIP = toàn bộ thư mục hồ sơ một nhà thầu</small>
                 </label>
                 <div id="dossierList" class="selected-list empty-state">Chưa có hồ sơ nào được chọn.</div>
-                <div class="mode-note">Hệ thống quét tên file/thư mục trong ZIP và chấm ĐẠT/THIẾU 12 đầu mục: đơn chào giá, BOQ, danh mục vật tư, BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền.</div>
+                <div class="mode-note">Hệ thống tự đọc tên nhà thầu từ tên file ZIP (bấm vào để sửa nếu cần), quét tên file/thư mục bên trong và chấm ĐẠT/THIẾU 12 đầu mục: đơn chào giá, BOQ, danh mục vật tư, BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền.</div>
               </div>
             </div>
 
@@ -266,6 +266,6 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script src="/app.js?v=1.1.0"></script>
+  <script src="/app.js?v=1.2.0"></script>
 </body>
 </html>
