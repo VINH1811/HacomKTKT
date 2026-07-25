@@ -1,0 +1,13 @@
+# Standalone Python dependencies for the PriceAdvisor MEP AI module.
+# Install via: pip install -r requirements-price-advisor.txt
+
+# --- Database & Storage ---
+psycopg2-binary>=2.9.0      # Required for PostgreSQL connectivity
+numpy>=1.20.0               # Required for vector similarity calculation in SQLite fallback mode
+
+# --- Web Framework & API ---
+pydantic>=2.0.0             # Schema validation and request body parsing
+python-dotenv>=0.19.0       # Loading configuration settings from the .env file
+
+# --- Data Processing (ETL) ---
+openpyxl>=3.0.0             # Reading and parsing Excel files for preprocessing and import scripts
