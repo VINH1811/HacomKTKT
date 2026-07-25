@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PriceAdvisor AI — Dự đoán giá vật tư MEP">
+  <title>PriceAdvisor — Dự đoán giá</title>
+  <link rel="icon" type="image/png" href="/images/Logodung.png">
+  <link rel="stylesheet" href="/styles.css?v=1.0.2">
+  <style>
+    body { margin: 0; padding: 0; background: #f8fafc; }
+    .pa-test-page { max-width: 1100px; margin: 0 auto; padding: 24px 18px; }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+</head>
+<body>
+  <div class="pa-test-page">
+    <div id="paTestMount">
+      <div style="text-align:center;padding:60px;color:#64748b;font-family:sans-serif;">
+        <div style="font-size:32px;margin-bottom:12px;">⏳</div>
+        <div>Đang tải giao diện...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Load HTML first, then inject script AFTER HTML is ready
+    // This fixes the race condition where JS runs before DOM is injected
+    fetch('/price_advisor_test_ui.html')
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var mount = document.getElementById('paTestMount');
+        if (mount) mount.innerHTML = html;
+
+        // Load JS only AFTER HTML has been injected into DOM
+        var s = document.createElement('script');
+        s.src = '/price_advisor_test.js?v=' + Date.now(); // bust cache
+        document.body.appendChild(s);
+      })
+      .catch(function() {
+        var mount = document.getElementById('paTestMount');
+        if (mount) mount.innerHTML = '<div style="padding:24px;color:#ef4444;">Không tải được giao diện PriceAdvisor. Hãy reload trang.</div>';
+      });
+  </script>
+</body>
+</html>

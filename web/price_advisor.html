@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Dự đoán và tư vấn đơn giá vật tư cơ điện (MEP) sử dụng RAG và mô hình local LLM.">
+  <title>Dự đoán giá vật tư MEP AI - Hacom Holdings</title>
+  <link rel="icon" type="image/png" href="/images/Logodung.png">
+  <link rel="stylesheet" href="/styles.css?v=1.0.2">
+  <style>
+    /* Bổ sung css đặc tả riêng cho giao diện dự đoán */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .metric-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: var(--shadow-sm);
+    }
+    .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+    .metric-value {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .metric-note {
+      font-size: 11px;
+      color: var(--success);
+      margin-top: 4px;
+      font-weight: 600;
+    }
+    .reasoning-box {
+      background: #f8fafc;
+      border-left: 4px solid var(--primary);
+      padding: 16px;
+      border-radius: 4px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .badge-status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-validated { background: #d1fae5; color: #065f46; }
+    .badge-review { background: #fef3c7; color: #92400e; }
+    .badge-failed { background: #fee2e2; color: #991b1b; }
+    
+    .two-columns-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 600px) {
+      .two-columns-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .text-input-field {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text);
+      box-sizing: border-box;
+    }
+    .text-input-field:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="/images/Logodung.png" alt="Logo Hacom Holdings">
+        </div>
+        <div>
+          <strong>Hệ thống đánh giá HSDT</strong>
+          <span>Hacom Holdings</span>
+        </div>
+      </div>
+
+      <nav class="main-nav" aria-label="Chức năng chính">
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span><span><b>Phụ lục & nhà thầu</b><small>Đối chiếu PL01, PL02 và HSDT</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"></line><line x1="5" y1="7" x2="19" y2="7"></line><path d="M5 7L3 17a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2L7 7"></path><path d="M17 7l-2 10a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2l-2-10"></path></svg></span><span><b>So sánh nhà thầu</b><small>So sánh ngang nhiều HSDT</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span><span><b>HSMT với HSDT</b><small>Kiểm tra đáp ứng yêu cầu</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span><span><b>So sánh phiên bản</b><small>Chào giá cũ và mới của một nhà thầu</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"></path></svg></span><span><b>Theo dõi làm rõ</b><small>Ghép yêu cầu CĐT với phản hồi</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span><span><b>Checklist hồ sơ</b><small>Đánh giá tính đầy đủ tài liệu</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span><span><b>Quét PDF scan</b><small>Chuyển PDF hoặc ảnh sang Excel</small></span>
+        </button>
+        <button class="nav-item active" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span><span><b>Dự đoán giá AI</b><small>Tư vấn đơn giá vật tư MEP</small></span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">TRUNG TÂM DỰ ĐOÁN GIÁ AI</p>
+          <h1 id="pageTitle">Tư vấn đơn giá vật tư MEP tự động</h1>
+          <p id="pageDescription">Nhập thông tin mô tả chi tiết vật tư để truy xuất RAG trên CSDL PostgreSQL và dự đoán khoảng giá an toàn bằng Local LLM.</p>
+        </div>
+      </header>
+
+      <section class="content-grid">
+        <div class="primary-column">
+          <!-- Form Input -->
+          <form id="predictForm" class="surface" novalidate>
+            <div class="section-heading">
+              <div><span class="section-number">01</span><div><h2>Thông tin vật tư cần dự đoán</h2><p>Vui lòng nhập tên đầy đủ kèm quy cách kỹ thuật để tăng độ chính xác tìm kiếm RAG.</p></div></div>
+            </div>
+
+            <div class="form-section">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Mô tả vật tư / Thiết bị</label>
+                <input id="paItemName" type="text" class="text-input-field" placeholder="Ví dụ: Cáp đồng trần C25, Đèn LED downlight 9W tròn D90..." required>
+                <span id="warningChar" style="display: none; color: #d97706; font-size: 12px; margin-top: 4px; font-weight: 600;">⚠️ Vui lòng nhập tối thiểu 10 ký tự để RAG truy xuất chính xác ngữ cảnh.</span>
+              </div>
+
+              <div class="two-columns-grid">
+                <div class="form-group">
+                  <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Đơn vị tính (ĐVT)</label>
+                  <input id="paUnit" type="text" class="text-input-field" placeholder="Ví dụ: m, bộ, cái..." required>
+                </div>
+                <div class="form-group">
+                  <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Đơn giá nhà thầu chào (Không bắt buộc)</label>
+                  <input id="paBidderPrice" type="number" class="text-input-field" placeholder="Ví dụ: 60000">
+                </div>
+              </div>
+
+              <div class="two-columns-grid">
+                <div class="form-group">
+                  <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Mô hình xử lý (Backend)</label>
+                  <select id="paBackend" class="text-input-field">
+                    <option value="ollama" selected>Ollama Local (Qwen3:14B)</option>
+                    <option value="gemini">Gemini 3.5 Flash (Google Cloud API)</option>
+                    <option value="deterministic">Tính toán Python Engine (Thống kê thuần)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Số lượng tài liệu RAG (Top K)</label>
+                  <input id="paTopK" type="number" class="text-input-field" value="5" min="1" max="15">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button id="resetButton" class="button ghost" type="button">Xóa lựa chọn</button>
+              <button id="startButton" class="button primary" type="submit">Bắt đầu phân tích <span class="button-arrow">⚡</span></button>
+            </div>
+          </form>
+
+          <!-- Loading Panel -->
+          <section id="progressPanel" class="surface progress-panel hidden">
+            <div class="progress-head"><div><span class="section-number">02</span><div><h2>Đang suy luận giá</h2><p id="progressMessage">Đang truy xuất CSDL thầu PostgreSQL...</p></div></div></div>
+            <div class="progress-track"><div id="progressBar" style="width: 50%; transition: width 0.3s ease;"></div></div>
+          </section>
+
+          <!-- Result Panel -->
+          <section id="resultPanel" class="surface result-panel hidden">
+            <div class="result-title-row">
+              <div>
+                <span class="result-check">✓</span>
+                <div>
+                  <h2>Kết quả tư vấn giá từ PriceAdvisor</h2>
+                  <p>Khoảng giá đề xuất đã được kiểm duyệt qua Ingress/Egress Guard và Dynamic Clamping.</p>
+                </div>
+              </div>
+              <button id="newPredictBtn" class="button ghost small" type="button">Dự đoán mới</button>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+              <div class="metric-card">
+                <div class="metric-label">Giá thấp đề xuất (Lịch sử)</div>
+                <div class="metric-value" id="resPriceLow">N/A</div>
+                <div class="metric-note" id="resPriceLowNote" style="color: #64748b;">Cận dưới thầu nội bộ</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Giá cao đề xuất (Lịch sử)</div>
+                <div class="metric-value" id="resPriceHigh">N/A</div>
+                <div class="metric-note" id="resPriceHighNote" style="color: #64748b;">Cận trên thầu nội bộ</div>
+              </div>
+              <div class="metric-card" style="border-color: #3b82f6; background: #f0f9ff; border-width: 1px; border-style: solid;">
+                <div class="metric-label" style="color: #1d4ed8; font-weight: 800;">Giá thị trường (Web)</div>
+                <div class="metric-value" id="resMarketAvg" style="color: #1d4ed8;">N/A</div>
+                <div class="metric-note" id="resMarketRange" style="color: #2563eb;">Đang tra cứu trực tuyến...</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label">Độ tin cậy / Trạng thái</div>
+                <div id="resConfidence" style="font-size: 20px; font-weight: 800; margin-top: 4px;">N/A</div>
+                <div class="metric-note" id="resStatusBadge" style="margin-top: 8px;">PENDING</div>
+              </div>
+            </div>
+
+            <!-- Anomaly Note (Contractor Price Check) -->
+            <div id="anomalyAlert" class="warning-alert hidden" style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px; font-weight: 600; color: #1e3a8a;">
+            </div>
+
+            <!-- Warning Box for needs_review -->
+            <div id="reviewWarning" class="warning-alert hidden" style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; color: #78350f;">
+            </div>
+
+            <!-- Reasoning -->
+            <div class="block-title"><h3>🧠 Lập luận đề xuất của Mô hình (Reasoning)</h3></div>
+            <div class="reasoning-box" id="resReasoning" style="margin-bottom: 12px;">
+              Chưa có thông tin lập luận.
+            </div>
+
+            <!-- Feedback buttons -->
+            <div id="feedbackActions" class="hidden" style="display: flex; gap: 12px; margin-bottom: 24px;">
+              <button class="button success-btn" id="btnAccept" type="button" style="display: flex; align-items: center; gap: 6px; font-weight: 700; background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                👍 Chấp nhận đơn giá đề xuất
+              </button>
+              <button class="button danger-btn" id="btnReject" type="button" style="display: flex; align-items: center; gap: 6px; font-weight: 700; background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+                👎 Từ chối đơn giá đề xuất
+              </button>
+            </div>
+
+            <!-- Online Market Snippets -->
+            <div id="marketSnippetsBlock" class="table-block" style="margin-top: 24px; margin-bottom: 24px;">
+              <div class="block-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>🌐 Dữ liệu giá thị trường trực tuyến (Web Search RAG)</h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <a id="ddgSearchLink" href="#" target="_blank" style="display: none; text-decoration: none; font-size: 12px; font-weight: 600; color: #1d4ed8; background: #eff6ff; border: 1px solid #bfdbfe; padding: 4px 10px; border-radius: 6px; transition: all 0.2s;">🔍 Xem gốc trên DuckDuckGo ↗</a>
+                  <span id="marketCount" style="font-size: 12px; color: var(--text-muted); font-weight: 600;"></span>
+                </div>
+              </div>
+              <div id="marketSnippetsList" style="display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border);">
+                <span style="font-size: 13px; color: var(--text-muted); text-align: center;">Chưa có dữ liệu thị trường trực tuyến.</span>
+              </div>
+            </div>
+
+            <!-- RAG Reference Table -->
+            <div id="ragReferencesBlock" class="table-block">
+              <div class="block-title">
+                <h3>📋 Hồ sơ báo giá lịch sử tương đồng (RAG)</h3>
+                <span id="ragCount" style="font-size: 12px; color: var(--text-muted); font-weight: 600;"></span>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Mã</th>
+                      <th>Mô tả vật tư thầu gốc</th>
+                      <th>ĐVT</th>
+                      <th>Đơn giá lịch sử</th>
+                      <th>Hãng / Nhà thầu</th>
+                      <th>Dự án thầu</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ragRows">
+                    <tr>
+                      <td colspan="6" style="text-align: center; color: var(--text-muted);">Chưa có dữ liệu truy xuất.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <!-- Feedback Modal -->
+  <div id="feedbackModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); z-index: 999; align-items: center; justify-content: center; padding: 16px;">
+    <div style="background: #fff; border-radius: 16px; max-width: 420px; width: 100%; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15); border: 1px solid var(--border); position: relative; display: flex; flex-direction: column; gap: 16px;">
+      <span id="modalClose" style="position: absolute; top: 16px; right: 16px; cursor: pointer; font-size: 20px; color: var(--text-muted); font-weight: bold;">&times;</span>
+      <h3 id="modalTitle" style="font-size: 16px; font-weight: 800; margin: 0; color: var(--text);">Gửi phản hồi của bạn</h3>
+      <form id="feedbackForm" onsubmit="return false;" style="display: flex; flex-direction: column; gap: 16px;">
+        <input type="hidden" id="feedbackAction" value="accepted" />
+        
+        <!-- Price adjustment (for Accept) -->
+        <div id="feedbackPriceGroup" style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="feedbackPrice" style="font-weight: 700; font-size: 13px; color: var(--text);">Đơn giá áp dụng cuối cùng (VNĐ)</label>
+          <input class="text-input-field" id="feedbackPrice" type="number" step="any" placeholder="Nhập giá bạn chọn..." />
+        </div>
+
+        <!-- Note (for Reject) -->
+        <div id="feedbackNoteGroup" style="display: flex; flex-direction: column; gap: 6px;">
+          <label for="feedbackNote" style="font-weight: 700; font-size: 13px; color: var(--text);">Ghi chú phản hồi / Lý do từ chối</label>
+          <textarea class="text-input-field" id="feedbackNote" rows="3" placeholder="Nhập lý do hoặc ghi chú của bạn..." style="font-family: inherit; resize: none; min-height: 80px;"></textarea>
+        </div>
+
+        <div style="margin-top: 8px;">
+          <button class="button primary" id="feedbackSubmitBtn" type="button" style="width: 100%; padding: 12px; font-weight: bold; border-radius: 6px;">Gửi phản hồi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/price_advisor_ui.js?v=1.0.8"></script>
+</body>
+</html>
