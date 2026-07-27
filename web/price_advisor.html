@@ -167,21 +167,8 @@
                   <input id="paBidderPrice" type="number" class="text-input-field" placeholder="Ví dụ: 60000">
                 </div>
               </div>
-
-              <div class="two-columns-grid">
-                <div class="form-group">
-                  <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Mô hình xử lý (Backend)</label>
-                  <select id="paBackend" class="text-input-field">
-                    <option value="ollama" selected>Ollama Local (Qwen3:14B)</option>
-                    <option value="gemini">Gemini 3.5 Flash (Google Cloud API)</option>
-                    <option value="deterministic">Tính toán Python Engine (Thống kê thuần)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Số lượng tài liệu RAG (Top K)</label>
-                  <input id="paTopK" type="number" class="text-input-field" value="5" min="1" max="15">
-                </div>
-              </div>
+              <input type="hidden" id="paBackend" value="ollama">
+              <input type="hidden" id="paTopK" value="5">
             </div>
 
             <div class="form-actions">
