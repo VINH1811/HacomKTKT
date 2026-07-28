@@ -75,7 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const unit = document.getElementById("paUnit").value.trim();
     const bidderPriceVal = document.getElementById("paBidderPrice").value;
     const bidderPrice = bidderPriceVal ? parseFloat(bidderPriceVal) : null;
-    const backend = document.getElementById("paBackend").value;
+    // Luôn dùng LLM nội bộ (Ollama) — người dùng không cần chọn backend.
+    const backend = "ollama";
     const topK = parseInt(document.getElementById("paTopK").value) || 5;
 
     if (!itemName || !unit) {

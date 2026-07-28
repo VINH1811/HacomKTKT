@@ -9,25 +9,42 @@
   <link rel="stylesheet" href="/styles.css?v=1.0.2">
   <style>
     /* Bổ sung css đặc tả riêng cho giao diện dự đoán */
+
+    /* Ba biến này KHÔNG có trong styles.css dùng chung nên trước đây mọi khai báo
+       border/box-shadow/color tham chiếu tới chúng đều vô hiệu — làm các thẻ mất
+       viền và mất đổ bóng. Định nghĩa lại theo đúng tông màu của hệ thống. */
+    :root {
+      --border: #e0c6ca;
+      --shadow-sm: 0 1px 3px rgba(177, 23, 30, 0.05), 0 6px 18px rgba(177, 23, 30, 0.06);
+      --text-muted: #6b484d;
+    }
+
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 16px;
       margin-bottom: 24px;
     }
+    /* Thẻ số liệu: viền + đổ bóng đồng bộ với thẻ kết quả ở các chức năng khác. */
     .metric-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      background: #fff;
+      border: 1px solid #e0c6ca;
+      border-top: 3px solid rgba(225, 38, 47, 0.76);
+      border-radius: 9px;
       padding: 16px;
       text-align: center;
-      box-shadow: var(--shadow-sm);
+      box-shadow: 0 1px 3px rgba(177, 23, 30, 0.05), 0 6px 18px rgba(177, 23, 30, 0.06);
+      transition: box-shadow .2s ease, transform .2s ease;
+    }
+    .metric-card:hover {
+      box-shadow: 0 2px 6px rgba(177, 23, 30, 0.08), 0 10px 24px rgba(177, 23, 30, 0.10);
+      transform: translateY(-1px);
     }
     .metric-label {
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--text-muted);
+      color: #6b484d;
       margin-bottom: 4px;
       font-weight: 700;
     }
@@ -43,13 +60,15 @@
       font-weight: 600;
     }
     .reasoning-box {
-      background: #f8fafc;
+      background: #fdf7f7;
+      border: 1px solid #e0c6ca;
       border-left: 4px solid var(--primary);
       padding: 16px;
-      border-radius: 4px;
+      border-radius: 9px;
       margin-bottom: 24px;
       font-size: 14px;
       line-height: 1.6;
+      box-shadow: 0 1px 3px rgba(177, 23, 30, 0.05), 0 6px 18px rgba(177, 23, 30, 0.05);
     }
     .badge-status {
       display: inline-block;
@@ -69,25 +88,56 @@
       gap: 16px;
       margin-bottom: 16px;
     }
+    .three-columns-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 900px) {
+      .three-columns-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
     @media (max-width: 600px) {
-      .two-columns-grid {
+      .two-columns-grid,
+      .three-columns-grid {
         grid-template-columns: 1fr;
       }
     }
+    /* Ô nhập dùng chung phong cách với các chức năng khác của hệ thống:
+       viền hồng nhạt, bo 7px, có đổ bóng nhẹ, focus viền đỏ theo màu thương hiệu. */
     .text-input-field {
       width: 100%;
       padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      border: 1px solid #e0c6ca;
+      border-radius: 7px;
       font-size: 14px;
-      background: var(--surface);
+      background: #fff;
       color: var(--text);
       box-sizing: border-box;
+      box-shadow: 0 1px 2px rgba(177, 23, 30, 0.05), 0 2px 8px rgba(177, 23, 30, 0.04);
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .text-input-field::placeholder { color: #b9a3a6; }
+    .text-input-field:hover {
+      border-color: #d6a9af;
+      box-shadow: 0 2px 6px rgba(177, 23, 30, 0.08), 0 4px 12px rgba(177, 23, 30, 0.05);
     }
     .text-input-field:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+      box-shadow: 0 0 0 3px rgba(225, 38, 47, 0.10), 0 2px 8px rgba(177, 23, 30, 0.06);
+    }
+    /* Nhãn của ô nhập — cùng cỡ chữ/màu với nhãn ở các chức năng khác. */
+    .pa-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #6b484d;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      margin-bottom: 6px;
     }
   </style>
 </head>
@@ -138,7 +188,6 @@
         <div>
           <p class="eyebrow">TRUNG TÂM DỰ ĐOÁN GIÁ AI</p>
           <h1 id="pageTitle">Tư vấn đơn giá vật tư MEP tự động</h1>
-          <p id="pageDescription">Nhập thông tin mô tả chi tiết vật tư để truy xuất RAG trên CSDL PostgreSQL và dự đoán khoảng giá an toàn bằng Local LLM.</p>
         </div>
       </header>
 
@@ -147,28 +196,33 @@
           <!-- Form Input -->
           <form id="predictForm" class="surface" novalidate>
             <div class="section-heading">
-              <div><span class="section-number">01</span><div><h2>Thông tin vật tư cần dự đoán</h2><p>Vui lòng nhập tên đầy đủ kèm quy cách kỹ thuật để tăng độ chính xác tìm kiếm RAG.</p></div></div>
+              <div><span class="section-number">01</span><div><h2>Thông tin vật tư cần dự đoán</h2></div></div>
             </div>
 
             <div class="form-section">
               <div class="form-group" style="margin-bottom: 16px;">
-                <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Mô tả vật tư / Thiết bị</label>
+                <label class="pa-label">Mô tả vật tư / Thiết bị</label>
                 <input id="paItemName" type="text" class="text-input-field" placeholder="Ví dụ: Cáp đồng trần C25, Đèn LED downlight 9W tròn D90..." required>
                 <span id="warningChar" style="display: none; color: #d97706; font-size: 12px; margin-top: 4px; font-weight: 600;">⚠️ Vui lòng nhập tối thiểu 10 ký tự để RAG truy xuất chính xác ngữ cảnh.</span>
               </div>
 
-              <div class="two-columns-grid">
+              <div class="three-columns-grid">
                 <div class="form-group">
-                  <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Đơn vị tính (ĐVT)</label>
+                  <label class="pa-label">Đơn vị tính (ĐVT)</label>
                   <input id="paUnit" type="text" class="text-input-field" placeholder="Ví dụ: m, bộ, cái..." required>
                 </div>
                 <div class="form-group">
-                  <label style="display: block; font-weight: 700; margin-bottom: 6px; font-size: 13px;">Đơn giá nhà thầu chào (Không bắt buộc)</label>
+                  <label class="pa-label">Đơn giá nhà thầu chào (Không bắt buộc)</label>
                   <input id="paBidderPrice" type="number" class="text-input-field" placeholder="Ví dụ: 60000">
                 </div>
+                <div class="form-group">
+                  <label class="pa-label">Số mẫu tham chiếu</label>
+                  <input id="paTopK" type="number" class="text-input-field" value="5" min="1" max="15">
+                </div>
               </div>
+
+              <!-- Luôn dùng LLM nội bộ (Ollama) — người dùng không cần chọn. -->
               <input type="hidden" id="paBackend" value="ollama">
-              <input type="hidden" id="paTopK" value="5">
             </div>
 
             <div class="form-actions">
@@ -319,6 +373,6 @@
     </div>
   </div>
 
-  <script src="/price_advisor_ui.js?v=1.0.8"></script>
+  <script src="/price_advisor_ui.js?v=1.1.2"></script>
 </body>
 </html>
