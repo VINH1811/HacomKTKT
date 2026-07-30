@@ -34,6 +34,9 @@ class PriceRecord:
     brand: str = ""
     origin: str = ""
     material_spec: str = ""
+    # Tên nhà thầu đã chào giá cho dòng này. Dữ liệu cũ gộp chung vào cột brand
+    # theo dạng "Hãng (Nhà thầu)" nên trường này được tách ra khi đọc từ CSDL.
+    bidder: str = ""
     embedding: Optional[list[float]] = None
     source_file: str = ""
     created_at: Optional[str] = None
@@ -75,6 +78,8 @@ class SimilarItem:
             "year": self.record.year,
             "region": self.record.region,
             "brand": self.record.brand,
+            "bidder": self.record.bidder,
+            "project_name": self.record.project_name,
             "material_spec": self.record.material_spec,
             "similarity": round(self.similarity_score, 4),
         }

@@ -11,7 +11,7 @@ import re
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Optional, Any
+from typing import Iterable, Optional, Any
 
 import numpy as np
 
@@ -163,6 +163,58 @@ def _vector_to_postgres(vector: list[float]) -> str:
     return "[" + ",".join(map(str, vector)) + "]"
 
 
+# ---------------------------------------------------------------------------
+# Tách TÊN NHÀ THẦU khỏi cột brand.
+#
+# Dữ liệu lịch sử không có cột nhà thầu riêng: tên nhà thầu bị gộp vào brand
+# theo dạng "Hãng (Nhà thầu)", ví dụ "ACIT (Linh Anh)", "Đệ Nhất / Tiền Phong (VLC)".
+# Nhưng trong ngoặc cũng có thể là VIẾT TẮT CỦA HÃNG ("Á Châu (ACIT)"), nên không
+# thể lấy bừa mọi cụm trong ngoặc.
+#
+# Cách phân biệt (tự suy ra từ dữ liệu, KHÔNG hardcode tên nhà thầu của một dự án):
+# một nhà thầu chào cho rất nhiều hãng khác nhau nên tên nó xuất hiện trong ngoặc
+# ở NHIỀU brand khác nhau; còn viết tắt của hãng chỉ đi kèm đúng hãng đó.
+# ---------------------------------------------------------------------------
+_PAREN = re.compile(r"\(([^)]*)\)")
+_EMPTY_BRAND = {"", "n/a", "na", "none", "null", "-"}
+# Ngưỡng: tên phải xuất hiện trong ngoặc ở ít nhất ngần này brand khác nhau.
+_MIN_BRANDS_FOR_BIDDER = 5
+
+
+def build_bidder_vocabulary(brands: Iterable[str]) -> frozenset[str]:
+    """Suy ra tập tên nhà thầu (dạng casefold) từ danh sách brand phân biệt."""
+    seen: dict[str, set[str]] = {}
+    for brand in brands:
+        raw = str(brand or "")
+        for token in _PAREN.findall(raw):
+            name = token.strip()
+            if name:
+                seen.setdefault(name.casefold(), set()).add(raw)
+    return frozenset(
+        name for name, brand_set in seen.items()
+        if len(brand_set) >= _MIN_BRANDS_FOR_BIDDER
+    )
+
+
+def split_brand_bidder(brand: str, vocabulary: frozenset[str]) -> tuple[str, str]:
+    """Trả về (tên hãng, tên nhà thầu) tách từ một giá trị brand."""
+    raw = str(brand or "").strip()
+    if raw.casefold() in _EMPTY_BRAND:
+        return "", ""
+
+    for token in _PAREN.findall(raw):
+        name = token.strip()
+        if name and name.casefold() in vocabulary:
+            remainder = raw.replace(f"({token})", " ")
+            remainder = re.sub(r"\s{2,}", " ", remainder).strip(" /+,-")
+            return remainder, name
+
+    # Brand chính là tên nhà thầu (không kèm hãng nào).
+    if raw.casefold() in vocabulary:
+        return "", raw
+    return raw, ""
+
+
 class PriceDatabase:
     """Dual-mode Database store supporting SQLite and PostgreSQL with pgvector."""
 
@@ -172,6 +224,7 @@ class PriceDatabase:
         self._local = threading.local()
         self._provider = self._config.db_provider
         self.has_pgvector = False
+        self._bidder_vocab: Optional[frozenset[str]] = None
 
         if self._provider == "postgres" and not HAS_POSTGRES:
             raise ImportError(
@@ -398,6 +451,29 @@ class PriceDatabase:
                 )
             conn.commit()
 
+    def _bidder_vocabulary(self) -> frozenset[str]:
+        """Tập tên nhà thầu suy ra từ toàn bộ brand trong CSDL (đọc 1 lần, cache)."""
+        if self._bidder_vocab is not None:
+            return self._bidder_vocab
+        brands: list[str] = []
+        try:
+            conn = self._conn()
+            if self._provider == "sqlite":
+                brands = [
+                    row[0] for row in conn.execute(
+                        "SELECT DISTINCT brand FROM price_records WHERE brand IS NOT NULL"
+                    )
+                ]
+            else:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT DISTINCT brand FROM price_records WHERE brand IS NOT NULL")
+                    brands = [row["brand"] for row in cur.fetchall()]
+        except Exception as exc:
+            logger.warning("Không dựng được từ vựng nhà thầu: %s", exc)
+        self._bidder_vocab = build_bidder_vocabulary(brands)
+        logger.info("Nhận diện %d nhà thầu từ dữ liệu giá", len(self._bidder_vocab))
+        return self._bidder_vocab
+
     # ------------------------------------------------------------------
     # Vector search
     # ------------------------------------------------------------------
@@ -615,8 +691,10 @@ class PriceDatabase:
                     scored.sort(key=lambda x: x[0], reverse=True)
                     candidate_rows = scored[:top_k]
 
+        vocabulary = self._bidder_vocabulary()
         results: list[SimilarItem] = []
         for similarity, row in candidate_rows:
+            brand_name, bidder_name = split_brand_bidder(row["brand"], vocabulary)
             record = PriceRecord(
                 id=row["id"],
                 item_name=row["item_name"],
@@ -629,7 +707,8 @@ class PriceDatabase:
                 project_type=row["project_type"],
                 year=row["year"],
                 region=row["region"],
-                brand=row["brand"],
+                brand=brand_name or row["brand"],
+                bidder=bidder_name,
                 origin=row["origin"],
                 material_spec=row["material_spec"],
                 source_file=row["source_file"],

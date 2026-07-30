@@ -18,6 +18,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const reviewWarning = document.getElementById("reviewWarning");
   const ragCount = document.getElementById("ragCount");
   const ragRows = document.getElementById("ragRows");
+  const ragSort = document.getElementById("ragSort");
+  const ragBidder = document.getElementById("ragBidder");
+
+  // Dữ liệu bảng RAG hiện tại (dùng để lọc/sắp xếp phía trình duyệt).
+  let ragItems = [];
+  let ragUnit = "";
 
   // New Market Price Elements
   const resMarketAvg = document.getElementById("resMarketAvg");
@@ -229,38 +235,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const items = res.similar_items || [];
     
     if (items.length === 0) {
+      ragItems = [];
+      ragUnit = unit;
+      fillBidderFilter([]);
       ragCount.textContent = "0 mẫu tham chiếu";
       ragRows.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Không tìm thấy báo giá tương đồng nào.</td></tr>`;
       return;
     }
 
-    ragCount.textContent = `${items.length} mẫu tham chiếu`;
-    
-    // Calculate mean of matching unit price for comparison
+    // Giữ dữ liệu gốc để lọc/sắp xếp lại mà không phải gọi lại API.
+    // _ref là số thứ tự theo ĐỘ TƯƠNG ĐỒNG, giữ nguyên kể cả khi đổi cách sắp xếp.
+    ragItems = items.map((item, idx) => ({ ...item, _ref: idx + 1 }));
+    ragUnit = unit;
+    fillBidderFilter(ragItems);
+    renderRagRows();
+
+    // Calculate mean of matching unit price for comparison (tính trên TOÀN BỘ mẫu,
+    // không phụ thuộc bộ lọc đang chọn).
     let totalPrice = 0;
     let matchingUnitCount = 0;
-
-    items.forEach((item, idx) => {
-      const isSameUnit = item.unit.trim().toLowerCase() === unit.trim().toLowerCase();
-      const priceStr = item.unit_price !== null ? formatCurrency(item.unit_price) : "N/A";
-      const brand = item.brand && item.brand !== "None" ? item.brand : "N/A";
-      const project = item.project_name || "N/A";
-      
-      if (isSameUnit && item.unit_price !== null) {
+    items.forEach((item) => {
+      if (item.unit.trim().toLowerCase() === unit.trim().toLowerCase() && item.unit_price !== null) {
         totalPrice += item.unit_price;
         matchingUnitCount++;
       }
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><span style="font-weight: 600; color: var(--text-muted);">REF-${idx + 1}</span></td>
-        <td><div style="font-weight: 600; color: var(--text);">${item.item_name}</div><small style="color: var(--text-muted);">${item.material_spec !== "None" ? item.material_spec : ""}</small></td>
-        <td><span class="badge ${isSameUnit ? 'success-badge' : 'warning-badge'}">${item.unit}</span></td>
-        <td><b style="color: var(--text);">${priceStr} VNĐ</b></td>
-        <td>${brand}</td>
-        <td>${project}</td>
-      `;
-      ragRows.appendChild(tr);
     });
 
     // Bidder Price Comparison Alert (Double Checking)
@@ -413,4 +411,100 @@ document.addEventListener("DOMContentLoaded", () => {
     if (value === null || value === undefined) return "N/A";
     return Math.round(value).toLocaleString("vi-VN");
   }
+
+  // ---------------------------------------------------------------------
+  // Bộ lọc / sắp xếp bảng RAG (xử lý ngay trên trình duyệt, không gọi lại API)
+  // ---------------------------------------------------------------------
+
+  function bidderOf(item) {
+    return item.bidder && item.bidder !== "None" ? item.bidder : "";
+  }
+
+  /** Nạp danh sách nhà thầu có thật trong kết quả vào ô lọc. */
+  function fillBidderFilter(items) {
+    if (!ragBidder) return;
+    const previous = ragBidder.value;
+    const names = [...new Set(items.map(bidderOf).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, "vi"));
+    const hasUnknown = items.some((item) => !bidderOf(item));
+
+    ragBidder.innerHTML =
+      `<option value="">Tất cả nhà thầu</option>` +
+      names.map((n) => `<option value="${n}">${n}</option>`).join("") +
+      (hasUnknown ? `<option value="__unknown__">Không rõ nhà thầu</option>` : "");
+
+    // Giữ lựa chọn cũ nếu vẫn còn hợp lệ.
+    ragBidder.value = [...ragBidder.options].some((o) => o.value === previous) ? previous : "";
+  }
+
+  /** Vẽ lại các dòng theo bộ lọc và kiểu sắp xếp đang chọn. */
+  function renderRagRows() {
+    if (!ragRows) return;
+    const sortMode = ragSort ? ragSort.value : "default";
+    const pick = ragBidder ? ragBidder.value : "";
+
+    let rows = ragItems.slice();
+    if (pick === "__unknown__") {
+      rows = rows.filter((item) => !bidderOf(item));
+    } else if (pick) {
+      rows = rows.filter((item) => bidderOf(item) === pick);
+    }
+
+    // Dòng thiếu đơn giá luôn dồn xuống cuối để không chiếm đầu bảng khi sắp xếp.
+    const priceOf = (item) => (typeof item.unit_price === "number" ? item.unit_price : null);
+    if (sortMode === "price_desc" || sortMode === "price_asc") {
+      const dir = sortMode === "price_desc" ? -1 : 1;
+      rows.sort((a, b) => {
+        const pa = priceOf(a), pb = priceOf(b);
+        if (pa === null && pb === null) return a._ref - b._ref;
+        if (pa === null) return 1;
+        if (pb === null) return -1;
+        return (pa - pb) * dir;
+      });
+    } else if (sortMode === "bidder") {
+      rows.sort((a, b) => {
+        const na = bidderOf(a), nb = bidderOf(b);
+        if (!na && !nb) return a._ref - b._ref;
+        if (!na) return 1;
+        if (!nb) return -1;
+        return na.localeCompare(nb, "vi") || a._ref - b._ref;
+      });
+    } else {
+      rows.sort((a, b) => a._ref - b._ref);
+    }
+
+    if (ragCount) {
+      ragCount.textContent = rows.length === ragItems.length
+        ? `${ragItems.length} mẫu tham chiếu`
+        : `${rows.length}/${ragItems.length} mẫu tham chiếu`;
+    }
+
+    if (!rows.length) {
+      ragRows.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);">Không có mẫu nào khớp bộ lọc đang chọn.</td></tr>`;
+      return;
+    }
+
+    ragRows.innerHTML = rows.map((item) => {
+      const isSameUnit = String(item.unit || "").trim().toLowerCase() === String(ragUnit || "").trim().toLowerCase();
+      const priceStr = item.unit_price !== null && item.unit_price !== undefined ? formatCurrency(item.unit_price) : "N/A";
+      const brand = item.brand && item.brand !== "None" ? item.brand : "—";
+      const bidder = bidderOf(item);
+      const project = item.project_name && item.project_name !== "None" ? item.project_name : "";
+      const spec = item.material_spec && item.material_spec !== "None" ? item.material_spec : "";
+      return `
+        <tr>
+          <td><span style="font-weight:600;color:var(--text-muted);">REF-${item._ref}</span></td>
+          <td><div style="font-weight:600;color:var(--text);">${item.item_name || ""}</div><small style="color:var(--text-muted);">${spec}</small></td>
+          <td><span class="badge ${isSameUnit ? "success-badge" : "warning-badge"}">${item.unit || ""}</span></td>
+          <td><b style="color:var(--text);">${priceStr} VNĐ</b></td>
+          <td>${brand}</td>
+          <td>${bidder
+                ? `<div style="font-weight:600;color:var(--text);">${bidder}</div>${project ? `<small style="color:var(--text-muted);">${project}</small>` : ""}`
+                : `<span style="color:var(--text-muted);">Không rõ nhà thầu</span>${project ? `<br><small style="color:var(--text-muted);">${project}</small>` : ""}`}</td>
+        </tr>`;
+    }).join("");
+  }
+
+  if (ragSort) ragSort.addEventListener("change", renderRagRows);
+  if (ragBidder) ragBidder.addEventListener("change", renderRagRows);
 });
