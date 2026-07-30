@@ -5,6 +5,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+class SearchBlockedError(RuntimeError):
+    """Công cụ tìm kiếm tạm chặn do gọi quá nhiều, không phải không có giá."""
+
+
 class MarketPriceFetcher:
     @staticmethod
     def fetch_market_prices(item_name: str, unit: str) -> dict:
@@ -38,7 +43,15 @@ class MarketPriceFetcher:
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 html = resp.read().decode("utf-8")
-            
+
+            # DuckDuckGo trả trang "anomaly" khi bị gọi quá dày: HTTP vẫn 200
+            # nhưng không có kết quả nào. Phải phân biệt với trường hợp tìm được
+            # trang mà trong đó không có giá — hai chuyện khác hẳn nhau.
+            if 'result__a' not in html and re.search(r'anomaly|unusual traffic',
+                                                     html, re.IGNORECASE):
+                raise SearchBlockedError(
+                    "DuckDuckGo tạm chặn do gọi quá nhanh")
+
             # Extract snippets inside <a class="result__snippet" ...>text</a>
             snippets_raw = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
             snippets = []
@@ -99,7 +112,21 @@ class MarketPriceFetcher:
                 "min_price": min_price,
                 "max_price": max_price,
                 "avg_price": avg_price,
-                "snippets": snippets[:6] # top 6 search snippets for context
+                "snippets": snippets[:6], # top 6 search snippets for context
+                # ok        = tra cứu được và có giá
+                # no_prices = tra cứu được nhưng trang không ghi giá
+                "status": "ok" if prices else "no_prices",
+                "message": "" if prices else
+                           "Tra cứu được nhưng các trang không ghi rõ đơn giá.",
+            }
+        except SearchBlockedError as e:
+            logger.warning("Tra cứu giá thị trường bị chặn tạm thời: %s", e)
+            return {
+                "prices": [], "min_price": None, "max_price": None,
+                "avg_price": None, "snippets": [],
+                "status": "blocked",
+                "message": "Công cụ tìm kiếm tạm chặn do truy vấn quá nhiều. "
+                           "Vui lòng thử lại sau ít phút.",
             }
         except Exception as e:
             logger.error("Failed to fetch market prices from DuckDuckGo: %s", e)
@@ -108,5 +135,7 @@ class MarketPriceFetcher:
                 "min_price": None,
                 "max_price": None,
                 "avg_price": None,
-                "snippets": []
+                "snippets": [],
+                "status": "error",
+                "message": f"Không kết nối được công cụ tìm kiếm ({type(e).__name__}).",
             }

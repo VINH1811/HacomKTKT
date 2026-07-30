@@ -203,16 +203,30 @@ document.addEventListener("DOMContentLoaded", () => {
       resMarketAvg.textContent = formatCurrency(res.market_avg_price) + " VNĐ";
       resMarketRange.textContent = `Cận: ${formatCurrency(res.market_min_price)} - ${formatCurrency(res.market_max_price)} VNĐ`;
     } else {
-      resMarketAvg.textContent = "N/A";
-      resMarketRange.textContent = "Không tìm thấy giá trực tuyến";
+      // Phân biệt "bị chặn tạm thời" với "tra được nhưng không có giá" — trước
+      // đây cả hai đều hiện cùng một câu nên người dùng tưởng vật tư không có
+      // trên thị trường, trong khi thực ra chỉ là công cụ tìm kiếm đang chặn.
+      const st = res.market_status || "no_prices";
+      resMarketAvg.textContent = st === "blocked" ? "Tạm ngưng" : "N/A";
+      resMarketRange.textContent =
+        st === "blocked" ? "Tìm kiếm bị chặn — thử lại sau ít phút"
+        : st === "error" ? "Không kết nối được công cụ tìm kiếm"
+        : "Không tìm thấy giá trực tuyến";
     }
 
     // Render Market Snippets
     marketSnippetsList.innerHTML = "";
     const snippets = res.market_snippets || [];
     if (snippets.length === 0) {
-      marketCount.textContent = "0 trích dẫn";
-      marketSnippetsList.innerHTML = `<span style="font-size: 13px; color: var(--text-muted); text-align: center;">Không tìm thấy báo giá thị trường trực tuyến phù hợp.</span>`;
+      const st = res.market_status || "no_prices";
+      marketCount.textContent = st === "blocked" ? "tạm ngưng" : "0 trích dẫn";
+      const note = document.createElement("span");
+      note.style.fontSize = "13px";
+      note.style.textAlign = "center";
+      note.style.color = st === "blocked" ? "#b7791f" : "var(--text-muted)";
+      note.textContent = res.market_message
+        || "Không tìm thấy báo giá thị trường trực tuyến phù hợp.";
+      marketSnippetsList.appendChild(note);
     } else {
       marketCount.textContent = `${snippets.length} trích dẫn`;
       snippets.forEach(snip => {
@@ -222,7 +236,9 @@ document.addEventListener("DOMContentLoaded", () => {
         item.style.padding = "6px 8px";
         item.style.borderBottom = "1px solid #edf2f7";
         item.style.color = "#2d3748";
-        item.innerHTML = `🌐 ${snip}`;
+        // Dùng textContent, không dùng innerHTML: nội dung này lấy từ web ngoài
+        // nên chèn thẳng vào HTML sẽ thành lỗ hổng XSS.
+        item.textContent = `🌐 ${snip}`;
         marketSnippetsList.appendChild(item);
       });
       if (marketSnippetsList.lastChild) {

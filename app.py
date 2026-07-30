@@ -817,8 +817,11 @@ def pa_predict_api(req: PAPredictRequest):
         pa_config.llm_provider = "google"
         pa_config.llm_model = "gemini-3.5-flash"
     elif req.backend == "ollama":
-        pa_config.llm_provider = "ollama"
-        
+        # Frontend hardcode backend="ollama" với nghĩa "dùng LLM nội bộ".
+        # Giữ nguyên provider cấu hình trong .env để chạy được cả Ollama lẫn
+        # server nội bộ nói giao thức OpenAI (vLLM) — không ép cứng nữa.
+        pass
+
     try:
         pa = PriceAdvisor(pa_config)
         pa._ensure_initialized()
@@ -868,6 +871,8 @@ def pa_predict_api(req: PAPredictRequest):
                 "market_max_price": market_res["max_price"],
                 "market_avg_price": market_res["avg_price"],
                 "market_snippets": market_res["snippets"],
+                "market_status": market_res.get("status", "ok"),
+                "market_message": market_res.get("message", ""),
             }
         else:
             # Prepare context for LLM, inserting the Web Search RAG data
@@ -925,6 +930,8 @@ def pa_predict_api(req: PAPredictRequest):
                 "market_max_price": market_res["max_price"],
                 "market_avg_price": market_res["avg_price"],
                 "market_snippets": market_res["snippets"],
+                "market_status": market_res.get("status", "ok"),
+                "market_message": market_res.get("message", ""),
             }
     except Exception as exc:
         raise HTTPException(500, f"Lỗi dự đoán giá: {exc}")

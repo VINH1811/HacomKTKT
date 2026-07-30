@@ -9,3 +9,8 @@ runtime/jobs/*
 reports/*.xlsx
 models/*
 !models/.gitkeep
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.logvenv/
