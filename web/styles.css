@@ -1963,12 +1963,28 @@ html.tour-on .tour-spot { display: block; }
   display: none;
   pointer-events: none;
   filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .4));
+  /* Nhấp nhô dọc theo trục mũi tên (chéo trên-trái) nên đầu nhọn luôn nằm trên
+     đường chỉ vào mục tiêu, không bị lệch ngang ra ngoài. Biên độ nhỏ để không
+     làm sai lệch điểm chỉ. */
   animation: tourPoke 1.15s ease-in-out infinite;
 }
 html.tour-on .tour-hand { display: block; }
+
+/* Xoay 180° khi con trỏ đứng phía trên ô: đầu nhọn chúc xuống, chỉ vào trong.
+   Xoay đặt ở SVG con, KHÔNG đặt ở .tour-hand — nếu đặt chung chỗ thì hoạt ảnh
+   translate sẽ ghi đè transform và mất luôn phép xoay. */
+.tour-hand svg { display: block; transition: transform .15s ease; }
+.tour-hand.flip svg { transform: rotate(180deg); }
+
 @keyframes tourPoke {
   0%, 100% { transform: translate(0, 0); }
-  50%      { transform: translate(-7px, -7px); }
+  50%      { transform: translate(-5px, -5px); }
+}
+/* Con trỏ ở phía trên thì nhích theo chiều ngược lại cho khớp hướng chỉ. */
+.tour-hand.flip { animation-name: tourPokeFlip; }
+@keyframes tourPokeFlip {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(5px, 5px); }
 }
 
 /* Thẻ ghi chú. */

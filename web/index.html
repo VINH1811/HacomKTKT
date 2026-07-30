@@ -236,13 +236,22 @@
 
             <div id="dossierFields" class="hidden">
               <div class="form-section">
+                <div class="field-header"><div><h3>Hồ sơ mời thầu — HSMT<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Tải lên HSMT để hệ thống <b>đọc xem gói thầu yêu cầu những tài liệu gì</b>, rồi dựng checklist đúng theo đó.<br><br>Nhận .zip, .pdf, .docx, .xlsx.<br><br>File .doc đời cũ cần lưu lại thành .docx hoặc .pdf.</span></i></h3><p>Tuỳ chọn — tải trước để hệ thống biết gói thầu yêu cầu những gì. Có HSMT thì checklist dựng theo đúng yêu cầu của gói thầu; bỏ trống thì dùng bộ 12 đầu mục mặc định.</p></div><span class="optional" id="hsmtStatusBadge">Không bắt buộc</span></div>
+                <label class="file-picker" for="hsmtFile">
+                  <input id="hsmtFile" type="file" accept=".zip,.pdf,.docx,.xlsx,.xlsb,.xls,.txt,.md">
+                  <span>Chọn file hồ sơ mời thầu</span><small>zip / pdf / docx / xlsx — để trống nếu muốn dùng checklist mặc định</small>
+                </label>
+                <div id="hsmtInfo" class="mode-note">Chưa chọn HSMT — sẽ dùng checklist mặc định 12 đầu mục: đơn chào giá, BOQ, danh mục vật tư, BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền.</div>
+              </div>
+
+              <div class="form-section">
                 <div class="field-header"><div><h3>Hồ sơ nhà thầu (file ZIP)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Bấm phải vào thư mục hồ sơ mỗi nhà thầu → <b>Nén thành file ZIP</b>. Mỗi nhà thầu một ZIP riêng.<br><br>Đặt tên ZIP theo tên nhà thầu để hệ thống nhận đúng.</span></i></h3><p>Nén toàn bộ thư mục hồ sơ của mỗi nhà thầu thành một file .zip rồi tải lên. Có thể chọn nhiều nhà thầu.</p></div><span class="required" id="dossierStatusBadge">Bắt buộc</span></div>
                 <label class="file-picker large" for="dossierFiles">
                   <input id="dossierFiles" type="file" accept=".zip" multiple>
                   <span>Chọn file ZIP hồ sơ</span><small>Mỗi ZIP = toàn bộ thư mục hồ sơ một nhà thầu</small>
                 </label>
                 <div id="dossierList" class="selected-list empty-state">Chưa có hồ sơ nào được chọn.</div>
-                <div class="mode-note">Hệ thống tự đọc tên nhà thầu từ tên file ZIP (bấm vào để sửa nếu cần), quét tên file/thư mục bên trong và chấm ĐẠT/THIẾU 12 đầu mục: đơn chào giá, BOQ, danh mục vật tư, BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền.</div>
+                <div class="mode-note">Hệ thống tự đọc tên nhà thầu từ tên file ZIP (bấm vào để sửa nếu cần), quét tên file/thư mục bên trong và chấm ĐẠT/THIẾU theo checklist ở trên.</div>
               </div>
             </div>
 
@@ -406,20 +415,40 @@
       dossier: [
         NAV_STEP,
         {
+          el: 'label[for="hsmtFile"]',
+          title: "Bước 1 — Tải hồ sơ mời thầu (nên làm)",
+          body: "Ô này <b>không bắt buộc</b> nhưng nên dùng. Tải HSMT lên, hệ thống sẽ " +
+                "<b>đọc xem gói thầu yêu cầu những tài liệu gì</b> rồi dựng checklist đúng theo đó.<br><br>" +
+                "Nhận <code>zip</code>, <code>pdf</code>, <code>docx</code>, <code>xlsx</code>. " +
+                "File <code>.doc</code> đời cũ cần mở bằng Word và lưu lại thành <code>.docx</code>.<br><br>" +
+                "<b>Bỏ trống</b> thì dùng checklist mặc định 12 đầu mục: đơn chào giá, BOQ, danh mục vật tư, " +
+                "BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền."
+        },
+        {
+          el: "#hsmtInfo",
+          title: "Vì sao nên tải HSMT",
+          body: "Checklist mặc định chỉ có 12 đầu mục chung. Nhiều gói thầu còn yêu cầu " +
+                "<b>bảo lãnh dự thầu, thỏa thuận liên danh, kê khai máy móc thiết bị, CO/CQ, " +
+                "nghĩa vụ thuế và BHXH</b>…<br><br>" +
+                "Không có HSMT thì những tài liệu đó bị bỏ ngoài checklist — nhà thầu nộp thiếu " +
+                "cũng không bị phát hiện. Có HSMT, hệ thống nhận ra tới <b>18 loại tài liệu</b>."
+        },
+        {
           el: 'label[for="dossierFiles"]',
-          title: "Cần nén hồ sơ thành file ZIP trước",
+          title: "Bước 2 — Nén hồ sơ nhà thầu thành file ZIP",
           body: "Bấm phải vào thư mục hồ sơ của <b>một</b> nhà thầu → <b>Nén thành file ZIP</b>. " +
                 "Mỗi nhà thầu một ZIP riêng, đặt tên ZIP theo tên nhà thầu.<br><br>" +
-                "Hệ thống chấm <b>ĐẠT / THIẾU</b> cho 12 đầu mục: đơn chào giá, BOQ, danh mục vật tư, " +
-                "BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền."
+                "Hệ thống quét tên file/thư mục bên trong và chấm <b>ĐẠT / THIẾU</b> theo checklist " +
+                "đã xác định ở bước 1."
         },
         {
           el: "#dossierList",
           title: "Lưu ý về độ tin cậy",
           body: "Kết quả <b>“THIẾU” không chắc chắn 100%</b>. Hệ thống nhận biết dựa trên " +
                 "<b>tên file và tên thư mục</b> bên trong ZIP, không đọc nội dung từng trang.<br><br>" +
-                "Nếu nhà thầu đặt tên kiểu <code>Tai lieu 1.pdf</code> thì tài liệu có thể bị chấm THIẾU dù " +
-                "thực tế có nộp. Hãy coi đây là <b>bộ lọc nhanh</b> và mở kiểm tra tay những mục bị báo THIẾU."
+                "Những file <b>không khớp đầu mục nào</b> sẽ được gom riêng và đánh dấu trong báo cáo " +
+                "— thường là tài liệu đặt tên sai quy ước kiểu <code>Scan0001.pdf</code>. " +
+                "Hãy mở xem các file này trước khi kết luận nhà thầu nộp thiếu."
         },
         START_STEP
       ],

@@ -599,6 +599,9 @@ async function submitWork(event) {
     endpoint = "/api/check-dossier";
     data = new FormData();
     dossierFiles.forEach((item) => { data.append("files", item.file); data.append("bidder_names", item.name.trim()); });
+    // HSMT là tuỳ chọn: có thì checklist dựng theo yêu cầu của gói thầu đó.
+    const hsmt = $("#hsmtFile") && $("#hsmtFile").files[0];
+    if (hsmt) data.append("hsmt_file", hsmt);
   } else {
     const error = validateComparison();
     if (error) return notify(error, "error");
@@ -963,6 +966,33 @@ if (dossierFilesEl) {
     renderDossierFiles();
   });
 }
+// HSMT (tuỳ chọn): báo cho người dùng biết checklist sẽ dựng theo nguồn nào.
+const HSMT_DEFAULT_NOTE = "Chưa chọn HSMT — sẽ dùng checklist mặc định 12 đầu mục: "
+  + "đơn chào giá, BOQ, danh mục vật tư, BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, "
+  + "nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền.";
+const hsmtFileEl = $("#hsmtFile");
+if (hsmtFileEl) {
+  hsmtFileEl.addEventListener("change", (event) => {
+    const info = $("#hsmtInfo");
+    const badge = $("#hsmtStatusBadge");
+    const file = event.target.files[0];
+    if (!file) {
+      if (info) info.textContent = HSMT_DEFAULT_NOTE;
+      if (badge) { badge.textContent = "Không bắt buộc"; badge.className = "optional"; }
+      return;
+    }
+    if (/\.doc$/i.test(file.name)) {
+      notify("File .doc đời cũ không đọc được. Hãy mở bằng Word và lưu lại thành .docx hoặc .pdf.", "error");
+      event.target.value = "";
+      return;
+    }
+    const mb = (file.size / (1024 * 1024)).toFixed(1);
+    if (info) info.textContent = `Sẽ đọc "${file.name}" (${mb} MB) để dựng checklist theo đúng yêu cầu của gói thầu. `
+      + "Báo cáo sẽ có thêm sheet \"Nguồn checklist\" ghi trích dẫn trong HSMT cho từng đầu mục.";
+    if (badge) { badge.textContent = "Đã chọn"; badge.className = "required"; }
+  });
+}
+
 const workFormEl = $("#workForm");
 if (workFormEl) {
   workFormEl.addEventListener("submit", submitWork);

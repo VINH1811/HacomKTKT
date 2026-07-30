@@ -17,6 +17,12 @@
 
   var GAP = 14;        // khoảng cách giữa vùng sáng và thẻ ghi chú
   var EDGE = 12;       // lề tối thiểu so với biên cửa sổ
+
+  // Kích thước hộp SVG con trỏ và toạ độ ĐẦU NHỌN bên trong hộp đó.
+  // Đầu nhọn ở (5.5, 2.2) trong viewBox 24 -> quy đổi sang pixel thực tế.
+  var HAND_SIZE = 34;
+  var TIP_X = 5.5 / 24 * HAND_SIZE;   // ~7.8px
+  var TIP_Y = 2.2 / 24 * HAND_SIZE;   // ~3.1px
   var cfg = null;
   var steps = [];
   var idx = 0;
@@ -129,11 +135,35 @@
     card.classList.toggle("arrow-down", !arrowUp);
     card.style.visibility = "visible";
 
-    // Con trỏ chuột: đứng ở góc của vùng sáng, phía đối diện thẻ ghi chú,
-    // và nhấp nhô hướng vào trong ô để mắt bám theo.
-    var hs = nodes.hand.style;
-    if (arrowUp) { hs.top = (top + h - 4) + "px"; hs.left = (left + Math.min(26, w / 2)) + "px"; }
-    else { hs.top = (top - 30) + "px"; hs.left = (left + Math.min(26, w / 2)) + "px"; }
+    // Con trỏ chuột.
+    //
+    // Đầu nhọn của mũi tên KHÔNG nằm ở góc hộp SVG mà ở toạ độ (5.5, 2.2) trong
+    // viewBox 24, tức lệch vào trong. Muốn chỉ đúng thì phải đặt hộp lùi lại
+    // đúng khoảng lệch đó, nếu không đầu nhọn luôn trượt ra ngoài mục tiêu.
+    //
+    // Mũi tên chỉ theo hướng trên-trái, nên thân nó đổ về phía dưới-phải. Vì
+    // vậy con trỏ phải đứng ở phía đối diện thẻ ghi chú, và khi thẻ nằm trên
+    // thì phải xoay 180° — nếu không nó chỉ ra ngoài, ngược hướng ô cần chỉ.
+    var hand = nodes.hand;
+    var hs = hand.style;
+    // Điểm cần chỉ vào: nằm trên cạnh vùng sáng, lệch trái một chút cho tự
+    // nhiên, và không vượt quá nửa chiều rộng với ô hẹp.
+    var tipX = left + Math.min(34, w / 2);
+    var tipY;
+
+    if (arrowUp) {
+      // Thẻ nằm DƯỚI -> con trỏ đứng TRÊN, xoay 180° để chúc xuống vào ô.
+      tipY = top;
+      hand.classList.add("flip");
+      hs.left = (tipX - (HAND_SIZE - TIP_X)) + "px";
+      hs.top = (tipY - (HAND_SIZE - TIP_Y)) + "px";
+    } else {
+      // Thẻ nằm TRÊN -> con trỏ đứng DƯỚI, giữ hướng gốc để hất lên vào ô.
+      tipY = top + h;
+      hand.classList.remove("flip");
+      hs.left = (tipX - TIP_X) + "px";
+      hs.top = (tipY - TIP_Y) + "px";
+    }
   }
 
   function render() {

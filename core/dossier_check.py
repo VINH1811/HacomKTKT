@@ -99,6 +99,9 @@ class DossierResult:
     root: str
     categories: list[CategoryResult]
     total_files: int = 0
+    # File không khớp bất kỳ đầu mục nào. Thường là tài liệu đặt tên sai quy
+    # ước nên bị chấm THIẾU oan — cần người rà lại chứ không bỏ qua.
+    unmatched_files: list[str] = field(default_factory=list)
 
     @property
     def missing_required(self) -> list[CategoryResult]:
@@ -116,27 +119,39 @@ def evaluate_dossier(
     compiled = [(item, [re.compile(p) for p in item.patterns]) for item in checklist]
     results = {item.key: CategoryResult(item=item) for item in checklist}
     total = 0
+    unmatched: list[str] = []
     for f in root.rglob("*"):
         if not f.is_file() or f.name.lower() in _IGNORED_NAMES:
             continue
         total += 1
         rel = str(f.relative_to(root))
         folded = _fold(rel)
+        matched_any = False
         for item, regexes in compiled:
             if item.extensions and f.suffix.lower() not in item.extensions:
                 continue
             if any(rx.search(folded) for rx in regexes):
                 results[item.key].files.append(rel)
+                matched_any = True
+        if not matched_any:
+            unmatched.append(rel)
     return DossierResult(
         bidder=bidder,
         root=str(root),
         categories=[results[item.key] for item in checklist],
         total_files=total,
+        unmatched_files=unmatched,
     )
 
 
-def export_dossier_report(results: list[DossierResult], output_path: str | Path) -> str:
-    """Bảng ma trận checklist × nhà thầu + sheet bằng chứng từng nhà thầu."""
+def export_dossier_report(results: list[DossierResult], output_path: str | Path,
+                          checklist_source: Optional[dict] = None) -> str:
+    """Bảng ma trận checklist × nhà thầu + sheet bằng chứng từng nhà thầu.
+
+    `checklist_source` (tuỳ chọn) mô tả checklist lấy từ đâu: mặc định hay đọc
+    từ HSMT người dùng tải lên. Có thì thêm một sheet ghi rõ nguồn và bằng
+    chứng trích từ HSMT, để người kiểm tra soi lại được vì sao có đầu mục đó.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb = xlsxwriter.Workbook(str(output_path), {"nan_inf_to_errors": True})
@@ -154,6 +169,8 @@ def export_dossier_report(results: list[DossierResult], output_path: str | Path)
                             "align": "center", "border": 1})
     f_opt = wb.add_format({"font_color": "#808080", "align": "center", "border": 1})
     f_note = wb.add_format({"italic": True, "font_color": "#595959", "text_wrap": True})
+    f_unmatched = wb.add_format({"font_color": "#7F6000", "bg_color": "#FFF2CC",
+                                 "border": 1, "text_wrap": True})
     status_fmt = {STATUS_OK: f_ok, STATUS_MISSING: f_miss,
                   STATUS_PARTIAL: f_part, STATUS_OPTIONAL_MISSING: f_opt}
 
@@ -179,7 +196,15 @@ def export_dossier_report(results: list[DossierResult], output_path: str | Path)
                 text += f" ({len(cat.files)}"
                 text += f"/{item.min_count})" if item.min_count > 1 else " file)"
             ws.write(row, col, text, status_fmt[cat.status])
-    note_row = 4 + len(checklist)
+    # Dòng cảnh báo file lạ, ngay dưới bảng ma trận.
+    warn_row = 3 + len(checklist)
+    ws.write(warn_row, 0, "⚠ File không khớp đầu mục nào", f_cat)
+    for col, res in enumerate(results, 1):
+        n = len(res.unmatched_files)
+        ws.write(warn_row, col, f"{n} file" if n else "—",
+                 f_unmatched if n else f_opt)
+
+    note_row = 5 + len(checklist)
     ws.merge_range(note_row, 0, note_row, max(1, ncols - 1),
                    "Đánh giá SƠ BỘ theo sự hiện diện của tài liệu trong hồ sơ (nhận diện qua tên "
                    "file/thư mục). Chuyên viên cần thẩm định nội dung từng tài liệu trước khi kết luận.",
@@ -205,7 +230,52 @@ def export_dossier_report(results: list[DossierResult], output_path: str | Path)
                     r += 1
             else:
                 r += 1
+
+        # File không khớp đầu mục nào — nghi đặt tên sai, cần rà tay.
+        if res.unmatched_files:
+            r += 1
+            ev.write(r, 0, "⚠ FILE KHÔNG KHỚP ĐẦU MỤC NÀO", f_head)
+            ev.write(r, 1, f"{len(res.unmatched_files)} file", f_head)
+            ev.write(r, 2, "Có thể đặt tên sai quy ước — kiểm tra thủ công "
+                           "trước khi kết luận là thiếu tài liệu", f_head)
+            r += 1
+            for path_ in res.unmatched_files[:200]:
+                ev.write(r, 2, path_, f_unmatched)
+                r += 1
         ev.freeze_panes(1, 0)
+
+    # Sheet nguồn checklist
+    if checklist_source:
+        src = wb.add_worksheet("Nguồn checklist")
+        src.set_column(0, 0, 42)
+        src.set_column(1, 1, 10)
+        src.set_column(2, 2, 105)
+        src.merge_range(0, 0, 0, 2,
+                        f"CHECKLIST LẤY TỪ: {checklist_source.get('origin', 'mặc định')}",
+                        f_title)
+        src.set_row(0, 26)
+        row = 2
+        for label, value in checklist_source.get("meta", []):
+            src.write(row, 0, label, f_cat)
+            src.merge_range(row, 1, row, 2, str(value), f_cat)
+            row += 1
+        evidences = checklist_source.get("evidences") or []
+        if evidences:
+            row += 1
+            for col, head in enumerate(["Đầu mục yêu cầu", "Số lần nhắc",
+                                        "Trích dẫn trong HSMT"]):
+                src.write(row, col, head, f_head)
+            row += 1
+            for label, hits, evidence in evidences:
+                src.write(row, 0, label, f_cat)
+                src.write(row, 1, hits, f_cat)
+                src.write(row, 2, evidence, f_cat)
+                row += 1
+        row += 1
+        src.merge_range(row, 0, row, 2,
+                        "Đầu mục được nhận diện bằng dò từ khoá trong HSMT, không phải đọc hiểu. "
+                        "Hãy đối chiếu trích dẫn ở trên với HSMT gốc; nếu thiếu đầu mục nào thì "
+                        "bổ sung thủ công.", f_note)
 
     wb.close()
     return str(output_path)

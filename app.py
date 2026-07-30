@@ -31,7 +31,12 @@ from security import configure_offline_environment, deny_external_network
 configure_offline_environment()
 
 from core.config import EnterpriseConfig
-from core.dossier_check import evaluate_dossier, export_dossier_report
+from core.dossier_check import DEFAULT_CHECKLIST, evaluate_dossier, export_dossier_report
+from core.hsmt_checklist import (
+    SUPPORTED_SUFFIXES as HSMT_SUPPORTED_SUFFIXES,
+    build_from_file as build_hsmt_checklist,
+    to_checklist_items as hsmt_to_checklist_items,
+)
 from core.excel_io import diagnose_excel_file
 from core.models import CompareThresholds, UserFacingError
 from core.pipeline import compare_bidder_files, compare_tender_files
@@ -532,6 +537,41 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                 return
             elif mode == "dossier":
                 # Đánh giá tính đầy đủ hồ sơ: mỗi file ZIP là hồ sơ một nhà thầu.
+                # Có HSMT thì checklist dựng theo yêu cầu của chính gói thầu đó,
+                # không có thì dùng bộ 12 đầu mục mặc định.
+                checklist = DEFAULT_CHECKLIST
+                checklist_source = {"origin": "Checklist mặc định (12 đầu mục)",
+                                    "meta": [("Nguồn", "Bộ mặc định của hệ thống")],
+                                    "evidences": []}
+                hsmt = request.get("hsmt")
+                if hsmt:
+                    _update(job_id, progress=10, message="Đang đọc hồ sơ mời thầu")
+                    try:
+                        parsed = build_hsmt_checklist(folder / hsmt["file"])
+                    except Exception as exc:
+                        raise UserFacingError(
+                            f"Không đọc được hồ sơ mời thầu '{hsmt['original_name']}': {exc}"
+                        ) from exc
+                    if not parsed.items:
+                        raise UserFacingError(
+                            f"Đã đọc '{hsmt['original_name']}' ({parsed.text_length:,} ký tự) "
+                            "nhưng không nhận ra đầu mục tài liệu nào. File có thể là bản scan "
+                            "chưa OCR, hoặc dùng cách diễn đạt khác thường. Hãy bỏ trống ô HSMT "
+                            "để dùng checklist mặc định."
+                        )
+                    checklist = hsmt_to_checklist_items(parsed.items)
+                    checklist_source = {
+                        "origin": f"Hồ sơ mời thầu: {hsmt['original_name']}",
+                        "meta": [
+                            ("File HSMT", hsmt["original_name"]),
+                            ("Số ký tự đọc được", f"{parsed.text_length:,}"),
+                            ("File đã đọc", ", ".join(parsed.sources[:20]) or "—"),
+                            ("File bỏ qua", ", ".join(parsed.skipped[:20]) or "—"),
+                            ("Số đầu mục nhận ra", len(parsed.items)),
+                        ],
+                        "evidences": [(d.doc_type.label, d.hit_count, d.evidence)
+                                      for d in parsed.items],
+                    }
                 results = []
                 for index, entry in enumerate(request["bidders"]):
                     _update(job_id, progress=20 + int(60 * index / max(1, len(request["bidders"]))),
@@ -546,21 +586,26 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                             f"File '{entry.get('original_name', entry['file'])}' không phải ZIP hợp lệ. "
                             "Hãy nén thư mục hồ sơ của nhà thầu thành .zip rồi tải lên."
                         ) from exc
-                    results.append(evaluate_dossier(entry["name"], extract_dir))
+                    results.append(evaluate_dossier(entry["name"], extract_dir, checklist))
                 report = folder / "Bao_cao_checklist_ho_so.xlsx"
-                export_dossier_report(results, report)
+                export_dossier_report(results, report, checklist_source)
                 preview = {
                     "kind": "dossier",
+                    "checklist_origin": checklist_source["origin"],
+                    "checklist_labels": [i.label for i in checklist],
                     "summary": {
                         "bidder_count": len(results),
                         "total_files": sum(r.total_files for r in results),
                         "missing_total": sum(len(r.missing_required) for r in results),
+                        "unmatched_total": sum(len(r.unmatched_files) for r in results),
                     },
                     "dossiers": [
                         {
                             "bidder": r.bidder,
                             "total_files": r.total_files,
                             "missing": [c.item.label for c in r.missing_required],
+                            "unmatched": r.unmatched_files[:20],
+                            "unmatched_count": len(r.unmatched_files),
                         }
                         for r in results
                     ],
@@ -1271,14 +1316,28 @@ async def track_rfi_api(
 async def check_dossier_api(
     files: Annotated[list[UploadFile], File(...)],
     bidder_names: Annotated[list[str], Form(...)],
+    hsmt_file: Annotated[UploadFile | None, File()] = None,
 ):
-    """Đánh giá tính đầy đủ hồ sơ: mỗi file ZIP là toàn bộ thư mục hồ sơ một nhà thầu."""
+    """Đánh giá tính đầy đủ hồ sơ: mỗi file ZIP là toàn bộ thư mục hồ sơ một nhà thầu.
+
+    `hsmt_file` (tuỳ chọn): hồ sơ mời thầu (zip/pdf/docx/xlsx). Có file này thì
+    checklist được dựng theo đúng yêu cầu của gói thầu đó; không có thì dùng bộ
+    12 đầu mục mặc định như trước.
+    """
     _cleanup_expired()
     _validate_bidder_uploads(files, bidder_names, 1)
     job_id, folder = _new_job("dossier")
     limit = DEFAULT_CONFIG.max_upload_mb * 1024 * 1024
     entries = []
+    hsmt_saved = None
     try:
+        if hsmt_file is not None and (hsmt_file.filename or "").strip():
+            hsmt_name = _sanitize(hsmt_file.filename or "", "hsmt.pdf")
+            hsmt_target = folder / f"hsmt_{hsmt_name}"
+            await _save_upload(hsmt_file, hsmt_target, limit,
+                               allowed_suffixes=HSMT_SUPPORTED_SUFFIXES)
+            hsmt_saved = {"file": hsmt_target.name,
+                          "original_name": hsmt_file.filename or hsmt_name}
         for index, (upload, name) in enumerate(zip(files, bidder_names)):
             original = _sanitize(upload.filename or "", f"ho_so_{index}.zip")
             target = folder / f"{index:03d}_{original}"
@@ -1300,7 +1359,7 @@ async def check_dossier_api(
         if not entry["name"]:
             entry["name"] = auto_clean or entry["auto"]
         entry.pop("auto", None)
-    request = {"bidders": entries}
+    request = {"bidders": entries, "hsmt": hsmt_saved}
     _atomic_json(folder / "request.json", request)
     _JOB_EXECUTOR.submit(_run_job, job_id, "dossier", request)
     return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
