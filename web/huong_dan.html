@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Hướng dẫn sử dụng chi tiết hệ thống đánh giá hồ sơ dự thầu Hacom Holdings, dành cho người dùng lần đầu.">
+  <title>Hướng dẫn sử dụng - Hệ thống đánh giá HSDT</title>
+  <link rel="icon" type="image/png" href="/images/Logodung.png">
+  <link rel="stylesheet" href="/styles.css?v=1.4.1">
+  <style>
+    /* Các biến này không có trong styles.css dùng chung nên phải tự khai báo,
+       nếu không mọi khai báo tham chiếu tới chúng sẽ vô hiệu. */
+    :root {
+      --border: #e0c6ca;
+      --text-muted: #6b484d;
+    }
+
+    .guide-intro {
+      background: #fdf7f7;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      border-radius: 9px;
+      padding: 18px 20px;
+      margin-bottom: 24px;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+    .guide-intro strong { color: var(--primary); }
+
+    /* Ba bước dùng chung cho mọi chức năng. */
+    .steps-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      margin: 18px 0 4px;
+    }
+    .step-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-top: 3px solid rgba(225, 38, 47, .76);
+      border-radius: 9px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .step-card b { display: block; color: var(--primary); margin-bottom: 4px; font-size: 14px; }
+    .step-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--primary); color: #fff;
+      font-size: 12px; font-weight: 800; margin-right: 8px;
+    }
+
+    /* Mục lục dạng thẻ bấm được. */
+    .toc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .toc-item {
+      display: block;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 13px 15px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+    .toc-item:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 14px rgba(177, 23, 30, .10);
+      transform: translateY(-1px);
+    }
+    .toc-item b { display: block; color: var(--primary); font-size: 14px; margin-bottom: 3px; }
+    .toc-item small { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+
+    /* Một khối chức năng. */
+    .fn-block { scroll-margin-top: 20px; }
+    .fn-head {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding-bottom: 14px; margin-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+    }
+    .fn-badge {
+      flex: 0 0 auto;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 9px;
+      background: var(--primary); color: #fff;
+      font-weight: 800; font-size: 14px;
+    }
+    .fn-head h2 { margin: 0 0 3px; font-size: 19px; color: var(--primary); }
+    .fn-head p { margin: 0; font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+
+    .fn-part { margin-bottom: 18px; }
+    .fn-part > h3 {
+      font-size: 12px; text-transform: uppercase; letter-spacing: .05em;
+      color: var(--text-muted); font-weight: 800;
+      margin: 0 0 9px;
+    }
+    .fn-part p, .fn-part li { font-size: 14px; line-height: 1.7; }
+    .fn-part ul, .fn-part ol { margin: 0; padding-left: 22px; }
+    .fn-part li { margin-bottom: 5px; }
+
+    /* Bảng giải thích từng ô nhập. */
+    .field-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    .field-table th {
+      text-align: left; padding: 9px 11px;
+      background: #fdf7f7; color: var(--text-muted);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .field-table td {
+      padding: 10px 11px; border-bottom: 1px solid #f0e3e5;
+      vertical-align: top; line-height: 1.6;
+    }
+    .field-table tr:last-child td { border-bottom: none; }
+    .field-table td:first-child { font-weight: 700; white-space: nowrap; }
+    .tag-req, .tag-opt {
+      display: inline-block; padding: 2px 8px; border-radius: 100px;
+      font-size: 10.5px; font-weight: 800; text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .tag-req { background: #fee2e2; color: #991b1b; }
+    .tag-opt { background: #e5e7eb; color: #4b5563; }
+
+    /* Hộp lưu ý / cảnh báo / ví dụ. */
+    .note-box {
+      border-radius: 9px; padding: 13px 15px; font-size: 13.5px; line-height: 1.65;
+      margin-top: 10px;
+    }
+    .note-warn { background: #fffbeb; border: 1px solid #fcd34d; border-left: 4px solid #d97706; }
+    .note-tip  { background: #f0fdf4; border: 1px solid #86efac; border-left: 4px solid #16a34a; }
+    .note-box b { display: block; margin-bottom: 3px; }
+
+    .example {
+      background: #fbfbfc; border: 1px dashed var(--border); border-radius: 8px;
+      padding: 11px 13px; font-size: 13px; line-height: 1.7; margin-top: 9px;
+    }
+    .example code {
+      background: #fff; border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 6px; font-size: 12.5px;
+    }
+
+    /* Từ điển thuật ngữ. */
+    .glossary { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 11px; }
+    .gloss-item {
+      background: #fff; border: 1px solid var(--border); border-radius: 8px;
+      padding: 11px 13px; font-size: 13px; line-height: 1.6;
+    }
+    .gloss-item b { color: var(--primary); }
+
+    .back-top {
+      display: inline-block; margin-top: 6px;
+      font-size: 12px; color: var(--text-muted); text-decoration: none; font-weight: 600;
+    }
+    .back-top:hover { color: var(--primary); }
+
+    @media (max-width: 640px) {
+      .field-table th:nth-child(2), .field-table td:nth-child(2) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="/images/Logodung.png" alt="Logo Hacom Holdings">
+        </div>
+        <div>
+          <strong>Hệ thống đánh giá HSDT</strong>
+          <span>Hacom Holdings</span>
+        </div>
+      </div>
+
+      <nav class="main-nav" aria-label="Chức năng chính">
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span><span><b>Phụ lục &amp; nhà thầu</b><small>Đối chiếu PL01, PL02 và HSDT</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"></line><line x1="5" y1="7" x2="19" y2="7"></line><path d="M5 7L3 17a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2L7 7"></path><path d="M17 7l-2 10a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2l-2-10"></path></svg></span><span><b>So sánh nhà thầu</b><small>So sánh ngang nhiều HSDT</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></span><span><b>HSMT với HSDT</b><small>Kiểm tra đáp ứng yêu cầu</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span><span><b>So sánh phiên bản</b><small>Chào giá cũ và mới của một nhà thầu</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"></path></svg></span><span><b>Theo dõi làm rõ</b><small>Ghép yêu cầu CĐT với phản hồi</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg></span><span><b>Checklist hồ sơ</b><small>Đánh giá tính đầy đủ tài liệu</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/index.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span><span><b>Quét PDF scan</b><small>Chuyển PDF hoặc ảnh sang Excel</small></span>
+        </button>
+        <button class="nav-item" onclick="window.location.href='/price_advisor.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span><span><b>Dự đoán giá AI</b><small>Tư vấn đơn giá vật tư MEP</small></span>
+        </button>
+        <button class="nav-item active" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><span><b>Hướng dẫn sử dụng</b><small>Dành cho người dùng lần đầu</small></span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">HƯỚNG DẪN SỬ DỤNG</p>
+          <h1>Dùng hệ thống lần đầu</h1>
+          <p>Giải thích từng chức năng, từng ô cần điền và cách đọc kết quả. Không cần kiến thức kỹ thuật.</p>
+        </div>
+      </header>
+
+      <section class="content-grid">
+        <div class="primary-column">
+
+          <!-- ================= MỞ ĐẦU ================= -->
+          <section class="surface" id="top">
+            <div class="section-heading">
+              <div><span class="section-number">01</span><div><h2>Hệ thống này giúp bạn việc gì?</h2></div></div>
+            </div>
+
+            <div class="guide-intro">
+              Khi chấm thầu, bạn phải mở hàng chục file Excel của nhiều nhà thầu và dò từng dòng xem
+              <strong>có thiếu hạng mục nào</strong>, <strong>khối lượng có bị sửa</strong>,
+              <strong>giá có bất thường</strong> hay không. Việc này mất nhiều ngày và rất dễ bỏ sót.
+              <br><br>
+              Hệ thống làm thay bạn phần dò tìm đó: bạn <strong>tải file Excel lên</strong>, hệ thống
+              <strong>tự đối chiếu</strong> và <strong>xuất ra báo cáo Excel</strong> chỉ rõ dòng nào cần xem lại
+              và vì sao. Bạn chỉ cần tập trung vào những dòng được đánh dấu.
+              <br><br>
+              <strong>Bạn không làm mất hay sửa file gốc.</strong> Hệ thống chỉ đọc file bạn tải lên và tạo ra file báo cáo mới.
+            </div>
+
+            <div class="fn-part">
+              <h3>Ba bước dùng chung cho mọi chức năng</h3>
+              <div class="steps-row">
+                <div class="step-card">
+                  <b><span class="step-num">1</span>Chọn chức năng</b>
+                  Bấm một mục ở thanh menu bên trái. Khu vực tải file ở giữa sẽ tự đổi theo chức năng bạn chọn.
+                </div>
+                <div class="step-card">
+                  <b><span class="step-num">2</span>Tải file lên</b>
+                  Bấm vào ô có mũi tên hướng lên để chọn file từ máy tính. Ô nào ghi <span class="tag-req">Bắt buộc</span> thì phải có file mới chạy được.
+                </div>
+                <div class="step-card">
+                  <b><span class="step-num">3</span>Bấm nút đỏ &amp; chờ</b>
+                  Nút đỏ ở góc dưới bên phải. Sau đó thanh tiến trình chạy — <b>giữ nguyên trang</b>, đừng tắt hay bấm lại.
+                </div>
+              </div>
+              <div class="note-tip note-box">
+                <b>Xong thì làm gì?</b>
+                Khi hiện dấu ✓ và chữ “Đã hoàn tất”, bấm nút tải file Excel kết quả về máy. Muốn làm việc khác, bấm
+                <b>“Tạo tác vụ mới”</b> để xóa hết và bắt đầu lại. Bấm <b>“Xóa lựa chọn”</b> nếu chọn sai file và muốn chọn lại.
+              </div>
+            </div>
+          </section>
+
+          <!-- ================= MỤC LỤC ================= -->
+          <section class="surface">
+            <div class="section-heading">
+              <div><span class="section-number">02</span><div><h2>Chọn việc bạn cần làm</h2><p>Bấm vào thẻ để xem hướng dẫn chi tiết của chức năng đó.</p></div></div>
+            </div>
+            <div class="toc-grid">
+              <a class="toc-item" href="#fn1"><b>1. Phụ lục &amp; nhà thầu</b><small>Kiểm tra hồ sơ nhà thầu có đúng theo phụ lục mời thầu không</small></a>
+              <a class="toc-item" href="#fn2"><b>2. So sánh nhà thầu</b><small>Đặt nhiều nhà thầu cạnh nhau xem ai chào cao, ai chào thấp</small></a>
+              <a class="toc-item" href="#fn3"><b>3. HSMT với HSDT</b><small>Kiểm tra nhà thầu có đáp ứng yêu cầu mời thầu không</small></a>
+              <a class="toc-item" href="#fn4"><b>4. So sánh phiên bản</b><small>Xem nhà thầu đã sửa gì giữa bản cũ và bản nộp lại</small></a>
+              <a class="toc-item" href="#fn5"><b>5. Theo dõi làm rõ</b><small>Kiểm tra nhà thầu đã trả lời hết các câu hỏi chưa</small></a>
+              <a class="toc-item" href="#fn6"><b>6. Checklist hồ sơ</b><small>Chấm hồ sơ đủ hay thiếu tài liệu theo 12 đầu mục</small></a>
+              <a class="toc-item" href="#fn7"><b>7. Quét PDF scan</b><small>Chuyển bản scan giấy thành file Excel nhập liệu được</small></a>
+              <a class="toc-item" href="#fn8"><b>8. Dự đoán giá AI</b><small>Tra khoảng giá hợp lý của một vật tư cơ điện</small></a>
+              <a class="toc-item" href="#glossary"><b>▸ Từ điển thuật ngữ</b><small>HSMT, HSDT, PL01, BOQ, RFI, MEP… nghĩa là gì</small></a>
+            </div>
+          </section>
+
+          <!-- ================= 1. PACKAGE ================= -->
+          <section class="surface fn-block" id="fn1">
+            <div class="fn-head">
+              <span class="fn-badge">1</span>
+              <div>
+                <h2>Phụ lục &amp; nhà thầu</h2>
+                <p>Đối chiếu phụ lục mời thầu với hồ sơ các nhà thầu đã nộp.</p>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Dùng khi nào</h3>
+              <p>Khi bạn đã phát hành phụ lục mời thầu (danh mục công việc, khối lượng) và nhận được bảng chào giá của nhà thầu.
+              Bạn muốn biết nhà thầu có <b>làm thiếu hạng mục</b>, <b>tự sửa khối lượng</b>, hay <b>ghi sai đơn vị tính</b> không.</p>
+            </div>
+
+            <div class="fn-part">
+              <h3>Các ô cần điền</h3>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Bắt buộc</th><th>Điền gì vào đây</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>Phụ lục 01</td>
+                      <td><span class="tag-opt">Tùy chọn</span></td>
+                      <td>File Excel <code>.xlsx</code> phụ lục 01 bạn phát hành cho nhà thầu. <b>Có thể bỏ trống nếu bạn đã tải Phụ lục 02.</b></td>
+                    </tr>
+                    <tr>
+                      <td>Phụ lục 02</td>
+                      <td><span class="tag-opt">Tùy chọn</span></td>
+                      <td>File Excel phụ lục 02. <b>Có thể bỏ trống nếu bạn đã tải Phụ lục 01.</b> Phải có ít nhất một trong hai phụ lục.</td>
+                    </tr>
+                    <tr>
+                      <td>Danh sách hồ sơ nhà thầu</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>Các file Excel nhà thầu nộp. <b>Chọn được nhiều file cùng lúc.</b> Mỗi file là một nhà thầu.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="note-tip note-box">
+                <b>Chọn 1 file hay nhiều file — khác nhau thế nào?</b>
+                Chọn <b>1 file</b>: hệ thống kiểm tra hạng mục, mã, đơn vị tính, khối lượng và yêu cầu so với phụ lục.
+                Chọn <b>từ 2 file</b>: ngoài các kiểm tra trên, hệ thống <b>so sánh thêm giá giữa các nhà thầu</b>.
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Mục “Thiết lập mức cảnh báo” — có cần sửa không?</h3>
+              <p><b>Không cần.</b> Nếu công ty bạn chưa có quy định riêng thì cứ để nguyên. Đây là ngưỡng để hệ thống
+              quyết định khi nào coi một chênh lệch là “đáng chú ý” và khi nào là “bất thường”:</p>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Mặc định</th><th>Nghĩa là</th></tr></thead>
+                  <tbody>
+                    <tr><td>Cảnh báo giá (%)</td><td>10</td><td>Giá lệch quá 10% so với mức so sánh thì đánh dấu <b>vàng</b> để bạn xem lại.</td></tr>
+                    <tr><td>Bất thường giá (%)</td><td>25</td><td>Lệch quá 25% thì đánh dấu <b>đỏ</b> — mức nghiêm trọng, cần làm rõ với nhà thầu.</td></tr>
+                    <tr><td>Cảnh báo khối lượng (%)</td><td>5</td><td>Khối lượng nhà thầu ghi lệch quá 5% so với phụ lục thì đánh dấu vàng.</td></tr>
+                    <tr><td>Bất thường khối lượng (%)</td><td>15</td><td>Lệch quá 15% thì đánh dấu đỏ.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="note-warn note-box">
+                <b>Đặt số nhỏ hơn = khắt khe hơn.</b>
+                Ví dụ hạ “Cảnh báo giá” từ 10 xuống 5 thì hệ thống sẽ báo nhiều dòng hơn, kể cả các chênh lệch nhỏ.
+                Nếu thấy báo quá nhiều đến mức khó xem, hãy tăng số lên.
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Đọc kết quả</h3>
+              <p>Ngoài file Excel tải về, ngay trên trang sẽ có bảng <b>“Danh sách cần kiểm tra”</b> gồm các cột:</p>
+              <ul>
+                <li><b>Mức độ</b> — nặng nhẹ của vấn đề (cảnh báo hoặc bất thường). Xem các dòng nặng trước.</li>
+                <li><b>Nhà thầu</b> — file nào đang có vấn đề.</li>
+                <li><b>Sheet</b> và <b>STT</b> — mở đúng sheet, đúng dòng đó trong file gốc để kiểm tra.</li>
+                <li><b>Hạng mục</b> — tên công việc/vật tư.</li>
+                <li><b>Lý do</b> — vì sao hệ thống đánh dấu dòng này.</li>
+              </ul>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+          <!-- ================= 2. BIDDERS ================= -->
+          <section class="surface fn-block" id="fn2">
+            <div class="fn-head">
+              <span class="fn-badge">2</span>
+              <div>
+                <h2>So sánh nhà thầu</h2>
+                <p>Đặt nhiều hồ sơ nhà thầu cạnh nhau để so sánh ngang.</p>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Dùng khi nào</h3>
+              <p>Khi bạn đã có bảng chào giá của nhiều nhà thầu và muốn xem <b>cùng một hạng mục thì ai chào cao, ai chào thấp</b>,
+              nhà thầu nào có giá lệch hẳn so với phần còn lại.</p>
+            </div>
+
+            <div class="fn-part">
+              <h3>Các ô cần điền</h3>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Bắt buộc</th><th>Điền gì vào đây</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>Danh sách hồ sơ nhà thầu</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td><b>Từ 2 file Excel trở lên.</b> Mỗi file là một nhà thầu. Chọn 1 file thì không so sánh được.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="note-tip note-box">
+                <b>Không có nhà thầu nào bị lấy làm “chuẩn”.</b>
+                Hệ thống không mặc định coi nhà thầu đầu tiên là đúng. Tất cả được so sánh công bằng với nhau,
+                nên thứ tự bạn chọn file không ảnh hưởng đến kết quả.
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Khác gì với chức năng số 1?</h3>
+              <p>Chức năng <b>1</b> so nhà thầu <b>với phụ lục mời thầu</b> (để tìm hạng mục thiếu, khối lượng sai).
+              Chức năng <b>2</b> so các nhà thầu <b>với nhau</b> (để tìm giá bất thường). Nếu bạn có phụ lục, hãy dùng chức năng 1 trước.</p>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+          <!-- ================= 3. TENDER ================= -->
+          <section class="surface fn-block" id="fn3">
+            <div class="fn-head">
+              <span class="fn-badge">3</span>
+              <div>
+                <h2>HSMT với HSDT</h2>
+                <p>Kiểm tra hồ sơ dự thầu có đáp ứng yêu cầu của hồ sơ mời thầu không.</p>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Dùng khi nào</h3>
+              <p>Khi bạn muốn lấy <b>hồ sơ mời thầu làm căn cứ</b> và soát xem từng nhà thầu có đáp ứng đúng các yêu cầu
+              về hạng mục, thông số, thương hiệu, xuất xứ… hay không.</p>
+            </div>
+
+            <div class="fn-part">
+              <h3>Các ô cần điền</h3>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Bắt buộc</th><th>Điền gì vào đây</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>Hồ sơ mời thầu</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>Một file Excel <code>.xlsx</code> — bảng yêu cầu bên mời thầu phát hành. Đây là <b>căn cứ để đối chiếu</b>.</td>
+                    </tr>
+                    <tr>
+                      <td>Danh sách hồ sơ nhà thầu</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td><b>Ít nhất một file</b> hồ sơ dự thầu. Chọn được nhiều nhà thầu cùng lúc.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="note-tip note-box">
+                <b>Tên nhà thầu hiện sai?</b>
+                Hệ thống tự đoán tên nhà thầu từ tên file. Bạn <b>bấm vào tên trong danh sách để sửa lại</b> trước khi chạy,
+                như vậy báo cáo sẽ ghi đúng tên.
+              </div>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+          <!-- ================= 4. VERSION ================= -->
+          <section class="surface fn-block" id="fn4">
+            <div class="fn-head">
+              <span class="fn-badge">4</span>
+              <div>
+                <h2>So sánh phiên bản</h2>
+                <p>So bản chào giá cũ và bản nộp lại của <b>cùng một</b> nhà thầu.</p>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Dùng khi nào</h3>
+              <p>Sau khi yêu cầu nhà thầu làm rõ và họ nộp lại bảng chào giá mới, bạn cần biết
+              <b>họ đã sửa đúng những chỗ được yêu cầu, hay lặng lẽ sửa thêm chỗ khác</b>.</p>
+            </div>
+
+            <div class="fn-part">
+              <h3>Các ô cần điền</h3>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Bắt buộc</th><th>Điền gì vào đây</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>Bản chào giá CŨ (V1)</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>File Excel nhà thầu nộp <b>lần trước</b>.</td>
+                    </tr>
+                    <tr>
+                      <td>Bản chào giá MỚI (V2)</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>File Excel nhà thầu <b>nộp lại sau khi làm rõ</b>.</td>
+                    </tr>
+                    <tr>
+                      <td>Tên nhà thầu</td>
+                      <td><span class="tag-opt">Tùy chọn</span></td>
+                      <td>Hệ thống <b>tự điền từ tên file</b>. Chỉ sửa nếu tên hiện ra không đúng.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="note-warn note-box">
+                <b>Hai file phải là của cùng một nhà thầu.</b>
+                Nếu bạn tải file của hai nhà thầu khác nhau, kết quả sẽ vô nghĩa vì hệ thống hiểu mọi khác biệt
+                là “nhà thầu đã sửa”, trong khi thực tế đó là hai hồ sơ khác nhau.
+                Muốn so hai nhà thầu khác nhau, hãy dùng chức năng <b>2. So sánh nhà thầu</b>.
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Kết quả cho bạn biết gì</h3>
+              <ul>
+                <li>Hạng mục <b>thay đổi giá</b>, <b>thay đổi khối lượng</b>, <b>thay đổi thương hiệu</b></li>
+                <li>Hạng mục <b>thêm mới</b> ở bản V2 (trước không có)</li>
+                <li>Hạng mục <b>đã xóa</b> khỏi bản V2 (trước có, giờ mất)</li>
+                <li><b>Mức tăng/giảm tổng thành tiền</b> giữa hai bản</li>
+              </ul>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+          <!-- ================= 5. RFI ================= -->
+          <section class="surface fn-block" id="fn5">
+            <div class="fn-head">
+              <span class="fn-badge">5</span>
+              <div>
+                <h2>Theo dõi làm rõ</h2>
+                <p>Ghép câu hỏi của chủ đầu tư với câu trả lời của nhà thầu.</p>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Dùng khi nào</h3>
+              <p>Khi bạn đã gửi văn bản yêu cầu làm rõ với hàng chục câu hỏi và nhà thầu gửi lại file phản hồi.
+              Bạn cần biết <b>câu nào họ đã trả lời, câu nào bỏ qua</b> mà không phải dò tay từng dòng.</p>
+            </div>
+
+            <div class="fn-part">
+              <h3>Các ô cần điền</h3>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Bắt buộc</th><th>Điền gì vào đây</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>File yêu cầu làm rõ của CĐT</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>File <b>“Nội dung làm rõ HSCG”</b> bạn đã gửi cho nhà thầu. Hệ thống đọc các yêu cầu ở cột <b>“Ý kiến CĐT”</b>.</td>
+                    </tr>
+                    <tr>
+                      <td>File phản hồi của nhà thầu</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>File nhà thầu gửi lại, đã điền cột <b>“Nhà thầu trả lời làm rõ”</b>.</td>
+                    </tr>
+                    <tr>
+                      <td>Tên nhà thầu</td>
+                      <td><span class="tag-opt">Tùy chọn</span></td>
+                      <td>Tự điền từ tên file, sửa lại nếu sai.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Ba trạng thái trong kết quả</h3>
+              <ul>
+                <li><b>ĐÃ TRẢ LỜI</b> — nhà thầu có nội dung phản hồi cho yêu cầu này.</li>
+                <li><b>CHƯA TRẢ LỜI</b> — tìm thấy dòng tương ứng nhưng ô trả lời để trống. <b>Cần nhắc nhà thầu.</b></li>
+                <li><b>KHÔNG THẤY TRONG PHẢN HỒI</b> — không tìm được dòng tương ứng trong file nhà thầu gửi.
+                  Có thể họ đã xóa dòng đó, hoặc sửa lại nội dung khiến hệ thống không ghép được. <b>Nên mở file kiểm tra tay.</b></li>
+              </ul>
+              <div class="note-warn note-box">
+                <b>Đừng để nhà thầu đổi cấu trúc file.</b>
+                Việc ghép dựa trên nội dung từng dòng. Nếu nhà thầu chèn thêm dòng, đổi thứ tự hay sửa lời văn của yêu cầu,
+                số dòng “KHÔNG THẤY TRONG PHẢN HỒI” sẽ tăng lên. Khi gửi yêu cầu, hãy nhắc họ
+                <b>chỉ điền vào cột trả lời, không sửa các cột khác</b>.
+              </div>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+          <!-- ================= 6. DOSSIER ================= -->
+          <section class="surface fn-block" id="fn6">
+            <div class="fn-head">
+              <span class="fn-badge">6</span>
+              <div>
+                <h2>Checklist hồ sơ</h2>
+                <p>Chấm hồ sơ nhà thầu đủ hay thiếu tài liệu theo 12 đầu mục.</p>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Dùng khi nào</h3>
+              <p>Ở bước sơ tuyển, khi bạn cần kiểm tra nhanh <b>nhà thầu nào nộp thiếu tài liệu</b> trước khi đi vào chấm chi tiết.</p>
+            </div>
+
+            <div class="fn-part">
+              <h3>Chuẩn bị file — bước này quan trọng</h3>
+              <ol>
+                <li>Mở thư mục hồ sơ của <b>một</b> nhà thầu trên máy tính.</li>
+                <li>Bấm chuột phải vào thư mục đó → chọn <b>“Nén thành file ZIP”</b> (Windows: <i>Send to → Compressed (zipped) folder</i>).</li>
+                <li>Làm tương tự cho từng nhà thầu. <b>Mỗi nhà thầu một file ZIP riêng.</b></li>
+                <li>Đặt tên file ZIP theo tên nhà thầu để hệ thống nhận đúng, ví dụ <code>Linh Anh.zip</code>.</li>
+              </ol>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Bắt buộc</th><th>Điền gì vào đây</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>Hồ sơ nhà thầu (file ZIP)</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>Các file <code>.zip</code> đã nén ở trên. <b>Chọn được nhiều nhà thầu cùng lúc.</b>
+                      Tên nhà thầu lấy từ tên file ZIP — bấm vào để sửa nếu cần.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>12 đầu mục được chấm ĐẠT / THIẾU</h3>
+              <ol>
+                <li>Đơn chào giá</li>
+                <li>BOQ (bảng khối lượng)</li>
+                <li>Danh mục vật tư</li>
+                <li>Báo cáo tài chính 3 năm</li>
+                <li>Năng lực pháp lý</li>
+                <li>Hợp đồng tương tự</li>
+                <li>Nhân sự</li>
+                <li>Tiến độ</li>
+                <li>Biện pháp thi công (BPTC)</li>
+                <li>An toàn lao động (ATLĐ)</li>
+                <li>Catalogue</li>
+                <li>Ủy quyền</li>
+              </ol>
+              <div class="note-warn note-box">
+                <b>Kết quả “THIẾU” không chắc chắn 100%.</b>
+                Hệ thống nhận biết dựa trên <b>tên file và tên thư mục</b> bên trong ZIP, không đọc nội dung từng trang.
+                Nếu nhà thầu đặt tên file không rõ ràng (ví dụ <code>Tai lieu 1.pdf</code>), tài liệu có thể bị chấm THIẾU dù thực tế có nộp.
+                Hãy coi đây là <b>bộ lọc nhanh</b> và mở kiểm tra tay những mục bị báo THIẾU.
+              </div>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+          <!-- ================= 7. OCR ================= -->
+          <section class="surface fn-block" id="fn7">
+            <div class="fn-head">
+              <span class="fn-badge">7</span>
+              <div>
+                <h2>Quét PDF scan</h2>
+                <p>Chuyển bản scan giấy hoặc ảnh thành file Excel nhập liệu được.</p>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Dùng khi nào</h3>
+              <p>Khi nhà thầu chỉ nộp <b>bản scan giấy</b> hoặc <b>PDF không copy được chữ</b>, mà bạn cần số liệu ở dạng Excel để tính toán, đối chiếu.</p>
+            </div>
+
+            <div class="fn-part">
+              <h3>Các ô cần điền</h3>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Mặc định</th><th>Chọn thế nào</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>PDF hoặc ảnh scan</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>Chọn được nhiều tài liệu. Nhận <code>PDF</code>, <code>PNG</code>, <code>JPG</code>, <code>TIFF</code>, <code>WEBP</code>, <code>BMP</code>.
+                      <b>Mỗi tài liệu sẽ xuất ra một file Excel riêng.</b></td>
+                    </tr>
+                    <tr>
+                      <td>Mức xử lý</td>
+                      <td>Cân bằng</td>
+                      <td>
+                        <b>Nhanh</b> — bản scan rõ nét, cần kết quả gấp.<br>
+                        <b>Cân bằng</b> — dùng cho phần lớn trường hợp, <b>cứ để nguyên</b>.<br>
+                        <b>Chính xác cao</b> — bản scan mờ, chữ nhỏ, nhiều số liệu.<br>
+                        <b>Tối đa</b> — bản scan rất khó đọc. <b>Chạy lâu nhất.</b>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Loại tài liệu</td>
+                      <td>Bảng khối lượng dày</td>
+                      <td>
+                        <b>Bảng khối lượng dày</b> — bảng BOQ nhiều dòng sát nhau (thường gặp nhất).<br>
+                        <b>Bảng thông thường</b> — bảng ít dòng, ô rộng rãi.<br>
+                        <b>Văn bản có bảng</b> — tài liệu chủ yếu là chữ, chỉ chèn vài bảng.
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Chèn ảnh ô cần kiểm tra vào Excel</td>
+                      <td>Đang bật ✓</td>
+                      <td><b>Nên để bật.</b> Khi hệ thống không chắc chắn về một ô, nó chèn <b>ảnh cắt từ bản scan gốc</b> ngay cạnh ô đó
+                      để bạn nhìn và sửa ngay trong Excel, không phải mở lại bản scan để dò.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="note-warn note-box">
+                <b>Luôn phải kiểm tra lại kết quả.</b>
+                Không có công cụ nhận dạng chữ nào đúng 100%, nhất là với chữ số trên bản scan mờ hoặc bị nghiêng.
+                Hãy rà soát các ô có ảnh đính kèm trước khi dùng số liệu để chấm thầu.
+              </div>
+              <div class="note-tip note-box">
+                <b>Bản scan chất lượng kém?</b>
+                Thay vì tăng ngay lên “Tối đa” (rất chậm), hãy thử scan lại ở <b>300 DPI</b>, đặt giấy thẳng, không bị bóng —
+                cải thiện chất lượng ảnh đầu vào hiệu quả hơn nhiều so với tăng mức xử lý.
+              </div>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+          <!-- ================= 8. PRICE ADVISOR ================= -->
+          <section class="surface fn-block" id="fn8">
+            <div class="fn-head">
+              <span class="fn-badge">8</span>
+              <div>
+                <h2>Dự đoán giá AI</h2>
+                <p>Tra khoảng giá hợp lý của một vật tư cơ điện (MEP) dựa trên giá lịch sử.</p>
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Dùng khi nào</h3>
+              <p>Khi bạn nhìn một đơn giá nhà thầu chào và <b>không biết mức đó là đắt hay rẻ</b>.
+              Hệ thống tìm các vật tư tương tự trong <b>kho giá lịch sử gần 15.000 dòng</b> đã chào ở các dự án trước,
+              rồi đề xuất khoảng giá an toàn.</p>
+              <div class="note-tip note-box">
+                <b>Chức năng này nằm ở trang riêng.</b>
+                Bấm <b>“Dự đoán giá AI”</b> ở menu bên trái để mở.
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Các ô cần điền</h3>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Ô</th><th>Bắt buộc</th><th>Điền gì vào đây</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <td>Mô tả vật tư / Thiết bị</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>Tên vật tư <b>kèm quy cách kỹ thuật</b>. Càng chi tiết, hệ thống tìm càng đúng.
+                      Cần <b>ít nhất 10 ký tự</b>, nếu ngắn hơn sẽ có dòng chữ vàng nhắc bạn.</td>
+                    </tr>
+                    <tr>
+                      <td>Đơn vị tính (ĐVT)</td>
+                      <td><span class="tag-req">Bắt buộc</span></td>
+                      <td>Đơn vị của vật tư: <code>m</code>, <code>bộ</code>, <code>cái</code>, <code>kg</code>, <code>m2</code>…
+                      <b>Phải khớp với đơn vị trong bảng chào giá</b>, nếu không giá so sánh sẽ lệch hàng chục lần.</td>
+                    </tr>
+                    <tr>
+                      <td>Đơn giá nhà thầu chào</td>
+                      <td><span class="tag-opt">Tùy chọn</span></td>
+                      <td>Nhập giá nhà thầu đang chào (chỉ số, không dấu chấm) để hệ thống <b>so sánh và cảnh báo nếu lệch bất thường</b>.
+                      Bỏ trống nếu bạn chỉ muốn tra giá tham khảo.</td>
+                    </tr>
+                    <tr>
+                      <td>Số mẫu tham chiếu</td>
+                      <td>Mặc định 5</td>
+                      <td>Số vật tư tương tự lấy ra để so sánh (<b>từ 1 đến 15</b>). Để <b>5</b> là hợp lý.
+                      Tăng lên nếu muốn xem nhiều mẫu hơn, nhưng các mẫu sau sẽ ít giống hơn.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="example">
+                <b>Ví dụ nên viết thế nào</b><br>
+                ✗ Quá ngắn: <code>cáp</code><br>
+                ✗ Thiếu quy cách: <code>cáp đồng</code><br>
+                ✓ Tốt: <code>Cáp đồng trần C25</code><br>
+                ✓ Rất tốt: <code>Ống cam xoắn HDPE 160/125</code> — có cả loại vật liệu và kích thước
+              </div>
+            </div>
+
+            <div class="fn-part">
+              <h3>Đọc kết quả</h3>
+              <div class="table-wrap">
+                <table class="field-table">
+                  <thead><tr><th>Thẻ kết quả</th><th></th><th>Ý nghĩa</th></tr></thead>
+                  <tbody>
+                    <tr><td>Giá thấp / Giá cao đề xuất (lịch sử)</td><td></td><td><b>Khoảng giá an toàn</b> suy ra từ các hồ sơ đã chào trước đây. Đây là con số đáng tin nhất để tham khảo.</td></tr>
+                    <tr><td>Giá thị trường (web)</td><td></td><td>Giá tham khảo tìm trên internet. <b>Chỉ để đối chiếu thêm</b> — nguồn ngoài, không kiểm soát được chất lượng, có thể lệch nhiều.</td></tr>
+                    <tr><td>Độ tin cậy / Trạng thái</td><td></td><td>Xem bảng bên dưới.</td></tr>
+                    <tr><td>Lập luận đề xuất</td><td></td><td>Giải thích của AI: vì sao ra khoảng giá đó, dựa vào mẫu nào.</td></tr>
+                    <tr><td>Bảng mẫu tham chiếu</td><td></td><td>Các vật tư tương tự tìm được, kèm <b>đơn giá</b>, <b>hãng sản xuất</b>, <b>nhà thầu đã chào</b> và <b>độ tương đồng</b>. Bảng này lọc và sắp xếp được.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="fn-part" style="margin-top:14px">
+                <h3>Ba trạng thái kết quả</h3>
+                <ul>
+                  <li><b>VALIDATED</b> (xanh) — kết quả đã qua kiểm duyệt, <b>dùng tham khảo được</b>.</li>
+                  <li><b>REVIEW</b> (vàng) — kết quả có nhưng độ tin cậy thấp, <b>cần người có chuyên môn xem lại</b>.</li>
+                  <li><b>FAILED</b> (đỏ) — hệ thống <b>từ chối đưa ra đề xuất</b>. Xem cách xử lý ngay dưới đây.</li>
+                </ul>
+              </div>
+
+              <div class="note-warn note-box">
+                <b>Gặp FAILED thì làm gì?</b>
+                Trạng thái này nghĩa là không tìm được dữ liệu tham chiếu đủ tin cậy, hoặc phần AI nội bộ không phản hồi. Hãy thử theo thứ tự:
+                <br>1. <b>Viết lại mô tả cụ thể hơn</b> — thêm vật liệu, kích thước, thông số (đây là nguyên nhân phổ biến nhất).
+                <br>2. <b>Kiểm tra đơn vị tính</b> đã đúng chưa.
+                <br>3. Nếu vẫn FAILED với mọi vật tư, kể cả các vật tư thông dụng, thì <b>phần AI nội bộ đang không chạy</b> — hãy báo người quản trị hệ thống.
+              </div>
+
+              <div class="note-warn note-box">
+                <b>Đây là số liệu tham khảo, không phải kết luận.</b>
+                Giá vật tư thay đổi theo thời điểm, khối lượng đặt hàng, tiến độ giao hàng và điều kiện thanh toán —
+                những yếu tố hệ thống không biết. <b>Quyết định chấm thầu vẫn phải do người có chuyên môn đưa ra.</b>
+              </div>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+          <!-- ================= LỖI THƯỜNG GẶP ================= -->
+          <section class="surface">
+            <div class="section-heading">
+              <div><span class="section-number">03</span><div><h2>Lỗi thường gặp và cách xử lý</h2></div></div>
+            </div>
+            <div class="table-wrap">
+              <table class="field-table">
+                <thead><tr><th>Hiện tượng</th><th></th><th>Nguyên nhân &amp; cách xử lý</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td>Nút đỏ bấm không được</td><td></td>
+                    <td>Còn ô <span class="tag-req">Bắt buộc</span> chưa có file. Kiểm tra lại các ô đang ghi “Chưa chọn file”.</td>
+                  </tr>
+                  <tr>
+                    <td>Không chọn được file</td><td></td>
+                    <td>Sai định dạng. Các chức năng đối chiếu chỉ nhận <code>.xlsx</code> — nếu file của bạn là
+                    <code>.xls</code> hoặc <code>.csv</code>, hãy mở bằng Excel rồi <b>Lưu thành .xlsx</b>. Checklist hồ sơ chỉ nhận <code>.zip</code>.</td>
+                  </tr>
+                  <tr>
+                    <td>Chạy rất lâu</td><td></td>
+                    <td>Bình thường với file nhiều dòng, nhiều nhà thầu, hoặc quét PDF ở mức “Tối đa”.
+                    <b>Giữ nguyên trang, đừng bấm lại nút</b> — bấm lại sẽ tạo thêm một tác vụ mới chạy song song, càng chậm.</td>
+                  </tr>
+                  <tr>
+                    <td>Kết quả báo thiếu nhiều bất thường</td><td></td>
+                    <td>Thường do <b>cấu trúc file nhà thầu khác phụ lục</b> (đổi thứ tự cột, chèn dòng, gộp ô, đổi tên sheet).
+                    Mở đối chiếu vài dòng đầu để xem hệ thống có đọc đúng cột không.</td>
+                  </tr>
+                  <tr>
+                    <td>Tên nhà thầu hiện sai</td><td></td>
+                    <td>Tên được đoán từ tên file. <b>Bấm vào tên trong danh sách để sửa</b> trước khi chạy.</td>
+                  </tr>
+                  <tr>
+                    <td>Giao diện hiện thiếu, lỗi hiển thị</td><td></td>
+                    <td>Trình duyệt đang dùng bản cũ đã lưu tạm. Bấm <b>Ctrl + Shift + R</b> để tải lại toàn bộ trang.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ================= TỪ ĐIỂN ================= -->
+          <section class="surface" id="glossary">
+            <div class="section-heading">
+              <div><span class="section-number">04</span><div><h2>Từ điển thuật ngữ</h2><p>Các chữ viết tắt xuất hiện trong hệ thống.</p></div></div>
+            </div>
+            <div class="glossary">
+              <div class="gloss-item"><b>HSMT</b> — Hồ sơ mời thầu. Bộ tài liệu bên mời thầu phát hành, nêu yêu cầu về công việc, vật tư, thông số.</div>
+              <div class="gloss-item"><b>HSDT</b> — Hồ sơ dự thầu. Bộ tài liệu nhà thầu nộp để tham gia đấu thầu.</div>
+              <div class="gloss-item"><b>HSCG</b> — Hồ sơ chào giá. Phần bảng giá trong hồ sơ nhà thầu nộp.</div>
+              <div class="gloss-item"><b>CĐT</b> — Chủ đầu tư. Bên bỏ tiền và quyết định chọn nhà thầu.</div>
+              <div class="gloss-item"><b>PL01 / PL02</b> — Phụ lục 01 và 02. Các bảng danh mục công việc, khối lượng kèm theo hồ sơ mời thầu.</div>
+              <div class="gloss-item"><b>BOQ</b> — <i>Bill of Quantities</i>, bảng khối lượng: liệt kê từng hạng mục kèm khối lượng và đơn giá.</div>
+              <div class="gloss-item"><b>RFI</b> — <i>Request For Information</i>, yêu cầu làm rõ. Văn bản chủ đầu tư hỏi thêm khi hồ sơ chưa rõ.</div>
+              <div class="gloss-item"><b>MEP</b> — <i>Mechanical, Electrical, Plumbing</i>: hệ cơ khí, điện và cấp thoát nước của công trình.</div>
+              <div class="gloss-item"><b>ĐVT</b> — Đơn vị tính: m, bộ, cái, kg, m², m³…</div>
+              <div class="gloss-item"><b>BPTC</b> — Biện pháp thi công. Tài liệu nhà thầu trình bày cách sẽ thi công.</div>
+              <div class="gloss-item"><b>ATLĐ</b> — An toàn lao động. Tài liệu về biện pháp bảo đảm an toàn khi thi công.</div>
+              <div class="gloss-item"><b>OCR</b> — Công nghệ nhận dạng chữ trong ảnh, dùng để chuyển bản scan thành văn bản/Excel.</div>
+              <div class="gloss-item"><b>RAG</b> — Cách làm việc của AI trong hệ thống: <b>tìm dữ liệu thật trong kho giá trước</b>, rồi mới suy luận dựa trên dữ liệu đó, thay vì tự bịa số.</div>
+              <div class="gloss-item"><b>Độ tương đồng</b> — Mức giống nhau giữa vật tư bạn tra và mẫu tìm được. Càng cao càng đáng tin.</div>
+            </div>
+            <a class="back-top" href="#top">↑ Về đầu trang</a>
+          </section>
+
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

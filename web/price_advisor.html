@@ -6,7 +6,7 @@
   <meta name="description" content="Dự đoán và tư vấn đơn giá vật tư cơ điện (MEP) sử dụng RAG và mô hình local LLM.">
   <title>Dự đoán giá vật tư MEP AI - Hacom Holdings</title>
   <link rel="icon" type="image/png" href="/images/Logodung.png">
-  <link rel="stylesheet" href="/styles.css?v=1.0.2">
+  <link rel="stylesheet" href="/styles.css?v=1.4.1">
   <style>
     /* Bổ sung css đặc tả riêng cho giao diện dự đoán */
 
@@ -178,6 +178,8 @@
       font-weight: 600;
       white-space: nowrap;
     }
+    /* Chú thích ⓘ (.hint) dùng chung — đã khai báo trong styles.css. */
+
     /* Nhãn của ô nhập — cùng cỡ chữ/màu với nhãn ở các chức năng khác. */
     .pa-label {
       display: block;
@@ -229,6 +231,9 @@
         <button class="nav-item active" type="button">
           <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span><span><b>Dự đoán giá AI</b><small>Tư vấn đơn giá vật tư MEP</small></span>
         </button>
+              <button class="nav-item" onclick="window.location.href='/huong_dan.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><span><b>Hướng dẫn sử dụng</b><small>Dành cho người dùng lần đầu</small></span>
+        </button>
       </nav>
     </aside>
 
@@ -238,6 +243,10 @@
           <p class="eyebrow">TRUNG TÂM DỰ ĐOÁN GIÁ AI</p>
           <h1 id="pageTitle">Tư vấn đơn giá vật tư MEP tự động</h1>
         </div>
+        <button id="tourLaunch" class="tour-launch" type="button">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          Hướng dẫn từng bước
+        </button>
       </header>
 
       <section class="content-grid">
@@ -250,22 +259,22 @@
 
             <div class="form-section">
               <div class="form-group">
-                <label class="pa-label">Mô tả vật tư / Thiết bị</label>
+                <label class="pa-label">Mô tả vật tư / Thiết bị<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Nhập tên vật tư <b>kèm quy cách kỹ thuật</b>, tối thiểu 10 ký tự. Càng chi tiết, hệ thống tìm càng đúng.<br><br>✓ Tốt: “Ống cam xoắn HDPE 160/125”<br>✗ Quá ngắn: “cáp”</span></i></label>
                 <input id="paItemName" type="text" class="text-input-field" placeholder="Ví dụ: Cáp đồng trần C25, Đèn LED downlight 9W tròn D90..." required>
                 <span id="warningChar" style="display: none; color: #d97706; font-size: 12px; margin-top: 4px; font-weight: 600;">⚠️ Vui lòng nhập tối thiểu 10 ký tự để RAG truy xuất chính xác ngữ cảnh.</span>
               </div>
 
               <div class="three-columns-grid">
                 <div class="form-group">
-                  <label class="pa-label">Đơn vị tính (ĐVT)</label>
+                  <label class="pa-label">Đơn vị tính (ĐVT)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Đơn vị của vật tư: m, bộ, cái, kg, m2…<br><br><b>Phải khớp với đơn vị trong bảng chào giá</b>, nếu không giá so sánh sẽ lệch hàng chục lần.</span></i></label>
                   <input id="paUnit" type="text" class="text-input-field" placeholder="Ví dụ: m, bộ, cái..." required>
                 </div>
                 <div class="form-group">
-                  <label class="pa-label">Đơn giá nhà thầu chào (Không bắt buộc)</label>
+                  <label class="pa-label">Đơn giá nhà thầu chào (Không bắt buộc)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Nhập giá nhà thầu đang chào (chỉ số, không dấu chấm) để hệ thống <b>so sánh và cảnh báo nếu lệch bất thường</b>.<br><br>Bỏ trống nếu bạn chỉ muốn tra giá tham khảo.</span></i></label>
                   <input id="paBidderPrice" type="number" class="text-input-field" placeholder="Ví dụ: 60000">
                 </div>
                 <div class="form-group">
-                  <label class="pa-label">Số mẫu tham chiếu</label>
+                  <label class="pa-label">Số mẫu tham chiếu<i class="hint hint-right" tabindex="0" aria-label="Trợ giúp">i<span>Số vật tư tương tự lấy ra để so sánh (từ 1 đến 15).<br><br><b>Để 5 là hợp lý.</b> Tăng lên thì xem được nhiều mẫu hơn, nhưng các mẫu sau sẽ ít giống hơn.</span></i></label>
                   <input id="paTopK" type="number" class="text-input-field" value="5" min="1" max="15">
                 </div>
               </div>
@@ -434,5 +443,74 @@
   </div>
 
   <script src="/price_advisor_ui.js?v=1.4.1"></script>
+  <script src="/tour.js?v=1.0.2"></script>
+  <script>
+    // Nội dung dẫn từng bước cho trang Dự đoán giá.
+    HacomTour.init({
+      autoKey: "hacom_tour_price_advisor_v1",
+      steps: [
+        {
+          el: "#paItemName",
+          title: "Bước quan trọng nhất: mô tả vật tư",
+          body: "Nhập tên vật tư <b>kèm quy cách kỹ thuật</b>, tối thiểu <b>10 ký tự</b>. " +
+                "Càng chi tiết, hệ thống tìm càng đúng." +
+                "<ul><li>✗ Quá ngắn: <code>cáp</code></li>" +
+                "<li>✗ Thiếu quy cách: <code>cáp đồng</code></li>" +
+                "<li>✓ Tốt: <code>Cáp đồng trần C25</code></li>" +
+                "<li>✓ Rất tốt: <code>Ống cam xoắn HDPE 160/125</code></li></ul>"
+        },
+        {
+          el: "#paUnit",
+          title: "Đơn vị tính — phải khớp tuyệt đối",
+          body: "Điền đơn vị của vật tư: <code>m</code>, <code>bộ</code>, <code>cái</code>, <code>kg</code>, <code>m2</code>…<br><br>" +
+                "<b>Phải khớp với đơn vị trong bảng chào giá.</b> Nếu bảng ghi theo <code>m</code> mà bạn điền " +
+                "<code>cuộn</code>, giá đem so sánh sẽ lệch hàng chục lần và kết quả thành vô nghĩa."
+        },
+        {
+          el: "#paBidderPrice",
+          title: "Đơn giá nhà thầu chào (không bắt buộc)",
+          body: "Nhập giá nhà thầu đang chào — <b>chỉ số, không dấu chấm</b> (ví dụ <code>60000</code>). " +
+                "Hệ thống sẽ so sánh và <b>cảnh báo nếu lệch bất thường</b> so với giá lịch sử.<br><br>" +
+                "Bỏ trống nếu bạn chỉ muốn tra giá tham khảo."
+        },
+        {
+          el: "#paTopK",
+          title: "Số mẫu tham chiếu",
+          body: "Số vật tư tương tự hệ thống lấy ra để so sánh, <b>từ 1 đến 15</b>.<br><br>" +
+                "<b>Để mức 5 là hợp lý.</b> Tăng lên thì xem được nhiều mẫu hơn, nhưng các mẫu về sau " +
+                "sẽ ít giống vật tư bạn tra hơn."
+        },
+        {
+          el: "#startButton",
+          title: "Bấm đây rồi chờ",
+          body: "Hệ thống tìm trong kho giá <b>gần 15.000 dòng</b> rồi nhờ AI nội bộ suy luận, nên " +
+                "<b>mất khoảng 15–60 giây</b>.<br><br>" +
+                "<b>Giữ nguyên trang, đừng bấm lại</b> — bấm lại sẽ tạo thêm một lượt chạy mới, càng chậm."
+        },
+        {
+          el: "#resultPanel",
+          title: "Cách đọc kết quả",
+          body: "<ul><li><b>Giá thấp/cao đề xuất</b> — khoảng giá an toàn từ hồ sơ đã chào trước đây. " +
+                "Đây là con số đáng tin nhất.</li>" +
+                "<li><b>Giá thị trường (web)</b> — chỉ để đối chiếu thêm, nguồn ngoài internet.</li>" +
+                "<li><b>Trạng thái</b>: <b>VALIDATED</b> dùng được · <b>REVIEW</b> cần người xem lại · " +
+                "<b>FAILED</b> hệ thống từ chối đề xuất.</li>" +
+                "<li><b>Bảng mẫu tham chiếu</b> — các vật tư tương tự kèm đơn giá, hãng, nhà thầu đã chào. " +
+                "Lọc và sắp xếp được.</li></ul>"
+        },
+        {
+          el: '.nav-item[onclick*="huong_dan"]',
+          title: "Cần đọc kỹ hơn?",
+          body: "Mục <b>“Hướng dẫn sử dụng”</b> ở menu bên trái có giải thích đầy đủ cho cả 8 chức năng, " +
+                "kèm bảng lỗi thường gặp và từ điển thuật ngữ.<br><br>" +
+                "Muốn xem lại tour này, bấm nút <b>“Hướng dẫn từng bước”</b> ở góc trên bên phải."
+        }
+      ]
+    });
+
+    document.getElementById("tourLaunch").addEventListener("click", function () {
+      HacomTour.start();
+    });
+  </script>
 </body>
 </html>

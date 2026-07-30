@@ -6,7 +6,7 @@
   <meta name="description" content="Kiểm tra hồ sơ mời thầu, so sánh hồ sơ dự thầu và số hóa PDF scan sang Excel.">
   <title>Hệ thống kiểm tra hồ sơ đấu thầu</title>
   <link rel="icon" type="image/png" href="/images/Logodung.png">
-  <link rel="stylesheet" href="/styles.css?v=1.2.1">
+  <link rel="stylesheet" href="/styles.css?v=1.4.1">
 </head>
 <body>
   <div class="app-shell">
@@ -46,6 +46,9 @@
         <button class="nav-item" onclick="window.location.href='/price_advisor.html'" type="button">
           <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span><span><b>Dự đoán giá AI</b><small>Tư vấn đơn giá vật tư MEP</small></span>
         </button>
+              <button class="nav-item" onclick="window.location.href='/huong_dan.html'" type="button">
+          <span class="nav-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><span><b>Hướng dẫn sử dụng</b><small>Dành cho người dùng lần đầu</small></span>
+        </button>
       </nav>
     </aside>
 
@@ -56,6 +59,10 @@
           <h1 id="pageTitle">Đối chiếu phụ lục và hồ sơ nhà thầu</h1>
           <p id="pageDescription"></p>
         </div>
+        <button id="tourLaunch" class="tour-launch" type="button">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          Hướng dẫn từng bước
+        </button>
       </header>
 
       <section class="content-grid">
@@ -79,7 +86,7 @@
                       </svg>
                     </span>
                     <span class="upload-badge success-badge">Đã tải lên</span>
-                    <b>Phụ lục 01</b>
+                    <b>Phụ lục 01<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>File Excel <b>.xlsx</b> phụ lục 01 bạn phát hành cho nhà thầu.<br><br>Có thể bỏ trống <b>nếu đã tải Phụ lục 02</b>.</span></i></b>
                     <small>Không bắt buộc khi đã có Phụ lục 02</small>
                     <em id="pl1Name">Chưa chọn file</em>
                   </label>
@@ -94,7 +101,7 @@
                       </svg>
                     </span>
                     <span class="upload-badge success-badge">Đã tải lên</span>
-                    <b>Phụ lục 02</b>
+                    <b>Phụ lục 02<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>File Excel <b>.xlsx</b> phụ lục 02.<br><br>Có thể bỏ trống <b>nếu đã tải Phụ lục 01</b>. Phải có ít nhất một trong hai phụ lục.</span></i></b>
                     <small>Không bắt buộc khi đã có Phụ lục 01</small>
                     <em id="pl2Name">Chưa chọn file</em>
                   </label>
@@ -113,7 +120,7 @@
                     </svg>
                   </span>
                   <span class="upload-badge success-badge">Đã tải lên</span>
-                  <b>Hồ sơ mời thầu</b>
+                  <b>Hồ sơ mời thầu<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Một file Excel <b>.xlsx</b> — bảng yêu cầu bên mời thầu phát hành.<br><br>Đây là <b>căn cứ để đối chiếu</b> với hồ sơ các nhà thầu.</span></i></b>
                   <small>File yêu cầu dùng làm căn cứ đối chiếu</small>
                   <em id="hsmtName">Chưa chọn file</em>
                 </label>
@@ -122,7 +129,7 @@
               <div class="form-section divider-top">
                 <div class="field-header bidder-section-header">
                   <div>
-                    <h3>Danh sách hồ sơ nhà thầu</h3>
+                    <h3>Danh sách hồ sơ nhà thầu<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Các file Excel nhà thầu nộp — <b>mỗi file là một nhà thầu</b>, chọn được nhiều file cùng lúc.<br><br>Tên nhà thầu được đoán từ tên file; <b>bấm vào tên để sửa</b> nếu sai.</span></i></h3>
                   </div>
                   <span class="required" id="bidderStatusBadge">Bắt buộc</span>
                 </div>
@@ -137,17 +144,17 @@
                 <summary>Thiết lập mức cảnh báo</summary>
                 <p>Giữ nguyên giá trị mặc định nếu bạn chưa có quy định riêng.</p>
                 <div class="threshold-grid">
-                  <label>Cảnh báo giá (%)<input id="priceWarn" type="number" value="10" min="0" max="100" step="1"></label>
-                  <label>Bất thường giá (%)<input id="priceCritical" type="number" value="25" min="0" max="500" step="1"></label>
-                  <label>Cảnh báo khối lượng (%)<input id="quantityWarn" type="number" value="5" min="0" max="100" step="1"></label>
-                  <label>Bất thường khối lượng (%)<input id="quantityCritical" type="number" value="15" min="0" max="500" step="1"></label>
+                  <label>Cảnh báo giá (%)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Giá lệch quá mức này thì đánh dấu <b>vàng</b> để bạn xem lại.<br><br>Mặc định 10%. Đặt số nhỏ hơn = khắt khe hơn, sẽ báo nhiều dòng hơn.</span></i><input id="priceWarn" type="number" value="10" min="0" max="100" step="1"></label>
+                  <label>Bất thường giá (%)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Giá lệch quá mức này thì đánh dấu <b>đỏ</b> — mức nghiêm trọng, cần làm rõ với nhà thầu.<br><br>Mặc định 25%.</span></i><input id="priceCritical" type="number" value="25" min="0" max="500" step="1"></label>
+                  <label>Cảnh báo khối lượng (%)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Khối lượng nhà thầu ghi lệch quá mức này so với phụ lục thì đánh dấu <b>vàng</b>.<br><br>Mặc định 5%.</span></i><input id="quantityWarn" type="number" value="5" min="0" max="100" step="1"></label>
+                  <label>Bất thường khối lượng (%)<i class="hint hint-right" tabindex="0" aria-label="Trợ giúp">i<span>Khối lượng lệch quá mức này thì đánh dấu <b>đỏ</b>.<br><br>Mặc định 15%.</span></i><input id="quantityCritical" type="number" value="15" min="0" max="500" step="1"></label>
                 </div>
               </details>
             </div>
 
             <div id="ocrFields" class="hidden">
               <div class="form-section">
-                <div class="field-header"><div><h3>PDF hoặc ảnh scan</h3><p>Có thể chọn nhiều tài liệu. Mỗi tài liệu sẽ được xuất thành một file Excel riêng.</p></div><span class="required">Bắt buộc</span></div>
+                <div class="field-header"><div><h3>PDF hoặc ảnh scan<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Nhận PDF, PNG, JPG, TIFF, WEBP, BMP. Chọn được nhiều tài liệu.<br><br><b>Mỗi tài liệu xuất ra một file Excel riêng.</b></span></i></h3><p>Có thể chọn nhiều tài liệu. Mỗi tài liệu sẽ được xuất thành một file Excel riêng.</p></div><span class="required">Bắt buộc</span></div>
                 <label class="file-picker large" for="ocrFiles">
                   <input id="ocrFiles" type="file" accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff,.webp,.bmp" multiple>
                   <span>Chọn PDF hoặc ảnh scan</span><small>PDF, PNG, JPG, TIFF, WEBP hoặc BMP</small>
@@ -158,10 +165,10 @@
               <div class="form-section divider-top">
                 <div class="field-header"><div><h3>Cách nhận dạng</h3><p>Chọn theo độ rõ và cấu trúc của tài liệu.</p></div></div>
                 <div class="ocr-options">
-                  <label><span>Mức xử lý</span><select id="accuracyMode"><option value="fast">Nhanh</option><option value="balanced" selected>Cân bằng</option><option value="high">Chính xác cao</option><option value="ultra">Tối đa</option></select></label>
-                  <label><span>Loại tài liệu</span><select id="documentProfile"><option value="dense_boq" selected>Bảng khối lượng dày</option><option value="generic_table">Bảng thông thường</option><option value="document">Văn bản có bảng</option></select></label>
+                  <label><span>Mức xử lý<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span><b>Nhanh</b> — scan rõ nét, cần gấp.<br><b>Cân bằng</b> — dùng cho phần lớn trường hợp, cứ để nguyên.<br><b>Chính xác cao</b> — scan mờ, chữ nhỏ, nhiều số liệu.<br><b>Tối đa</b> — scan rất khó đọc, chạy lâu nhất.</span></i></span><select id="accuracyMode"><option value="fast">Nhanh</option><option value="balanced" selected>Cân bằng</option><option value="high">Chính xác cao</option><option value="ultra">Tối đa</option></select></label>
+                  <label><span>Loại tài liệu<i class="hint hint-right" tabindex="0" aria-label="Trợ giúp">i<span><b>Bảng khối lượng dày</b> — bảng BOQ nhiều dòng sát nhau (thường gặp nhất).<br><b>Bảng thông thường</b> — bảng ít dòng, ô rộng rãi.<br><b>Văn bản có bảng</b> — chủ yếu là chữ, chỉ chèn vài bảng.</span></i></span><select id="documentProfile"><option value="dense_boq" selected>Bảng khối lượng dày</option><option value="generic_table">Bảng thông thường</option><option value="document">Văn bản có bảng</option></select></label>
                 </div>
-                <label class="check-row"><input id="saveReviewImages" type="checkbox" checked><span><b>Chèn ảnh ô cần kiểm tra vào Excel</b><small>Giúp đối chiếu nhanh các ô có độ tin cậy thấp.</small></span></label>
+                <label class="check-row"><input id="saveReviewImages" type="checkbox" checked><span><b>Chèn ảnh ô cần kiểm tra vào Excel<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span><b>Nên để bật.</b> Khi hệ thống không chắc chắn về một ô, nó chèn <b>ảnh cắt từ bản scan gốc</b> ngay cạnh ô đó.<br><br>Bạn sửa ngay trong Excel, không phải mở lại bản scan để dò.</span></i></b><small>Giúp đối chiếu nhanh các ô có độ tin cậy thấp.</small></span></label>
               </div>
             </div>
 
@@ -173,7 +180,7 @@
                     <button id="removeVerOld" class="remove-single-file" type="button" aria-label="Xóa file">×</button>
                     <span class="upload-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
                     <span class="upload-badge success-badge">Đã tải lên</span>
-                    <b>Bản chào giá CŨ (V1)</b>
+                    <b>Bản chào giá CŨ (V1)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>File Excel nhà thầu nộp <b>lần trước</b>.</span></i></b>
                     <small>File Excel nhà thầu nộp lần trước</small>
                     <em id="verOldName">Chưa chọn file</em>
                   </label>
@@ -182,7 +189,7 @@
                     <button id="removeVerNew" class="remove-single-file" type="button" aria-label="Xóa file">×</button>
                     <span class="upload-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
                     <span class="upload-badge success-badge">Đã tải lên</span>
-                    <b>Bản chào giá MỚI (V2)</b>
+                    <b>Bản chào giá MỚI (V2)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>File Excel nhà thầu <b>nộp lại sau khi làm rõ</b>.<br><br>⚠ Hai file phải là của <b>CÙNG một nhà thầu</b>, nếu không kết quả sẽ vô nghĩa.</span></i></b>
                     <small>File Excel nộp lại sau làm rõ</small>
                     <em id="verNewName">Chưa chọn file</em>
                   </label>
@@ -204,7 +211,7 @@
                     <button id="removeRfiRequest" class="remove-single-file" type="button" aria-label="Xóa file">×</button>
                     <span class="upload-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
                     <span class="upload-badge success-badge">Đã tải lên</span>
-                    <b>File yêu cầu làm rõ của CĐT</b>
+                    <b>File yêu cầu làm rõ của CĐT<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>File <b>“Nội dung làm rõ HSCG”</b> bạn đã gửi cho nhà thầu.<br><br>Hệ thống đọc các yêu cầu ở cột <b>“Ý kiến CĐT”</b>.</span></i></b>
                     <small>File "Nội dung làm rõ HSCG" gửi nhà thầu</small>
                     <em id="rfiRequestName">Chưa chọn file</em>
                   </label>
@@ -213,7 +220,7 @@
                     <button id="removeRfiResponse" class="remove-single-file" type="button" aria-label="Xóa file">×</button>
                     <span class="upload-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></span>
                     <span class="upload-badge success-badge">Đã tải lên</span>
-                    <b>File phản hồi của nhà thầu</b>
+                    <b>File phản hồi của nhà thầu<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>File nhà thầu gửi lại, đã điền cột <b>“Nhà thầu trả lời làm rõ”</b>.<br><br>⚠ Nhắc nhà thầu <b>chỉ điền cột trả lời, không sửa các cột khác</b> — nếu không hệ thống sẽ không ghép được dòng.</span></i></b>
                     <small>File nhà thầu điền cột "Nhà thầu trả lời làm rõ"</small>
                     <em id="rfiResponseName">Chưa chọn file</em>
                   </label>
@@ -229,7 +236,7 @@
 
             <div id="dossierFields" class="hidden">
               <div class="form-section">
-                <div class="field-header"><div><h3>Hồ sơ nhà thầu (file ZIP)</h3><p>Nén toàn bộ thư mục hồ sơ của mỗi nhà thầu thành một file .zip rồi tải lên. Có thể chọn nhiều nhà thầu.</p></div><span class="required" id="dossierStatusBadge">Bắt buộc</span></div>
+                <div class="field-header"><div><h3>Hồ sơ nhà thầu (file ZIP)<i class="hint" tabindex="0" aria-label="Trợ giúp">i<span>Bấm phải vào thư mục hồ sơ mỗi nhà thầu → <b>Nén thành file ZIP</b>. Mỗi nhà thầu một ZIP riêng.<br><br>Đặt tên ZIP theo tên nhà thầu để hệ thống nhận đúng.</span></i></h3><p>Nén toàn bộ thư mục hồ sơ của mỗi nhà thầu thành một file .zip rồi tải lên. Có thể chọn nhiều nhà thầu.</p></div><span class="required" id="dossierStatusBadge">Bắt buộc</span></div>
                 <label class="file-picker large" for="dossierFiles">
                   <input id="dossierFiles" type="file" accept=".zip" multiple>
                   <span>Chọn file ZIP hồ sơ</span><small>Mỗi ZIP = toàn bộ thư mục hồ sơ một nhà thầu</small>
@@ -269,6 +276,202 @@
   </div>
 
   <div id="toast" class="toast" role="status"></div>
-  <script src="/app.js?v=1.2.1"></script>
+  <script src="/app.js?v=1.2.2"></script>
+  <script src="/tour.js?v=1.0.2"></script>
+  <script>
+    // Mỗi chức năng có bộ ô nhập khác nhau nên tour cũng phải khác nhau.
+    // Bước nào trỏ tới ô đang bị ẩn sẽ tự bị tour bỏ qua.
+    var NAV_STEP = {
+      el: ".main-nav",
+      title: "Đây là nơi chọn việc cần làm",
+      body: "Mỗi mục là một chức năng. <b>Bấm mục nào thì khu vực tải file ở giữa đổi theo mục đó</b> — " +
+            "nên nếu không thấy ô mình cần, hãy kiểm tra lại đang ở đúng chức năng chưa.<br><br>" +
+            "Mục <b>“Hướng dẫn sử dụng”</b> ở dưới cùng có giải thích đầy đủ cho cả 8 chức năng."
+    };
+    var BIDDER_STEP = {
+      el: "#bidderList",
+      title: "Hồ sơ các nhà thầu đã nộp",
+      body: "Bấm vào đây để chọn file Excel nhà thầu nộp. <b>Mỗi file là một nhà thầu</b>, " +
+            "chọn được nhiều file cùng lúc.<br><br>" +
+            "Tên nhà thầu được đoán từ tên file — <b>bấm vào tên để sửa</b> nếu hiện ra không đúng, " +
+            "báo cáo sẽ ghi theo tên bạn sửa."
+    };
+    var START_STEP = {
+      el: "#startButton",
+      title: "Bấm đây rồi chờ",
+      body: "Hệ thống bắt đầu đọc và đối chiếu. Thời gian tùy số file và số dòng.<br><br>" +
+            "<b>Giữ nguyên trang, đừng bấm lại nút</b> — bấm lại sẽ tạo thêm một tác vụ chạy song song, càng chậm. " +
+            "Xong sẽ hiện dấu ✓ kèm nút tải file Excel kết quả."
+    };
+
+    var TOUR_STEPS = {
+      package: [
+        NAV_STEP,
+        {
+          el: 'label[for="pl1"]',
+          title: "Phụ lục 01",
+          body: "File Excel <code>.xlsx</code> phụ lục 01 bạn phát hành cho nhà thầu.<br><br>" +
+                "<b>Có thể bỏ trống nếu bạn đã tải Phụ lục 02.</b> Phải có ít nhất một trong hai phụ lục."
+        },
+        {
+          el: 'label[for="pl2"]',
+          title: "Phụ lục 02",
+          body: "File Excel phụ lục 02. <b>Cũng có thể bỏ trống nếu đã tải Phụ lục 01.</b><br><br>" +
+                "Phụ lục chính là <b>căn cứ</b> để hệ thống biết nhà thầu có làm thiếu hạng mục hay sửa khối lượng không."
+        },
+        BIDDER_STEP,
+        {
+          el: ".advanced-settings",
+          title: "Mức cảnh báo — không cần sửa",
+          body: "Bấm vào để mở ra nếu muốn xem. <b>Chưa có quy định riêng thì cứ để nguyên.</b>" +
+                "<ul><li><b>Cảnh báo giá 10%</b> — lệch quá thì đánh dấu vàng</li>" +
+                "<li><b>Bất thường giá 25%</b> — lệch quá thì đánh dấu đỏ, cần làm rõ</li>" +
+                "<li><b>Khối lượng 5% / 15%</b> — tương tự cho khối lượng</li></ul>" +
+                "Đặt số <b>nhỏ hơn = khắt khe hơn</b>, hệ thống sẽ báo nhiều dòng hơn."
+        },
+        START_STEP
+      ],
+      bidders: [
+        NAV_STEP,
+        {
+          el: "#bidderList",
+          title: "Chọn từ 2 nhà thầu trở lên",
+          body: "Chức năng này so các nhà thầu <b>với nhau</b> để tìm giá bất thường, nên " +
+                "<b>phải có ít nhất 2 file</b>. Chọn 1 file thì không so sánh được.<br><br>" +
+                "<b>Không nhà thầu nào bị lấy làm chuẩn</b> — thứ tự bạn chọn file không ảnh hưởng kết quả."
+        },
+        START_STEP
+      ],
+      tender: [
+        NAV_STEP,
+        {
+          el: 'label[for="hsmt"]',
+          title: "Hồ sơ mời thầu — căn cứ đối chiếu",
+          body: "Một file Excel <code>.xlsx</code> là bảng yêu cầu bên mời thầu phát hành.<br><br>" +
+                "Hệ thống lấy file này làm <b>chuẩn</b> rồi soát xem từng nhà thầu có đáp ứng đúng " +
+                "hạng mục, thông số, thương hiệu, xuất xứ hay không."
+        },
+        BIDDER_STEP,
+        START_STEP
+      ],
+      version: [
+        NAV_STEP,
+        {
+          el: 'label[for="verOld"]',
+          title: "Bản chào giá CŨ (V1)",
+          body: "File Excel nhà thầu nộp <b>lần trước</b>, trước khi bạn yêu cầu làm rõ."
+        },
+        {
+          el: 'label[for="verNew"]',
+          title: "Bản chào giá MỚI (V2)",
+          body: "File Excel nhà thầu <b>nộp lại sau khi làm rõ</b>.<br><br>" +
+                "⚠ <b>Hai file phải là của CÙNG một nhà thầu.</b> Nếu tải file của hai nhà thầu khác nhau, " +
+                "hệ thống sẽ hiểu mọi khác biệt là “đã sửa” và kết quả thành vô nghĩa. " +
+                "Muốn so hai nhà thầu khác nhau, dùng chức năng <b>So sánh nhà thầu</b>."
+        },
+        {
+          el: "#verBidderName",
+          title: "Tên nhà thầu",
+          body: "Hệ thống <b>tự điền từ tên file</b>. Chỉ sửa nếu tên hiện ra không đúng.<br><br>" +
+                "Kết quả sẽ cho biết: hạng mục thay đổi <b>giá / khối lượng / thương hiệu</b>, " +
+                "hạng mục <b>thêm mới</b>, hạng mục <b>đã xóa</b>, và <b>mức tăng giảm tổng thành tiền</b>."
+        },
+        START_STEP
+      ],
+      rfi: [
+        NAV_STEP,
+        {
+          el: 'label[for="rfiRequest"]',
+          title: "File yêu cầu làm rõ của bạn",
+          body: "File <b>“Nội dung làm rõ HSCG”</b> bạn đã gửi cho nhà thầu.<br><br>" +
+                "Hệ thống đọc các yêu cầu ở cột <b>“Ý kiến CĐT”</b> trong file này."
+        },
+        {
+          el: 'label[for="rfiResponse"]',
+          title: "File nhà thầu gửi lại",
+          body: "File nhà thầu đã điền cột <b>“Nhà thầu trả lời làm rõ”</b>.<br><br>" +
+                "⚠ Khi gửi yêu cầu, hãy nhắc nhà thầu <b>chỉ điền vào cột trả lời, không sửa các cột khác</b>. " +
+                "Nếu họ chèn dòng, đổi thứ tự hay sửa lời văn thì hệ thống sẽ không ghép được dòng."
+        },
+        {
+          el: "#rfiBidderName",
+          title: "Ba trạng thái trong kết quả",
+          body: "<ul><li><b>ĐÃ TRẢ LỜI</b> — có nội dung phản hồi</li>" +
+                "<li><b>CHƯA TRẢ LỜI</b> — có dòng nhưng ô trả lời để trống, cần nhắc nhà thầu</li>" +
+                "<li><b>KHÔNG THẤY TRONG PHẢN HỒI</b> — không tìm được dòng tương ứng, " +
+                "nên mở file kiểm tra tay</li></ul>"
+        },
+        START_STEP
+      ],
+      dossier: [
+        NAV_STEP,
+        {
+          el: 'label[for="dossierFiles"]',
+          title: "Cần nén hồ sơ thành file ZIP trước",
+          body: "Bấm phải vào thư mục hồ sơ của <b>một</b> nhà thầu → <b>Nén thành file ZIP</b>. " +
+                "Mỗi nhà thầu một ZIP riêng, đặt tên ZIP theo tên nhà thầu.<br><br>" +
+                "Hệ thống chấm <b>ĐẠT / THIẾU</b> cho 12 đầu mục: đơn chào giá, BOQ, danh mục vật tư, " +
+                "BCTC 3 năm, năng lực pháp lý, hợp đồng tương tự, nhân sự, tiến độ, BPTC, ATLĐ, catalogue, ủy quyền."
+        },
+        {
+          el: "#dossierList",
+          title: "Lưu ý về độ tin cậy",
+          body: "Kết quả <b>“THIẾU” không chắc chắn 100%</b>. Hệ thống nhận biết dựa trên " +
+                "<b>tên file và tên thư mục</b> bên trong ZIP, không đọc nội dung từng trang.<br><br>" +
+                "Nếu nhà thầu đặt tên kiểu <code>Tai lieu 1.pdf</code> thì tài liệu có thể bị chấm THIẾU dù " +
+                "thực tế có nộp. Hãy coi đây là <b>bộ lọc nhanh</b> và mở kiểm tra tay những mục bị báo THIẾU."
+        },
+        START_STEP
+      ],
+      ocr: [
+        NAV_STEP,
+        {
+          el: 'label[for="ocrFiles"]',
+          title: "Chọn bản scan cần số hóa",
+          body: "Nhận <code>PDF</code>, <code>PNG</code>, <code>JPG</code>, <code>TIFF</code>, " +
+                "<code>WEBP</code>, <code>BMP</code>. Chọn được nhiều tài liệu.<br><br>" +
+                "<b>Mỗi tài liệu sẽ xuất ra một file Excel riêng.</b>"
+        },
+        {
+          el: "#accuracyMode",
+          title: "Mức xử lý",
+          body: "<ul><li><b>Nhanh</b> — bản scan rõ nét, cần gấp</li>" +
+                "<li><b>Cân bằng</b> — dùng cho phần lớn trường hợp, <b>cứ để nguyên</b></li>" +
+                "<li><b>Chính xác cao</b> — scan mờ, chữ nhỏ, nhiều số liệu</li>" +
+                "<li><b>Tối đa</b> — scan rất khó đọc, <b>chạy lâu nhất</b></li></ul>" +
+                "Bản scan kém thì nên <b>scan lại ở 300 DPI</b>, hiệu quả hơn nhiều so với tăng mức xử lý."
+        },
+        {
+          el: "#documentProfile",
+          title: "Loại tài liệu",
+          body: "<ul><li><b>Bảng khối lượng dày</b> — bảng BOQ nhiều dòng sát nhau (thường gặp nhất)</li>" +
+                "<li><b>Bảng thông thường</b> — bảng ít dòng, ô rộng rãi</li>" +
+                "<li><b>Văn bản có bảng</b> — chủ yếu là chữ, chỉ chèn vài bảng</li></ul>"
+        },
+        {
+          el: ".check-row",
+          title: "Nên để bật ô này",
+          body: "Khi hệ thống <b>không chắc chắn</b> về một ô, nó chèn <b>ảnh cắt từ bản scan gốc</b> " +
+                "ngay cạnh ô đó trong Excel.<br><br>" +
+                "Bạn nhìn ảnh và sửa ngay tại chỗ, không phải mở lại bản scan để dò. " +
+                "⚠ <b>Luôn phải rà soát lại</b> — không công cụ nhận dạng chữ nào đúng 100%."
+        },
+        START_STEP
+      ]
+    };
+
+    HacomTour.init({
+      autoKey: "hacom_tour_index_v1",
+      stepsFor: function () {
+        var active = document.querySelector(".nav-item.active");
+        var m = (active && active.dataset.mode) || "package";
+        return TOUR_STEPS[m] || TOUR_STEPS.package;
+      }
+    });
+
+    document.getElementById("tourLaunch").addEventListener("click", function () {
+      HacomTour.start();
+    });
+  </script>
 </body>
 </html>

@@ -1860,3 +1860,246 @@ body:has(#toast.error.show)::before {
 .bidder-list-upload-btn:active {
   animation: iconClickShake 120ms ease-in-out 1;
 }
+
+/* ---------------------------------------------------------------------------
+   Chú thích ⓘ cạnh nhãn ô nhập (dùng chung cho mọi trang chức năng).
+   Hiện khi trỏ chuột hoặc khi focus bằng bàn phím (Tab).
+   --------------------------------------------------------------------------- */
+.hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: #e0c6ca;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  font-style: normal;
+  cursor: help;
+  vertical-align: middle;
+  text-transform: none;
+  letter-spacing: 0;
+  flex: 0 0 auto;
+}
+.hint:hover { background: #e1262f; }
+.hint > span {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 290px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #3d2226;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .15s ease;
+  z-index: 50;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .22);
+  pointer-events: none;
+  white-space: normal;
+}
+/* Mũi nhọn chỉ xuống ô ⓘ. */
+.hint > span::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-top-color: #3d2226;
+}
+.hint:hover > span,
+.hint:focus > span,
+.hint:focus-visible > span { opacity: 1; visibility: visible; }
+/* Gần lề phải: neo tooltip về bên phải để không tràn ra ngoài màn hình. */
+.hint.hint-right > span { left: auto; right: -6px; transform: none; }
+.hint.hint-right > span::after { left: auto; right: 10px; margin-left: 0; }
+
+/* ---------------------------------------------------------------------------
+   Tour hướng dẫn "chỉ tận tay" (tour.js).
+   --------------------------------------------------------------------------- */
+/* KHÔNG dùng `overflow: hidden` để khóa cuộn: overflow trên <html> cắt phần
+   làm mờ theo chiều cao của thẻ html (nhỏ hơn màn hình) nên chừa ra dải
+   không được làm mờ ở dưới. Tour đã tự bám theo phần tử khi người dùng cuộn. */
+
+/* Chặn mọi tương tác với trang khi tour đang chạy; bấm vào = sang bước tiếp. */
+.tour-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: none;
+  cursor: pointer;
+}
+html.tour-on .tour-blocker { display: block; }
+
+/* Vùng sáng: bản thân trong suốt, đổ bóng khổng lồ ra ngoài để làm mờ cả trang. */
+.tour-spot {
+  position: fixed;
+  z-index: 9001;
+  display: none;
+  border-radius: 10px;
+  border: 2px solid #e1262f;
+  box-shadow: 0 0 0 9999px rgba(24, 10, 12, .66), 0 0 0 5px rgba(225, 38, 47, .22);
+  pointer-events: none;
+  transition: top .28s ease, left .28s ease, width .28s ease, height .28s ease;
+}
+html.tour-on .tour-spot { display: block; }
+
+/* Con trỏ chuột chỉ vào ô, nhấp nhô để mắt bám theo. */
+.tour-hand {
+  position: fixed;
+  z-index: 9002;
+  display: none;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .4));
+  animation: tourPoke 1.15s ease-in-out infinite;
+}
+html.tour-on .tour-hand { display: block; }
+@keyframes tourPoke {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(-7px, -7px); }
+}
+
+/* Thẻ ghi chú. */
+.tour-card {
+  position: fixed;
+  z-index: 9003;
+  display: none;
+  width: min(380px, calc(100vw - 24px));
+  background: #fff;
+  border: 1px solid #e0c6ca;
+  border-radius: 12px;
+  padding: 15px 17px 14px;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, .3);
+}
+html.tour-on .tour-card { display: block; }
+
+/* Mũi nhọn của thẻ chỉ về phía vùng sáng. */
+.tour-card::after {
+  content: "";
+  position: absolute;
+  left: 26px;
+  border: 9px solid transparent;
+}
+.tour-card.arrow-up::after   { top: -18px; border-bottom-color: #fff; }
+.tour-card.arrow-down::after { bottom: -18px; border-top-color: #fff; }
+
+.tour-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.tour-step-count {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: #e1262f;
+  background: #fdf0f1;
+  padding: 3px 9px;
+  border-radius: 100px;
+}
+.tour-x {
+  border: 0;
+  background: none;
+  font-size: 22px;
+  line-height: 1;
+  color: #b9a3a6;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.tour-x:hover { color: #e1262f; }
+
+.tour-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 800;
+  color: #e1262f;
+  line-height: 1.35;
+}
+.tour-body {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #3d2226;
+}
+.tour-body b { color: #b1171e; }
+.tour-body code {
+  background: #fdf7f7;
+  border: 1px solid #e0c6ca;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12.5px;
+}
+.tour-body ul { margin: 6px 0 0; padding-left: 19px; }
+.tour-body li { margin-bottom: 3px; }
+
+.tour-dots { display: flex; gap: 5px; margin: 13px 0 11px; }
+.tour-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #e5d3d5;
+  transition: background .2s ease, transform .2s ease;
+}
+.tour-dot.on { background: #e1262f; transform: scale(1.4); }
+
+.tour-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tour-actions-right { display: flex; gap: 7px; }
+.tour-btn {
+  border: 1px solid #e0c6ca;
+  background: #fff;
+  color: #6b484d;
+  border-radius: 7px;
+  padding: 7px 13px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.tour-btn:hover:not(:disabled) { border-color: #e1262f; color: #e1262f; }
+.tour-btn:disabled { opacity: .42; cursor: not-allowed; }
+.tour-btn.primary {
+  background: #e1262f;
+  border-color: #e1262f;
+  color: #fff;
+}
+.tour-btn.primary:hover { background: #c11f27; border-color: #c11f27; color: #fff; }
+.tour-btn.tour-skip { border-color: transparent; font-weight: 600; }
+
+/* Nút mở lại tour, đặt cạnh tiêu đề trang. */
+.tour-launch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #e0c6ca;
+  background: #fff;
+  color: #b1171e;
+  border-radius: 100px;
+  padding: 7px 15px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(177, 23, 30, .06);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.tour-launch:hover {
+  border-color: #e1262f;
+  box-shadow: 0 4px 14px rgba(177, 23, 30, .14);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 560px) {
+  .tour-card { width: calc(100vw - 20px); }
+  .tour-hand { display: none !important; }
+}

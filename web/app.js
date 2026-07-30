@@ -244,6 +244,9 @@ function notify(message, type = "info") {
 }
 
 function setMode(nextMode) {
+  // Một số mục trên thanh menu chỉ điều hướng sang trang khác (Dự đoán giá AI,
+  // Hướng dẫn sử dụng) nên không có data-mode. Bỏ qua để không vỡ trang hiện tại.
+  if (!MODE_COPY[nextMode]) return;
   mode = nextMode;
   $$(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
   const copy = MODE_COPY[mode];
