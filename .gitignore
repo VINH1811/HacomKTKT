@@ -1,16 +1,29 @@
+# Môi trường ảo
+venv/
 .venv/
 .venv_test/
+
+# Python
 __pycache__/
 .pytest_cache/
 *.pyc
+
+# Cấu hình bí mật
 .env
+
+# Dữ liệu chạy thật của từng tác vụ
 runtime/jobs/*
 !runtime/jobs/.gitkeep
-reports/*.xlsx
+
+# Mô hình cục bộ (tải riêng, không đưa vào repo)
 models/*
 !models/.gitkeep
-venv/
-.venv/
-__pycache__/
-*.pyc
-*.logvenv/
+
+# Kết quả sinh ra khi chạy: báo cáo, ảnh chụp màn hình, log chạy kiểm thử
+reports/*.xlsx
+reports/_*/
+reports/test_reports/
+*.log
+
+# Cấu hình phiên làm việc của công cụ hỗ trợ
+.claude/
