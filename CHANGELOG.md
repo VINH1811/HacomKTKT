@@ -2,6 +2,8 @@
 
 ## 8.3.0
 
+- **Sửa lỗi báo "Thiếu khối lượng" hàng loạt ở sheet có header hai tầng kèm ô gộp** (theo báo cáo phân tích gói PCCC/Thông gió: ~1.380/1.423 cảnh báo là báo động giả). Nguyên nhân gốc: khi làm phẳng header nhiều tầng, nhãn của MỘT cột đơn lẻ (ví dụ `ĐVT`) bị lan sang các cột trống bên phải như thể đó là ô gộp; hai cột khối lượng đứng ngay sau bị dính chữ `ĐVT`, khớp luật "đơn vị tính" trước rồi `continue` nên không bao giờ được xét là cột khối lượng — cả sheet mất cột khối lượng. Nay nhãn chỉ lan sang phải khi cột chứa nó CÓ nhãn riêng ở hàng bên dưới, tức đúng đặc điểm của nhóm gộp thật (`THÔNG TIN VỀ VẬT LIỆU CHÍNH` phủ `Mô tả | Mã hiệu | Thương hiệu`); nhãn cột đơn không có gì bên dưới nên không lan. Bổ sung từ điển viết tắt phổ biến `KLMT` và `NT chào` (loại trừ `Thành tiền KLMT`). Kiểm chứng: 8/8 biến thể cấu trúc header đọc đúng; file thật giữ nguyên từng con số (chào giá Linh Anh V2 vẫn đúng 4.585 hạng mục, tổng 155.642.030.563 đ); 6 test hồi quy mới, 266 test đạt.
+
 ### Bộ chức năng mới cho vòng đời gói thầu (xây từ bộ data thật gói Cơ điện Hacom Mall)
 
 - **So sánh phiên bản chào giá V1 → V2** (`core/version_compare.py`): sau các vòng làm rõ, nhà thầu nộp bản chào giá cập nhật — module ghép hạng mục giữa hai bản bằng bộ ghép cặp hiện có (chịu được xáo thứ tự dòng), báo cáo GIỮ NGUYÊN / THAY ĐỔI (kèm từng trường và mức chênh) / THÊM MỚI / ĐÃ XOÁ, tổng thành tiền hai bản, hồ sơ thay đổi theo trường và top thay đổi lớn nhất. Kiểm chứng với 3 cặp thật (tổng khớp tuyệt đối sheet Tổng hợp của nhà thầu).

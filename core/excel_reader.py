@@ -73,23 +73,43 @@ def _row_is_empty(row: list[Any]) -> bool:
 
 
 def _flatten_header(rows: list[list[Any]], column_count: int) -> list[str]:
-    """Flatten two/three level headers and approximate horizontal merged cells."""
-    inherited = [""] * column_count
+    """Flatten two/three level headers and approximate horizontal merged cells.
+
+    A label only bleeds to the right (the merged-cell approximation) when the
+    column holding it ALSO has its own sub-label on a lower header row. That is
+    exactly what a real group header looks like: the group spans several columns
+    and each column underneath carries its own name — e.g. "THÔNG TIN VỀ VẬT
+    LIỆU CHÍNH" above "Mô tả | Mã hiệu | Thương hiệu".
+
+    A standalone column label such as "ĐVT" has nothing underneath it, so it must
+    NOT bleed. Without this rule a quantity column sitting right after "ĐVT"
+    inherits that word, matches the unit rule first in ``map_columns`` and the
+    whole sheet ends up with no quantity column — every row then looks like it
+    is missing khối lượng.
+    """
+    texts = [
+        [_as_text(row[col] if col < len(row) else "") for col in range(column_count)]
+        for row in rows
+    ]
     parts: list[list[str]] = [[] for _ in range(column_count)]
-    for row in rows:
+    for index, row_texts in enumerate(texts):
         current = ""
+        current_spreads = False
         for col in range(column_count):
-            text = _as_text(row[col] if col < len(row) else "")
+            text = row_texts[col]
             if text:
                 current = text
-                inherited[col] = text
-            elif current:
-                inherited[col] = current
-            inherited_text = inherited[col]
-            if inherited_text:
-                norm = normalize_text(inherited_text)
+                # Nhãn nhóm thật: cột này còn có nhãn riêng ở một hàng bên dưới.
+                current_spreads = any(later[col] for later in texts[index + 1:])
+                value = text
+            elif current and current_spreads:
+                value = current
+            else:
+                value = ""
+            if value:
+                norm = normalize_text(value)
                 if norm and all(normalize_text(existing) != norm for existing in parts[col]):
-                    parts[col].append(inherited_text)
+                    parts[col].append(value)
     return [" | ".join(values) for values in parts]
 
 
@@ -158,9 +178,14 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         if ("don vi" in text or re.search(r"\bdvt\b", text)) and "don gia" not in text:
             candidates["unit"].append((95, col)); continue
 
-        if "kl nha thau" in text or "khoi luong nha thau" in text:
+        # Viết tắt rất phổ biến trong hồ sơ thầu: "KLMT" (khối lượng mời thầu) và
+        # "NT chào" (nhà thầu chào). Loại trừ "thành tiền" để không nuốt mất cột
+        # "Thành tiền KLMT" vốn được xử lý riêng bên dưới.
+        if ("kl nha thau" in text or "khoi luong nha thau" in text
+                or ("nt chao" in text and "thanh tien" not in text)):
             candidates["bid_quantity"].append((110, col)); continue
-        if "kl moi thau" in text or "khoi luong moi thau" in text:
+        if ("kl moi thau" in text or "khoi luong moi thau" in text
+                or ("klmt" in text and "thanh tien" not in text)):
             priority = 110 if "lan 2" in text else (90 if "bim" in text else 80)
             candidates["reference_quantity"].append((priority, col)); continue
 
