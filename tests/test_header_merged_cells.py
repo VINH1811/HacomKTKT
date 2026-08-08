@@ -92,6 +92,33 @@ def test_abbreviated_quantity_labels(tmp_path: Path):
     assert [i.bid_quantity for i in items] == [71, 800, 108]
 
 
+def test_numbering_legend_row_does_not_enable_bleeding():
+    """Hàng chú giải đánh số cột (1, 2, 3, "13=5%*(10+11+12)") không phải nhãn.
+
+    Cấu trúc lấy từ hồ sơ thật gói PCCC: hàng nhóm — hàng tên cột con — hàng
+    đánh số. Nếu tính hàng đánh số là "nhãn con bên dưới" thì cột nào cũng có,
+    mọi nhãn đều lan sang phải và cột khối lượng lại bị mất.
+    """
+    top = ["Stt", "Mô tả công việc", "ĐVT", None, None, "Thông tin VTTB", None, "Đơn giá", None]
+    sub = [None, None, None, " KLMT", "Nhà thầu chào", "Mô tả quy cách", "Mã hiệu", "VL chính", "CP quản lý"]
+    num = ["1", "2", "3", "4", "5", "6", "7", "10", "13=5%*(10+11+12)"]
+    flat = _flatten_header([top, sub, num], len(top))
+    assert "ĐVT" not in flat[3], f"Hàng đánh số làm nhãn ĐVT lan sang cột KLMT: {flat[3]!r}"
+    fixed, _ = map_columns(flat, DocumentRole.HSDT)
+    assert fixed.get(3) == "reference_quantity"
+    assert fixed.get(4) == "bid_quantity"
+    assert fixed.get(8) == "price_management"
+
+
+def test_bid_quantity_label_without_kl_prefix():
+    # Hồ sơ thật ghi "Nhà thầu chào" trơ trọi, không có chữ "KL" phía trước.
+    top = ["Stt", "Hạng mục", "ĐVT", None, None]
+    sub = [None, None, None, "KLMT", "Nhà thầu chào"]
+    fixed, _ = map_columns(_flatten_header([top, sub], len(top)), DocumentRole.HSDT)
+    assert fixed.get(3) == "reference_quantity"
+    assert fixed.get(4) == "bid_quantity"
+
+
 def test_thanh_tien_klmt_not_read_as_quantity():
     # "Thành tiền KLMT" là cột tiền, không được nuốt thành cột khối lượng.
     top = ["STT", "Hạng mục", "ĐVT", None, None, "THÀNH TIỀN", None]

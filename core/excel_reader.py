@@ -91,6 +91,10 @@ def _flatten_header(rows: list[list[Any]], column_count: int) -> list[str]:
         [_as_text(row[col] if col < len(row) else "") for col in range(column_count)]
         for row in rows
     ]
+    # Hàng chú giải đánh số cột (1, 2, 3, "13=5%*(10+11+12)"...) không phải nhãn
+    # thật. Nếu tính nó là "nhãn con bên dưới" thì cột nào cũng có, và mọi nhãn
+    # đều lan sang phải — đúng lỗi từng làm mất cột khối lượng cả sheet.
+    label_rows = [i for i, row in enumerate(rows) if not _is_numbering_row(list(row))]
     parts: list[list[str]] = [[] for _ in range(column_count)]
     for index, row_texts in enumerate(texts):
         current = ""
@@ -99,8 +103,8 @@ def _flatten_header(rows: list[list[Any]], column_count: int) -> list[str]:
             text = row_texts[col]
             if text:
                 current = text
-                # Nhãn nhóm thật: cột này còn có nhãn riêng ở một hàng bên dưới.
-                current_spreads = any(later[col] for later in texts[index + 1:])
+                # Nhãn nhóm thật: cột này còn có nhãn riêng ở một hàng nhãn bên dưới.
+                current_spreads = any(texts[j][col] for j in label_rows if j > index)
                 value = text
             elif current and current_spreads:
                 value = current
@@ -182,7 +186,7 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         # "NT chào" (nhà thầu chào). Loại trừ "thành tiền" để không nuốt mất cột
         # "Thành tiền KLMT" vốn được xử lý riêng bên dưới.
         if ("kl nha thau" in text or "khoi luong nha thau" in text
-                or ("nt chao" in text and "thanh tien" not in text)):
+                or (("nt chao" in text or "nha thau chao" in text) and "thanh tien" not in text)):
             candidates["bid_quantity"].append((110, col)); continue
         if ("kl moi thau" in text or "khoi luong moi thau" in text
                 or ("klmt" in text and "thanh tien" not in text)):
