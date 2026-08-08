@@ -335,11 +335,21 @@ _BLOCK_COLS = len(_BLOCK_LEAVES)
 _SEV_RANK = {Severity.OK: 0, Severity.INFO: 1, Severity.REVIEW: 2, Severity.WARNING: 3, Severity.CRITICAL: 4}
 
 
+# Sai lệch KHÔNG thuộc về hàng hóa mà là trạng thái dòng hoặc chất lượng dữ liệu
+# ("Thiếu đơn giá", "Tổng hợp giá", "Hạng mục phát sinh"...). Trước đây chúng bị
+# dồn hết vào ô Mô tả/Quy cách làm ô này đầy ghi chú không liên quan; nay bỏ khỏi
+# bảng tổng hợp vì đã hiển thị đầy đủ ở sheet Bất thường và AI_KIEM_TRA.
+_NON_ITEM_FIELDS = ("chất lượng dữ liệu", "hạng mục")
+
+
 def _leaf_for_field(field: str) -> "int | None":
     """Ánh xạ tên trường sai lệch -> chỉ số ô trong block nhà thầu (nếu có)."""
     f = field.lower()
-    if "khối lượng" in f:
+    if "khối lượng" in f or "kl mời thầu" in f:
         return _KL_IDX
+    # "Tên hạng mục" và "Thông số: ..." mô tả chính hàng hóa -> ô Mô tả/Quy cách.
+    if f.startswith("tên hạng mục") or f.startswith("thông số"):
+        return _NOTE_IDX
     if "vật tư" in f or "quy cách" in f:
         return 1
     if "mã hiệu" in f:
@@ -435,6 +445,10 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
             for diff in row.differences:
                 field = str(diff.field)
                 if field.startswith("Phụ lục 02") or diff.severity is Severity.OK:
+                    continue
+                # Bỏ các cảnh báo không nói về hàng hóa (trạng thái dòng, chất
+                # lượng dữ liệu) — chúng từng làm ô Mô tả/Quy cách đầy ghi chú lạc đề.
+                if any(field.lower().startswith(prefix) for prefix in _NON_ITEM_FIELDS):
                     continue
                 leaf = _leaf_for_field(field)
                 if leaf is None:

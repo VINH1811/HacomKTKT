@@ -204,9 +204,14 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
             candidates["price_aux"].append((110, col)); continue
         if ("nc m" in text or "nhan cong" in text) and "don gia" in text:
             candidates["price_labor"].append((110, col)); continue
-        if "cf quan ly" in text or "chi phi quan ly" in text:
+        # Chi phí quản lý được viết rất nhiều kiểu trong hồ sơ thật: "CF quản lý",
+        # "Chi phí quản lý", "CP quản lý", "CPQL", "QL", "Chi phí chung". Bắt đủ
+        # các biến thể — nếu không, cột này vừa bị bỏ trống, vừa có nguy cơ bị
+        # luật "đơn giá" bên dưới nhận nhầm thành đơn giá tổng hợp.
+        if ("quan ly" in text or re.search(r"\bcpql\b", text) or re.search(r"\bql\b", text)
+                or "chi phi chung" in text):
             candidates["price_management"].append((110, col)); continue
-        if "loi nhuan" in text:
+        if "loi nhuan" in text or re.search(r"\bln\b", text) or "lai dinh muc" in text:
             candidates["price_profit"].append((110, col)); continue
         if "dg tong hop" in text or "don gia tong hop" in text:
             candidates["unit_price_total"].append((120, col)); continue
@@ -224,7 +229,10 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         # Generic files without the Hacom multi-level header.
         if "ma hieu" in text or "ma cong tac" in text:
             candidates["item_code"].append((70, col)); continue
-        if "don gia" in text and not any(x in text for x in ("vl chinh", "vl phu", "nc m", "quan ly", "loi nhuan")):
+        if ("don gia" in text
+                and not any(x in text for x in ("vl chinh", "vl phu", "nc m", "quan ly",
+                                                "loi nhuan", "cpql", "chi phi chung", "lai dinh muc"))
+                and not re.search(r"\b(ql|ln)\b", text)):
             candidates["unit_price_total"].append((70, col)); continue
         if "thanh tien" in text:
             field = "bid_amount" if role is DocumentRole.HSDT else "reference_amount"

@@ -13,7 +13,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from .config import EnterpriseConfig
 from .models import ItemRecord, MatchKind, MatchResult, RowType, WorkbookData
-from .text_normalizer import normalize_name, token_set
+from .text_normalizer import normalize_name, strip_accents, token_set
 
 
 # ---------------------------------------------------------------------------
@@ -274,6 +274,53 @@ def _abbreviation_score(left: str, right: str) -> float:
         return 0.90
 
     return 0.0
+
+
+# ---------------------------------------------------------------------------
+# Xung khắc chủng loại
+# ---------------------------------------------------------------------------
+# Hai hạng mục có thể trùng nhau tới 80–95% về mặt chữ mà vẫn là hai thứ hoàn
+# toàn khác nhau, vì từ phân biệt bị chìm trong phần tên chung:
+#     "Ống thép đen luồn dây chữa cháy D100"  ↔  "Ống luồn dây điện D100"   0.80
+#     "Đầu báo khói địa chỉ"                  ↔  "Đầu báo nhiệt địa chỉ"    0.81
+#     "Cáp điện Cu/XLPE/PVC 3x95"             ↔  "Cáp điện Cu/PVC 3x95"     0.95
+# Mỗi nhóm dưới đây là một tập thuộc tính LOẠI TRỪ NHAU. Nếu cả hai mô tả đều
+# nêu thuộc tính của cùng một nhóm nhưng nêu khác nhau thì đó gần như chắc chắn
+# là hai hạng mục khác nhau — chặn ghép mờ, để chúng thành thiếu/phát sinh cho
+# người rà soát, còn hơn ghép sai làm sai mô tả và thương hiệu.
+_EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = (
+    # Vật liệu ống / ống dẫn
+    ("thep", "inox", "gang", "nhua", "pvc", "upvc", "ppr", "hdpe", "pe", "ton", "dong"),
+    # Loại đầu báo cháy
+    ("khoi", "nhiet", "gas", "lua", "beam"),
+    # Chất chữa cháy
+    ("bot", "co2", "foam", "khi sach", "fm200", "nuoc"),
+    # Hệ thống mà hạng mục phục vụ
+    ("chua chay", "bao chay", "dien nhe", "dien", "cap nuoc", "thoat nuoc", "gio", "dieu hoa"),
+    # Cách điện / vỏ cáp
+    ("xlpe", "lszh", "fr", "pvc/pvc", "cxv", "cvv"),
+)
+
+
+def _group_tokens(text: str, group: tuple[str, ...]) -> frozenset[str]:
+    """Các thuộc tính của một nhóm xuất hiện trong mô tả (đã chuẩn hóa, bỏ dấu)."""
+    return frozenset(term for term in group if term in text)
+
+
+def _has_type_conflict(a: ItemRecord, b: ItemRecord) -> bool:
+    """True khi hai hạng mục nêu thuộc tính KHÁC NHAU trong cùng một nhóm loại trừ.
+
+    Chỉ kết luận khi CẢ HAI bên đều có nêu — một bên bỏ trống thì coi như không
+    xác định được, không phạt, để tránh chặn nhầm các mô tả viết tắt.
+    """
+    left = strip_accents(normalize_name(_combined_text(a, include_sheet=False)))
+    right = strip_accents(normalize_name(_combined_text(b, include_sheet=False)))
+    for group in _EXCLUSIVE_GROUPS:
+        left_terms = _group_tokens(left, group)
+        right_terms = _group_tokens(right, group)
+        if left_terms and right_terms and left_terms != right_terms:
+            return True
+    return False
 
 
 def _lexical_score(a: ItemRecord, b: ItemRecord) -> float:
@@ -565,6 +612,12 @@ def _tfidf_shortlist(
                 reason = "TF-IDF ký tự + RapidFuzz trong cùng sheet"
 
             if score < threshold:
+                continue
+
+            # Chặn ghép mờ giữa hai chủng loại xung khắc (ống thép ↔ ống luồn dây
+            # điện, đầu báo khói ↔ đầu báo nhiệt...). Tầng khớp chính xác phía
+            # trên không bị ảnh hưởng.
+            if _has_type_conflict(ref, cand):
                 continue
 
             proposals.append(
@@ -886,6 +939,8 @@ def match_items(
 
                 if score < max(reject_score, 0.68):
                     continue
+                if _has_type_conflict(ref, cand):
+                    continue
 
                 row_near_proposals.append(
                     _Proposal(
@@ -1077,6 +1132,8 @@ def match_items(
                         if semantic < 0.46:
                             continue
                         if score < max(0.52, reject_score - 0.06):
+                            continue
+                        if _has_type_conflict(ref, cand):
                             continue
 
                         fuzzy_proposals.append(
