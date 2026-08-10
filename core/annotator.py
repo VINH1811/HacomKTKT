@@ -35,8 +35,28 @@ def _sheet_meta(workbook: WorkbookData) -> dict[str, dict]:
     return {str(info.get("sheet")): info for info in workbook.sheet_info}
 
 
+# Cờ chất lượng dữ liệu được gom chung dưới một tên trường ("Chất lượng dữ liệu"),
+# nên phải nhìn nội dung mới biết ô nào sai. Nhờ bảng này, cảnh báo lệch đơn giá
+# được tô đúng vào ô ĐƠN GIÁ của từng dòng liên quan thay vì không tô ô nào.
+_QUALITY_CELL_HINTS: tuple[tuple[str, str], ...] = (
+    ("nhiều đơn giá khác nhau", "unit_price_total"),
+    ("thành phần giá lệch", "unit_price_total"),
+    ("thiếu đơn giá", "unit_price_total"),
+    ("sai phép tính", "bid_amount"),
+    ("thiếu thành tiền", "bid_amount"),
+    ("thiếu khối lượng", "bid_quantity"),
+    ("mã hiệu trùng", "item_code"),
+)
+
+
 def _field_key(diff: FieldDifference) -> str | None:
     field = diff.field.lower()
+    if "chất lượng dữ liệu" in field:
+        text = str(diff.message or "").lower()
+        for hint, key in _QUALITY_CELL_HINTS:
+            if hint in text:
+                return key
+        return None
     if "tên hạng mục" in field or field == "hạng mục":
         return "item_name"
     if "mã hiệu" in field:

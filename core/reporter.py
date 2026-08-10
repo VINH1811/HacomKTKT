@@ -341,6 +341,29 @@ _SEV_RANK = {Severity.OK: 0, Severity.INFO: 1, Severity.REVIEW: 2, Severity.WARN
 # bảng tổng hợp vì đã hiển thị đầy đủ ở sheet Bất thường và AI_KIEM_TRA.
 _NON_ITEM_FIELDS = ("chất lượng dữ liệu", "hạng mục")
 
+# Cảnh báo chất lượng dữ liệu chỉ đích danh được một ô: nội dung nói về ô nào thì
+# tô ô đó. Giữ đồng bộ với _QUALITY_CELL_HINTS bên core/annotator.py.
+_QUALITY_LEAF_HINTS: tuple[tuple[str, int], ...] = (
+    ("nhiều đơn giá khác nhau", _UNIT_PRICE_IDX),
+    ("thành phần giá lệch", _UNIT_PRICE_IDX),
+    ("thiếu đơn giá", _UNIT_PRICE_IDX),
+    ("sai phép tính", _BID_AMOUNT_IDX),
+    ("thiếu thành tiền", _BID_AMOUNT_IDX),
+    ("thiếu khối lượng", _KL_IDX),
+    ("mã hiệu trùng", 2),
+)
+
+
+def _quality_leaf(field: str, message: str) -> "int | None":
+    """Ô tương ứng cho một cảnh báo chất lượng dữ liệu, nếu xác định được."""
+    if "chất lượng dữ liệu" not in field.lower():
+        return None
+    text = message.lower()
+    for hint, leaf in _QUALITY_LEAF_HINTS:
+        if hint in text:
+            return leaf
+    return None
+
 
 def _leaf_for_field(field: str) -> "int | None":
     """Ánh xạ tên trường sai lệch -> chỉ số ô trong block nhà thầu (nếu có)."""
@@ -446,8 +469,15 @@ def _build_quote_groups(result: ComparisonResult) -> tuple[dict[str, dict[str, A
                 field = str(diff.field)
                 if field.startswith("Phụ lục 02") or diff.severity is Severity.OK:
                     continue
-                # Bỏ các cảnh báo không nói về hàng hóa (trạng thái dòng, chất
-                # lượng dữ liệu) — chúng từng làm ô Mô tả/Quy cách đầy ghi chú lạc đề.
+                # Cảnh báo chất lượng dữ liệu nào chỉ đích danh được một ô (lệch
+                # đơn giá, sai phép tính...) thì tô đúng ô đó; loại còn lại bỏ khỏi
+                # bảng tổng hợp vì từng làm ô Mô tả/Quy cách đầy ghi chú lạc đề.
+                quality_leaf = _quality_leaf(field, str(diff.message or ""))
+                if quality_leaf is not None:
+                    prev = leaf_marks.get(quality_leaf)
+                    if prev is None or _SEV_RANK[diff.severity] > _SEV_RANK[prev[0]]:
+                        leaf_marks[quality_leaf] = (diff.severity, str(diff.message))
+                    continue
                 if any(field.lower().startswith(prefix) for prefix in _NON_ITEM_FIELDS):
                     continue
                 leaf = _leaf_for_field(field)
