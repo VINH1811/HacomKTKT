@@ -21,6 +21,7 @@ models/*
 
 # Kết quả sinh ra khi chạy: báo cáo, ảnh chụp màn hình, log chạy kiểm thử
 reports/*.xlsx
+reports/*.zip
 reports/_*/
 reports/test_reports/
 *.log
