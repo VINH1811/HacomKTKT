@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from pathlib import Path
 
+from .comparison import _quality_differences
 from .config import EnterpriseConfig
 from .matcher import match_items
 from .models import (
@@ -167,6 +168,11 @@ def build_peer_consensus(
                     reason="Ghép đa chiều từ tất cả cặp nhà thầu; không có baseline.",
                 )
                 row = ComparedItem(canonical_id, bidder_name, consensus, candidate, match)
+                # Cờ chất lượng dữ liệu của chính hồ sơ nhà thầu (lỗi công thức,
+                # cùng hạng mục chào nhiều đơn giá...) phải theo dòng sang kết
+                # quả. Chế độ so ngang không đi qua build_bidder_rows nên nếu
+                # không gắn ở đây thì các cảnh báo này biến mất.
+                _quality_differences(row, candidate, bidder_name)
             rows.append(row)
 
     reference = WorkbookData(

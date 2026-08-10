@@ -649,6 +649,14 @@ def load_workbook_items(
                 f"giữ nguyên từng dòng ({', '.join(str(x.row_number) for x in duplicated[:10])})"
             )
 
+    # Cùng một hạng mục nhưng chào nhiều đơn giá khác nhau trong chính hồ sơ này.
+    # Với hồ sơ chỉ có một nhà thầu, đây là phép kiểm tra giá duy nhất còn dùng
+    # được vì không có ai để so ngang.
+    if role is DocumentRole.HSDT:
+        from .internal_consistency import annotate_price_inconsistencies
+
+        warnings.extend(annotate_price_inconsistencies(items))
+
     if not items:
         warnings.append("Không đọc được hạng mục dữ liệu nào từ workbook")
     return WorkbookData(
