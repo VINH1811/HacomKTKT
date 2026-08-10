@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, replace
@@ -288,7 +289,7 @@ def _abbreviation_score(left: str, right: str) -> float:
 # nêu thuộc tính của cùng một nhóm nhưng nêu khác nhau thì đó gần như chắc chắn
 # là hai hạng mục khác nhau — chặn ghép mờ, để chúng thành thiếu/phát sinh cho
 # người rà soát, còn hơn ghép sai làm sai mô tả và thương hiệu.
-_EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = (
+_DEFAULT_EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = (
     # Vật liệu ống / ống dẫn
     ("thep", "inox", "gang", "nhua", "pvc", "upvc", "ppr", "hdpe", "pe", "ton", "dong"),
     # Loại đầu báo cháy
@@ -300,6 +301,26 @@ _EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = (
     # Cách điện / vỏ cáp
     ("xlpe", "lszh", "fr", "pvc/pvc", "cxv", "cvv"),
 )
+
+
+def _load_exclusive_groups() -> tuple[tuple[str, ...], ...]:
+    """Nhóm thuộc tính loại trừ nhau, mở rộng được cho ngành khác.
+
+    Từ vựng mặc định lấy từ hồ sơ cơ điện và phòng cháy chữa cháy. Ngành khác
+    (giao thông, thủy lợi...) khai báo thêm qua HSMT_EXCLUSIVE_GROUPS, mỗi nhóm
+    cách nhau bằng dấu chấm phẩy, các từ trong nhóm cách nhau bằng dấu phẩy:
+        HSMT_EXCLUSIVE_GROUPS="be tong,nhua duong,cap phoi;m250,m300,m350"
+    """
+    extra: list[tuple[str, ...]] = []
+    raw = os.getenv("HSMT_EXCLUSIVE_GROUPS", "")
+    for chunk in raw.split(";"):
+        terms = tuple(t.strip().lower() for t in chunk.split(",") if t.strip())
+        if len(terms) > 1:
+            extra.append(terms)
+    return _DEFAULT_EXCLUSIVE_GROUPS + tuple(extra)
+
+
+_EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = _load_exclusive_groups()
 
 
 def _group_tokens(text: str, group: tuple[str, ...]) -> frozenset[str]:
