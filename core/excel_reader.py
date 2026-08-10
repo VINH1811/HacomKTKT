@@ -233,7 +233,7 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         # Generic files without the Hacom multi-level header.
         if "ma hieu" in text or "ma cong tac" in text:
             candidates["item_code"].append((70, col)); continue
-        if ("don gia" in text
+        if (("don gia" in text or re.search(r"\b(dgth|dg)\b", text))
                 and not any(x in text for x in ("vl chinh", "vl phu", "nc m", "quan ly",
                                                 "loi nhuan", "cpql", "chi phi chung", "lai dinh muc"))
                 and not re.search(r"\b(ql|ln)\b", text)):
@@ -423,6 +423,25 @@ def load_workbook_items(
         if "item_name" not in mapping.values():
             warnings.append(f"Sheet '{sheet.name}': không xác định được cột tên hạng mục")
             continue
+
+        # Không nhận ra cột đơn giá hoặc khối lượng thì các phép kiểm tra dựa trên
+        # chúng sẽ im lặng bỏ qua — người dùng dễ hiểu nhầm "không có lỗi" trong
+        # khi thực chất là "không kiểm tra được". Nêu rõ nhãn cột đọc được để họ
+        # đối chiếu và báo lại nếu hồ sơ dùng cách viết chưa được nhận diện.
+        # Chỉ xét hồ sơ chào giá: bảng khối lượng mời thầu vốn không có cột đơn
+        # giá hay cột nhà thầu chào, thiếu là đúng chứ không phải sai sót.
+        if role is DocumentRole.HSDT:
+            mapped_fields = set(mapping.values())
+            for field, label in (("unit_price_total", "đơn giá"),
+                                 ("bid_quantity", "khối lượng nhà thầu chào")):
+                if field in mapped_fields:
+                    continue
+                seen = ", ".join(h.replace("\n", " ").strip() for h in flat_headers if h.strip())[:220]
+                warnings.append(
+                    f"Sheet '{sheet.name}': không nhận ra cột {label} nên các kiểm tra liên quan "
+                    f"(lệch đơn giá, sai phép tính...) KHÔNG chạy được cho sheet này. "
+                    f"Tiêu đề đọc được: {seen}"
+                )
 
         field_columns = {field: col + 1 for col, field in mapping.items()}
         sheet_info.append({
