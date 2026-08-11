@@ -270,6 +270,30 @@ _GENERIC_PROCESSING_ERROR = (
 )
 
 
+def restore_original_names(message: str, request: dict[str, Any] | None) -> str:
+    """Đổi tên file nội bộ trong thông báo về đúng tên người dùng đã tải lên.
+
+    Khi lưu, mỗi file được thêm tiền tố thứ tự ("000_", "001_") để hai file
+    trùng tên không đè nhau. Tiền tố đó lọt vào thông báo lỗi thì người dùng
+    tưởng hệ thống đã sửa file của mình.
+    """
+    if not message:
+        return message
+    if request:
+        for key, value in request.items():
+            if not key.endswith("_file") or not isinstance(value, str) or not value:
+                continue
+            original = request.get(key[: -len("_file")] + "_original")
+            if isinstance(original, str) and original and original != value:
+                message = message.replace(value, original)
+        for entry in request.get("bidders", []) or []:
+            stored, original = entry.get("file"), entry.get("original_name")
+            if stored and original and stored != original:
+                message = message.replace(stored, original)
+    # Còn sót tiền tố (gọi trực tiếp, không qua request) thì cắt nốt.
+    return re.sub(r"\b\d{3}_(?=[^\s'\"]*\.[A-Za-z0-9]{2,5})", "", message)
+
+
 def format_job_error_message(
     exc: Exception,
     request: dict[str, Any] | None,
@@ -670,7 +694,7 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
         # không bao giờ crash hay để job treo.
         try:
             if isinstance(exc, UserFacingError):
-                friendly_message = str(exc)
+                friendly_message = restore_original_names(str(exc), request)
             else:
                 friendly_message = format_job_error_message(exc, request, folder)
         except Exception:
@@ -1287,6 +1311,8 @@ async def compare_versions_api(
     request = {
         "old_file": old_target.name,
         "new_file": new_target.name,
+        "old_original": old_file.filename or old_target.name,
+        "new_original": new_file.filename or new_target.name,
         "old_label": f"Bản cũ ({old_file.filename})" if old_file.filename else "Bản cũ (V1)",
         "new_label": f"Bản mới ({new_file.filename})" if new_file.filename else "Bản mới (V2)",
         "bidder_name": bidder_name.strip() or _guess_bidder_name(old_file.filename or "") or "Nhà thầu",
@@ -1317,6 +1343,8 @@ async def track_rfi_api(
     request = {
         "request_file": req_target.name,
         "response_file": resp_target.name,
+        "request_original": request_file.filename or req_target.name,
+        "response_original": response_file.filename or resp_target.name,
         "bidder_name": bidder_name.strip() or _guess_bidder_name(request_file.filename or "") or "Nhà thầu",
     }
     _atomic_json(folder / "request.json", request)
