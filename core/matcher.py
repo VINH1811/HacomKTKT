@@ -303,6 +303,13 @@ _DEFAULT_EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = (
 )
 
 
+def _env_float(name: str, default: float, low: float, high: float) -> float:
+    try:
+        return max(low, min(high, float(os.getenv(name, str(default)))))
+    except (TypeError, ValueError):
+        return default
+
+
 def _load_exclusive_groups() -> tuple[tuple[str, ...], ...]:
     """Nhóm thuộc tính loại trừ nhau, mở rộng được cho ngành khác.
 
@@ -342,6 +349,35 @@ def _has_type_conflict(a: ItemRecord, b: ItemRecord) -> bool:
         if left_terms and right_terms and left_terms != right_terms:
             return True
     return False
+
+
+# Khóa cấu trúc (sheet + STT) không đủ để kết luận hai dòng là một hạng mục.
+# Giữa hai phiên bản chào giá, nhà thầu chèn/xoá dòng làm STT bị DÙNG LẠI cho
+# hạng mục hoàn toàn khác, khiến tầng ghép cấu trúc gán bừa rồi báo là "đổi tên,
+# đổi mã" thay vì "thêm mới". Đo trên hồ sơ thật: mọi cặp ghép cấu trúc đúng đều
+# có điểm giống tên >= 0.90, còn cặp gán bừa chỉ 0.35 — ngưỡng dưới đây nằm giữa
+# hai vùng đó nên chặn được cặp sai mà không đụng cặp đúng.
+_STRUCTURE_MIN_LEXICAL = _env_float("HSMT_STRUCTURE_MIN_LEXICAL", 0.55, 0.0, 1.0)
+
+
+def _structure_key_is_stale(
+    ref: ItemRecord,
+    cand: ItemRecord,
+    lexical: float,
+    code_equal: bool,
+) -> bool:
+    """True khi trùng khóa cấu trúc chỉ là trùng số thứ tự, không phải cùng hạng mục.
+
+    Chỉ kết luận khi có ĐỦ hai dấu hiệu độc lập: mã hiệu khác nhau VÀ tên khác
+    hẳn. Mã giống nhau thì giữ nguyên cặp ghép dù tên có viết khác, vì mã hiệu là
+    bằng chứng mạnh hơn tên.
+    """
+    if code_equal:
+        return False
+    if not (ref.item_name or "").strip() or not (cand.item_name or "").strip():
+        # Thiếu tên thì không đủ căn cứ phủ nhận; để các tầng sau xử lý.
+        return False
+    return lexical < _STRUCTURE_MIN_LEXICAL or _has_type_conflict(ref, cand)
 
 
 def _lexical_score(a: ItemRecord, b: ItemRecord) -> float:
@@ -731,6 +767,10 @@ def match_items(
                     ref.normalized_code
                     and ref.normalized_code == cand.normalized_code
                 )
+                if _structure_key_is_stale(ref, cand, lexical, code_equal):
+                    # Chỉ trùng số thứ tự chứ không phải cùng hạng mục — bỏ qua
+                    # để các tầng sau ghép đúng, hoặc kết luận THÊM MỚI / ĐÃ XOÁ.
+                    continue
 
                 score = min(0.99, 0.96 + 0.02 * lexical + 0.01 * unit)
                 structural_proposals.append(
