@@ -31,7 +31,10 @@ class MarketPriceFetcher:
         # Formulate a clean Vietnamese-optimized search query
         # Using "báo giá [vật tư]" is highly effective for local distributors
         query = f'báo giá {core_name}'
-        print(f"[*] Đang tra cứu giá thị trường Web Search cho: '{query}'")
+        # Dùng logger chứ KHÔNG print: console Windows mã hoá cp1252 không in
+        # được chữ tiếng Việt, print sẽ ném UnicodeEncodeError và làm hỏng cả
+        # lời gọi API chỉ vì một dòng thông báo.
+        logger.info("Đang tra cứu giá thị trường Web Search cho: %r", query)
         
         # Adding kl=vn-vi forces DuckDuckGo to return Vietnamese local results
         url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}&kl=vn-vi"

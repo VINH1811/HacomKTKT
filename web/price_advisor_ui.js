@@ -153,16 +153,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const isHardFailed = (res.price_low === null || status === "rejected" || status === "failed");
 
     if (isHardFailed) {
-      resPriceLow.textContent = "N/A";
-      resPriceHigh.textContent = "N/A";
-      
+      // AI không đề xuất được, nhưng khoảng giá lịch sử nội bộ vẫn tra được từ
+      // CSDL giá — bỏ trống cả bảng là vứt đi thông tin đang có sẵn.
+      const hasHistory = res.history_count > 0;
+      resPriceLow.textContent = hasHistory ? formatCurrency(res.history_min_price) : "N/A";
+      resPriceHigh.textContent = hasHistory ? formatCurrency(res.history_max_price) : "N/A";
+
       resConfidence.textContent = "N/A";
       resStatusBadge.textContent = status.toUpperCase();
       resStatusBadge.className = "badge-status badge-review";
-      
+
+      // Nguyên nhân THẬT (LLM không gọi được, trả JSON hỏng...) thay vì câu
+      // chung chung đổ lỗi cho dữ liệu tham chiếu.
+      const cause = res.error_message || res.reasoning
+        || "Không rõ nguyên nhân; xem nhật ký máy chủ.";
+      let html = `⚠️ <b>Hệ thống chưa đề xuất được giá:</b> ${escapeHtmlPA(cause)}`;
+      if (hasHistory) {
+        html += `<br><b>Hai ô giá bên trên là khoảng giá lịch sử nội bộ</b> `
+             + `(${res.history_count} bản ghi cùng đơn vị tính), chưa qua thẩm định của AI.`;
+      }
       reviewWarning.classList.remove("hidden");
-      reviewWarning.innerHTML = `⚠️ <b>Hệ thống từ chối đề xuất giá tự động:</b> ${res.reasoning || "Không có thông tin thô hoặc chất lượng dữ liệu tham chiếu RAG không đủ tin cậy."}`;
-      
+      reviewWarning.innerHTML = html;
+
       resReasoning.innerHTML = `<span style="color: var(--text-muted);">Không có báo cáo lập luận do giá trị bị từ chối hoặc thất bại.</span>`;
       document.getElementById("feedbackActions").classList.add("hidden");
     } else {
@@ -426,6 +438,14 @@ document.addEventListener("DOMContentLoaded", () => {
   function formatCurrency(value) {
     if (value === null || value === undefined) return "N/A";
     return Math.round(value).toLocaleString("vi-VN");
+  }
+
+  // Thông báo lỗi có thể chứa ký tự đặc biệt từ máy chủ, phải thoát trước khi
+  // chèn vào HTML.
+  function escapeHtmlPA(text) {
+    const div = document.createElement("div");
+    div.textContent = String(text ?? "");
+    return div.innerHTML;
   }
 
   // ---------------------------------------------------------------------

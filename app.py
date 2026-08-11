@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 import threading
@@ -19,6 +20,8 @@ from fastapi.staticfiles import StaticFiles
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env", override=False)
+
+logger = logging.getLogger(__name__)
 
 # Fallback DB settings for PriceAdvisor test endpoints.
 # This avoids Postgres connection/auth issues when only Ollama/LLM testing.
@@ -860,6 +863,28 @@ class PAPredictRequest(BaseModel):
     top_k: int = 5
     bidder_price: float | None = None
 
+def _internal_history(similar_items, unit: str) -> dict[str, Any]:
+    """Khoảng giá lịch sử NỘI BỘ, lấy thẳng từ CSDL giá.
+
+    Không phụ thuộc LLM: khi lời gọi LLM hỏng, đây vẫn là thông tin dùng được
+    thay vì để trống cả bảng. Chỉ gộp các bản ghi CÙNG đơn vị tính — trộn
+    đ/bộ với đ/m thì khoảng giá trở nên vô nghĩa.
+    """
+    wanted = (unit or "").strip().lower()
+    prices = [
+        float(item.record.unit_price)
+        for item in similar_items
+        if item.record.unit_price and (item.record.unit or "").strip().lower() == wanted
+    ]
+    if not prices:
+        return {"history_min_price": None, "history_max_price": None, "history_count": 0}
+    return {
+        "history_min_price": min(prices),
+        "history_max_price": max(prices),
+        "history_count": len(prices),
+    }
+
+
 @app.post("/api/price-advisor/predict")
 def pa_predict_api(req: PAPredictRequest):
     pa_config = PriceAdvisorConfig.from_env()
@@ -884,8 +909,15 @@ def pa_predict_api(req: PAPredictRequest):
         from core.price_advisor.market_price import MarketPriceFetcher
         market_res = MarketPriceFetcher.fetch_market_prices(req.item_name, req.unit)
         
-        # Get internal similar items
-        query_embedding = pa._embedder.embed_text(req.item_name) if pa._embedder else []
+        # Get internal similar items. Bộ nhúng vector hỏng (thiếu gói, hết hạn
+        # khóa, mạng chập) thì KHÔNG được làm chết cả chức năng: CSDL giá vẫn
+        # tra được theo văn bản, kết quả kém hơn nhưng vẫn dùng được.
+        query_embedding: list[float] = []
+        if pa._embedder:
+            try:
+                query_embedding = pa._embedder.embed_text(req.item_name)
+            except Exception as exc:
+                logger.warning("Bộ nhúng vector không dùng được, chuyển sang tra theo văn bản: %s", exc)
         similar_items = pa._db.search_similar(
             query_embedding,
             top_k=req.top_k,
@@ -920,7 +952,9 @@ def pa_predict_api(req: PAPredictRequest):
                 "price_high": price_high,
                 "confidence": confidence,
                 "reasoning": reasoning,
+                "error_message": "",
                 "similar_items": [item.to_dict() for item in similar_items],
+                **_internal_history(similar_items, req.unit),
                 "market_min_price": market_res["min_price"],
                 "market_max_price": market_res["max_price"],
                 "market_avg_price": market_res["avg_price"],
@@ -979,7 +1013,12 @@ def pa_predict_api(req: PAPredictRequest):
                 "suggested_price": suggestion.suggested_price,
                 "confidence": suggestion.confidence,
                 "reasoning": suggestion.reasoning,
+                # Lý do thất bại THẬT (LLM không gọi được, trả JSON hỏng...). Thiếu
+                # trường này thì giao diện chỉ còn câu chung chung đổ lỗi cho dữ
+                # liệu tham chiếu, người dùng không biết đường sửa.
+                "error_message": suggestion.error_message or "",
                 "similar_items": [item.to_dict() for item in suggestion.similar_items],
+                **_internal_history(similar_items, req.unit),
                 "market_min_price": market_res["min_price"],
                 "market_max_price": market_res["max_price"],
                 "market_avg_price": market_res["avg_price"],
