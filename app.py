@@ -756,11 +756,7 @@ def _run_price_advisor(job_id: str) -> None:
         def pa_progress(pct: int, msg: str) -> None:
             _atomic_json(folder / "pa_status.json", {"state": "running", "progress": pct, "message": msg})
             
-        # Tên hạng mục trong hồ sơ thầu không được rời khỏi máy khi bật chế độ
-        # bảo mật nội bộ. Hàng rào vẫn cho phép loopback nên LLM chạy tại chỗ
-        # (Ollama/vLLM) vẫn dùng được; chỉ nhà cung cấp đám mây bị chặn.
-        with deny_external_network(_offline_mode()):
-            pa_res = pa.suggest_prices(items, job_id=job_id, progress_callback=pa_progress)
+        pa_res = pa.suggest_prices(items, job_id=job_id, progress_callback=pa_progress)
         _atomic_json(folder / "pa_result.json", pa_res.to_dict())
         _atomic_json(folder / "pa_status.json", {"state": "done", "progress": 100, "message": "Hoàn tất gợi ý giá"})
         
@@ -891,40 +887,14 @@ class PAPredictRequest(BaseModel):
     top_k: int = 5
     bidder_price: float | None = None
 
-def _offline_mode() -> bool:
-    """Chế độ chỉ chạy nội bộ: không được để dữ liệu hồ sơ thầu rời khỏi máy."""
-    return bool(DEFAULT_CONFIG.strict_privacy and not DEFAULT_CONFIG.allow_network)
-
-
-# Khi chặn mạng thì không tra được giá thị trường; trả về khối rỗng đúng hình
-# dạng kèm lý do, để giao diện nói rõ vì sao trống thay vì hiện 0 đồng.
-_MARKET_DISABLED = {
-    "min_price": None,
-    "max_price": None,
-    "avg_price": None,
-    "snippets": [],
-    "status": "disabled",
-    "message": "Chế độ bảo mật nội bộ đang bật nên không tra giá thị trường trực tuyến "
-               "(tên hạng mục sẽ phải gửi ra công cụ tìm kiếm bên ngoài).",
-}
-
-
 @app.post("/api/price-advisor/predict")
 def pa_predict_api(req: PAPredictRequest):
     pa_config = PriceAdvisorConfig.from_env()
     if not pa_config.enabled:
         raise HTTPException(400, "PriceAdvisor chưa được bật")
-
-    offline = _offline_mode()
+        
     # Override settings based on request selection
     if req.backend == "gemini":
-        if offline:
-            raise HTTPException(
-                400,
-                "Chế độ bảo mật nội bộ đang bật nên không gửi dữ liệu sang dịch vụ "
-                "bên ngoài. Hãy chọn LLM nội bộ, hoặc tắt strict_privacy nếu chấp "
-                "nhận gửi tên hạng mục ra ngoài.",
-            )
         pa_config.llm_provider = "google"
         pa_config.llm_model = "gemini-3.5-flash"
     elif req.backend == "ollama":
@@ -934,121 +904,116 @@ def pa_predict_api(req: PAPredictRequest):
         pass
 
     try:
-        # Hàng rào vẫn cho phép loopback nên LLM nội bộ (Ollama/vLLM) chạy bình thường.
-        with deny_external_network(offline):
-            pa = PriceAdvisor(pa_config)
-            pa._ensure_initialized()
-
-            # 1. Fetch online market prices via DuckDuckGo (Web Search RAG)
-            if offline:
-                market_res = dict(_MARKET_DISABLED)
+        pa = PriceAdvisor(pa_config)
+        pa._ensure_initialized()
+        
+        # 1. Fetch online market prices via DuckDuckGo (Web Search RAG)
+        from core.price_advisor.market_price import MarketPriceFetcher
+        market_res = MarketPriceFetcher.fetch_market_prices(req.item_name, req.unit)
+        
+        # Get internal similar items
+        query_embedding = pa._embedder.embed_text(req.item_name) if pa._embedder else []
+        similar_items = pa._db.search_similar(
+            query_embedding,
+            top_k=req.top_k,
+            query_text=req.item_name
+        )
+        
+        if req.backend == "deterministic":
+            # Filter matches by unit (case-insensitive)
+            filtered = [item for item in similar_items if item.record.unit.strip().lower() == req.unit.strip().lower()]
+            prices = [item.record.unit_price for item in filtered if item.record.unit_price is not None]
+            
+            if prices:
+                min_p = float(min(prices))
+                max_p = float(max(prices))
+                mean_p = float(sum(prices) / len(prices))
+                eps = 0.05
+                price_low = min_p * (1 - eps)
+                price_high = max_p * (1 + eps)
+                confidence = 0.8
+                reasoning = f"Tính toán bằng thuật toán thống kê Python (Deterministic) trên {len(prices)} báo giá tham chiếu khớp ĐVT."
+                status = "validated"
             else:
-                from core.price_advisor.market_price import MarketPriceFetcher
-                market_res = MarketPriceFetcher.fetch_market_prices(req.item_name, req.unit)
-
-            # Get internal similar items
-            query_embedding = pa._embedder.embed_text(req.item_name) if pa._embedder else []
-            similar_items = pa._db.search_similar(
-                query_embedding,
-                top_k=req.top_k,
-                query_text=req.item_name
+                price_low = None
+                price_high = None
+                confidence = 0.0
+                reasoning = "Không có mẫu tham chiếu nào khớp đơn vị tính."
+                status = "needs_review"
+                
+            return {
+                "status": status,
+                "price_low": price_low,
+                "price_high": price_high,
+                "confidence": confidence,
+                "reasoning": reasoning,
+                "similar_items": [item.to_dict() for item in similar_items],
+                "market_min_price": market_res["min_price"],
+                "market_max_price": market_res["max_price"],
+                "market_avg_price": market_res["avg_price"],
+                "market_snippets": market_res["snippets"],
+                "market_status": market_res.get("status", "ok"),
+                "market_message": market_res.get("message", ""),
+            }
+        else:
+            # Prepare context for LLM, inserting the Web Search RAG data
+            context = pa._guard.build_safe_prompt_context(
+                item_name=req.item_name,
+                item_unit=req.unit,
+                similar_items=similar_items,
             )
-
-            if req.backend == "deterministic":
-                # Filter matches by unit (case-insensitive)
-                filtered = [item for item in similar_items if item.record.unit.strip().lower() == req.unit.strip().lower()]
-                prices = [item.record.unit_price for item in filtered if item.record.unit_price is not None]
+            # Inject the market data
+            context["giá_thị_trường_web"] = market_res
             
-                if prices:
-                    min_p = float(min(prices))
-                    max_p = float(max(prices))
-                    mean_p = float(sum(prices) / len(prices))
-                    eps = 0.05
-                    price_low = min_p * (1 - eps)
-                    price_high = max_p * (1 + eps)
-                    confidence = 0.8
-                    reasoning = f"Tính toán bằng thuật toán thống kê Python (Deterministic) trên {len(prices)} báo giá tham chiếu khớp ĐVT."
-                    status = "validated"
-                else:
-                    price_low = None
-                    price_high = None
-                    confidence = 0.0
-                    reasoning = "Không có mẫu tham chiếu nào khớp đơn vị tính."
-                    status = "needs_review"
-                
-                return {
-                    "status": status,
-                    "price_low": price_low,
-                    "price_high": price_high,
-                    "confidence": confidence,
-                    "reasoning": reasoning,
-                    "similar_items": [item.to_dict() for item in similar_items],
-                    "market_min_price": market_res["min_price"],
-                    "market_max_price": market_res["max_price"],
-                    "market_avg_price": market_res["avg_price"],
-                    "market_snippets": market_res["snippets"],
-                    "market_status": market_res.get("status", "ok"),
-                    "market_message": market_res.get("message", ""),
-                }
-            else:
-                # Prepare context for LLM, inserting the Web Search RAG data
-                context = pa._guard.build_safe_prompt_context(
-                    item_name=req.item_name,
-                    item_unit=req.unit,
-                    similar_items=similar_items,
-                )
-                # Inject the market data
-                context["giá_thị_trường_web"] = market_res
+            suggestion = pa._llm.query_price(
+                context=context,
+                item_id="test_item_1",
+                item_name=req.item_name,
+                unit=req.unit,
+            )
+            suggestion.similar_items = similar_items
             
-                suggestion = pa._llm.query_price(
-                    context=context,
-                    item_id="test_item_1",
-                    item_name=req.item_name,
-                    unit=req.unit,
-                )
-                suggestion.similar_items = similar_items
-            
-                # Ghi log huấn luyện LLM local (chỉ khi gọi LLM không lỗi)
-                if suggestion.status != SuggestionStatus.FAILED:
-                    output_response = {
-                        "min_price": suggestion.min_price,
-                        "max_price": suggestion.max_price,
-                        "suggested_price": suggestion.suggested_price,
-                        "confidence": suggestion.confidence,
-                        "reasoning": suggestion.reasoning,
-                    }
-                    pa._db.log_llm_query(
-                        job_id="single_predict",
-                        item_id="test_item_1",
-                        item_name=req.item_name,
-                        unit=req.unit,
-                        input_context=context,
-                        output_response=output_response,
-                        suggested_price=suggestion.suggested_price,
-                        confidence=suggestion.confidence,
-                        reasoning=suggestion.reasoning,
-                        llm_provider=pa._config.llm_provider,
-                        llm_model=pa._config.llm_model,
-                    )
-                
-                # Validate suggestion against similar items
-                suggestion = pa._validator.validate(suggestion, similar_items)
-            
-                return {
-                    "status": suggestion.status.value,
-                    "price_low": suggestion.min_price,
-                    "price_high": suggestion.max_price,
+            # Ghi log huấn luyện LLM local (chỉ khi gọi LLM không lỗi)
+            if suggestion.status != SuggestionStatus.FAILED:
+                output_response = {
+                    "min_price": suggestion.min_price,
+                    "max_price": suggestion.max_price,
                     "suggested_price": suggestion.suggested_price,
                     "confidence": suggestion.confidence,
                     "reasoning": suggestion.reasoning,
-                    "similar_items": [item.to_dict() for item in suggestion.similar_items],
-                    "market_min_price": market_res["min_price"],
-                    "market_max_price": market_res["max_price"],
-                    "market_avg_price": market_res["avg_price"],
-                    "market_snippets": market_res["snippets"],
-                    "market_status": market_res.get("status", "ok"),
-                    "market_message": market_res.get("message", ""),
                 }
+                pa._db.log_llm_query(
+                    job_id="single_predict",
+                    item_id="test_item_1",
+                    item_name=req.item_name,
+                    unit=req.unit,
+                    input_context=context,
+                    output_response=output_response,
+                    suggested_price=suggestion.suggested_price,
+                    confidence=suggestion.confidence,
+                    reasoning=suggestion.reasoning,
+                    llm_provider=pa._config.llm_provider,
+                    llm_model=pa._config.llm_model,
+                )
+                
+            # Validate suggestion against similar items
+            suggestion = pa._validator.validate(suggestion, similar_items)
+            
+            return {
+                "status": suggestion.status.value,
+                "price_low": suggestion.min_price,
+                "price_high": suggestion.max_price,
+                "suggested_price": suggestion.suggested_price,
+                "confidence": suggestion.confidence,
+                "reasoning": suggestion.reasoning,
+                "similar_items": [item.to_dict() for item in suggestion.similar_items],
+                "market_min_price": market_res["min_price"],
+                "market_max_price": market_res["max_price"],
+                "market_avg_price": market_res["avg_price"],
+                "market_snippets": market_res["snippets"],
+                "market_status": market_res.get("status", "ok"),
+                "market_message": market_res.get("message", ""),
+            }
     except Exception as exc:
         raise HTTPException(500, f"Lỗi dự đoán giá: {exc}")
 
