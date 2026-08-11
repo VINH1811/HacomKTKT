@@ -26,7 +26,7 @@ from statistics import median
 
 from .env_config import env_float, env_int, env_terms
 from .models import ItemRecord, Severity
-from .text_normalizer import strip_accents
+from .text_normalizer import normalize_name, strip_accents
 
 
 
@@ -127,14 +127,25 @@ def _is_usable_code(code: str) -> bool:
     return code.strip("0.-") != ""
 
 
+MIN_SPECIFIC_NAME_LEN = env_int("HSMT_MIN_ITEM_NAME_LEN", 12, 3, 200)
+
+# Thông số kỹ thuật trong tên: D20, DN100, 4x50, M300, 60x60, 0.95mm...
+_HAS_SPEC = re.compile(r"\d")
+
+
 def _is_generic_name(name: str) -> bool:
     """Tên mang tính tiêu đề/nhóm chứ không phải một món hàng cụ thể."""
     text = name.strip()
-    if len(text) < 12:
-        return True
     # "HỆ THỐNG ĐIỆN", "PHẦN NGẦM" — viết hoa toàn bộ là quy ước đặt tiêu đề mục.
     letters = [c for c in text if c.isalpha()]
-    return bool(letters) and all(c.isupper() for c in letters)
+    if letters and all(c.isupper() for c in letters):
+        return True
+    if len(text) >= MIN_SPECIFIC_NAME_LEN:
+        return False
+    # Tên ngắn nhưng CÓ thông số kỹ thuật vẫn là một món hàng cụ thể: "Ống PVC
+    # D20" chỉ 11 ký tự nhưng D20 đã đủ phân biệt. Chặn theo độ dài thuần khiến
+    # đúng loại tên này bị bỏ qua, không bao giờ so được giá.
+    return not _HAS_SPEC.search(text)
 
 
 def _group_key(item: ItemRecord) -> tuple[str, str, str] | None:
@@ -153,9 +164,15 @@ def _group_key(item: ItemRecord) -> tuple[str, str, str] | None:
         # ống gió), nên chỉ khớp mã thôi thì đơn giá khác nhau là chuyện bình thường.
         return ("mã hiệu", f"{item.normalized_code}|{name}", unit)
     if name and not _is_generic_name(item.item_name or ""):
-        # Tên rút gọn kiểu "KT: 1500x500" chỉ có nghĩa trong ngữ cảnh mục cha,
-        # nên kèm đường dẫn nhóm để không gộp hai thứ khác nhau.
-        return ("tên hạng mục", f"{name}|{item.normalized_path}", unit)
+        # Tên rút gọn kiểu "KT 1500x500" hay "Ống D125" chỉ có nghĩa trong ngữ
+        # cảnh mục cha, nên kèm đường dẫn nhóm.
+        #
+        # Kèm cả QUY CÁCH: với những tên ngắn như vậy, thông tin phân biệt thật
+        # sự nằm ở cột mô tả/quy cách chứ không nằm ở tên. Bỏ qua nó thì "Ống
+        # D125 UPVC PN10" và "Ống D125 UPVC PN8" bị coi là một, rồi báo lệch giá
+        # oan trong khi khác cấp áp lực thì khác giá là đúng.
+        spec = normalize_name(item.material or "")
+        return ("tên hạng mục", f"{name}|{item.normalized_path}|{spec}", unit)
     return None
 
 
