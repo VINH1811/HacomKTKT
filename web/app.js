@@ -803,7 +803,16 @@ function renderResult(jobId, data) {
     const warningCount = $("#warningCount");
     if (warningCount) warningCount.textContent = warnings.length ? `${warnings.length} cảnh báo` : "";
     const warningsEl = $("#warnings");
-    if (warningsEl) warningsEl.innerHTML = warnings.slice(0, 100).map((warning) => `<div class="warning-item">${escapeHtml(warning)}</div>`).join("");
+    if (warningsEl) {
+      const LIMIT = 100;
+      let html = warnings.slice(0, LIMIT).map((warning) => `<div class="warning-item">${escapeHtml(warning)}</div>`).join("");
+      // Cắt bớt mà không nói thì người dùng tưởng đã xem hết: hồ sơ thật
+      // thường có vài trăm cảnh báo.
+      if (warnings.length > LIMIT) {
+        html += `<div class="warning-item"><b>Còn ${warnings.length - LIMIT} cảnh báo nữa</b> — xem đầy đủ trong file báo cáo tải về.</div>`;
+      }
+      warningsEl.innerHTML = html;
+    }
   }
 
   const anomalies = data.anomalies || [];

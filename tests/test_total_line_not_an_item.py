@@ -65,13 +65,24 @@ def test_total_line_variants(tmp_path: Path):
 
 
 def test_real_items_starting_with_tong_are_kept(tmp_path: Path):
-    # "Tổng thầu phụ", "Tổng đài" là hạng mục thật — không được loại nhầm.
+    # "Tổng thầu phụ", "Tổng đài" là hạng mục thật — tên bắt đầu bằng "tổng"
+    # không được làm chúng bị loại khỏi phần đối chiếu.
     for index, label in enumerate(("Tổng thầu phụ phần cơ điện", "Tổng đài điện thoại IP")):
-        path = _book(tmp_path, [["", "", label, "", None, None, 5_000_000]],
+        path = _book(tmp_path, [["3", "", label, "bộ", 2, 2_500_000, 5_000_000]],
                      name=f"that{index}.xlsx")
         rows = [i for i in _load(path).items if (i.item_name or "").strip() == label]
         assert rows and rows[0].row_type is not RowType.SUMMARY, \
             f"{label!r} là hạng mục thật, không phải dòng tổng"
+        assert rows[0].is_comparable
+
+
+def test_amount_only_row_is_a_subtotal_whatever_its_name(tmp_path: Path):
+    # Chỉ có thành tiền, không đơn vị/khối lượng/đơn giá thì không đối chiếu
+    # được gì — dù tên là hạng mục nghe rất thật. Xem thêm
+    # tests/test_section_subtotal_rows.py.
+    path = _book(tmp_path, [["", "", "Tổng thầu phụ phần cơ điện", "", None, None, 5_000_000]])
+    rows = [i for i in _load(path).items if "Tổng thầu phụ" in (i.item_name or "")]
+    assert rows and rows[0].row_type is RowType.SUMMARY
 
 
 def test_total_line_without_amount_is_not_summary(tmp_path: Path):

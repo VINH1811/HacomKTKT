@@ -531,16 +531,22 @@ def load_workbook_items(
                 )
                 and (raw_ref_amount is not None or raw_bid_amount is not None)
             )
-            # Tiêu đề mục cấp cao (STT dạng "A", "I", "II"...) mang một subtotal ở
-            # cột thành tiền nhưng không có đơn vị/khối lượng/đơn giá: đây là dòng
-            # tổng phụ của mục, không phải hạng mục để so sánh.
+            # Dòng tổng phụ của mục: có thành tiền nhưng KHÔNG có đơn vị, khối
+            # lượng lẫn đơn giá. Thiếu cả ba thì không đối chiếu được gì — giữ lại
+            # chỉ sinh ra "hạng mục phát sinh ngoài Phụ lục 01" giả với giá trị
+            # bằng cả một hệ thống.
+            #
+            # Trước đây còn đòi STT phải dạng "A", "I", "II"..., nên các dòng tổng
+            # phụ đánh số thường ("1", "2") hoặc bỏ trống STT vẫn lọt qua. Kiểm
+            # trên hồ sơ thật: mọi dòng khớp điều kiện này đều là tổng phụ
+            # ("HỆ THỐNG ĐHKK VÀ THÔNG GIÓ", "CHI TIẾT CĂN HỘ"...), không có
+            # hạng mục thật nào bị loại nhầm.
             section_subtotal = (
                 bool(name)
                 and not unit
                 and ref_qty is None and bid_qty is None
                 and unit_price_total is None
                 and (raw_ref_amount is not None or raw_bid_amount is not None)
-                and bool(_ALPHA.match(normalized_stt) or _ROMAN.match(normalized_stt))
             )
             group = _looks_group(stt, name, unit, ref_qty, bid_qty, unit_price_total, raw_ref_amount, raw_bid_amount)
 
