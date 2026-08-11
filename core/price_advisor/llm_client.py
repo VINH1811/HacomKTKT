@@ -21,6 +21,26 @@ from .models import PriceSuggestion, SuggestionStatus
 
 logger = logging.getLogger(__name__)
 
+# Máy chủ LLM chạy tại chỗ. Nhận theo địa chỉ loopback / tên máy nội bộ, KHÔNG
+# theo số cổng — cổng là thứ người dùng hay đổi.
+_LOCAL_HOSTS = ("127.0.0.1", "localhost", "0.0.0.0", "[::1]", "host.docker.internal")
+# Họ mô hình có chế độ "thinking" cần tắt khi chạy tại chỗ. Bổ sung qua
+# PRICE_ADVISOR_THINKING_MODELS (cách nhau bằng dấu phẩy).
+_THINKING_MODELS = ("qwen3", "r1", "deepseek-r1", "qwq", "marco-o1")
+
+
+def _is_local_llm(base_url: Optional[str], model: str) -> bool:
+    """True khi đang gọi một máy chủ LLM nội bộ chạy mô hình có chế độ suy luận."""
+    url = (base_url or "").lower()
+    if "ollama" in url or any(host in url for host in _LOCAL_HOSTS):
+        return True
+    import os
+
+    extra = tuple(m.strip().lower()
+                  for m in os.getenv("PRICE_ADVISOR_THINKING_MODELS", "").split(",") if m.strip())
+    name = (model or "").lower()
+    return any(tag in name for tag in _THINKING_MODELS + extra)
+
 SYSTEM_PROMPT = """Bạn là chuyên gia phân tích giá vật tư xây dựng MEP (Cơ Điện). \
 Nhiệm vụ của bạn là phân tích dữ liệu giá lịch sử nội bộ và đưa ra gợi ý giá tham khảo cho hạng mục được yêu cầu.
 
@@ -219,8 +239,13 @@ class LLMClient:
         )
         
         extra_body = {}
-        # If calling local Ollama with reasoning models, disable thinking to prevent timeouts/token depletion
-        if self._base_url and ("11434" in self._base_url or "ollama" in self._base_url.lower() or "qwen3" in self._model.lower() or "r1" in self._model.lower()):
+        # Mô hình suy luận chạy tại chỗ cần tắt chế độ "thinking", nếu không sẽ
+        # hết token hoặc quá hạn chờ.
+        #
+        # Nhận diện máy chủ nội bộ theo ĐỊA CHỈ LOOPBACK chứ không theo số cổng:
+        # trước đây dò chuỗi "11434" nên ai đổi cổng (ví dụ 11435) là heuristic
+        # này im lặng thất bại.
+        if _is_local_llm(self._base_url, self._model):
             extra_body["think"] = False
 
         response = client.chat.completions.create(
