@@ -20,6 +20,8 @@ import xlsxwriter
 from openpyxl import load_workbook
 from rapidfuzz import fuzz
 
+from .models import UserFacingError
+
 STATUS_ANSWERED = "ĐÃ TRẢ LỜI"
 STATUS_UNANSWERED = "CHƯA TRẢ LỜI"
 STATUS_NOT_FOUND = "KHÔNG THẤY TRONG PHẢN HỒI"
@@ -94,6 +96,25 @@ def _find_header(rows: list[tuple], max_scan: int = 12) -> tuple[Optional[int], 
     return None, {}
 
 
+def describe_headers(path: str | Path, max_sheets: int = 4) -> str:
+    """Tiêu đề đọc được ở mỗi sheet — để báo cho người dùng khi không nhận ra bảng."""
+    path = Path(path)
+    wb = load_workbook(path, read_only=True, data_only=True)
+    seen: list[str] = []
+    try:
+        for ws in wb.worksheets[:max_sheets]:
+            if not hasattr(ws, "iter_rows"):
+                continue
+            for row in ws.iter_rows(min_row=1, max_row=12, values_only=True):
+                labels = [str(c).replace("\n", " ").strip() for c in row if str(c or "").strip()]
+                if len(labels) >= 3:
+                    seen.append(f"'{ws.title}': " + ", ".join(labels)[:150])
+                    break
+    finally:
+        wb.close()
+    return " | ".join(seen) if seen else "(không đọc được tiêu đề nào)"
+
+
 def parse_rfi_file(path: str | Path) -> list[RfiItem]:
     """Đọc mọi sheet dạng 'Nội dung làm rõ' trong file; mỗi dòng có Ý kiến CĐT là một yêu cầu."""
     path = Path(path)
@@ -138,6 +159,16 @@ def track_rfi(
 ) -> RfiTrackResult:
     """Ghép từng yêu cầu làm rõ của CĐT với dòng tương ứng trong file phản hồi."""
     requests = parse_rfi_file(request_path)
+    if not requests:
+        # Trả về 0 yêu cầu mà không nói gì là nguy hiểm: người dùng tưởng nhà thầu
+        # không phải làm rõ gì, trong khi thật ra hệ thống không đọc được bảng.
+        raise UserFacingError(
+            f"Không tìm thấy bảng làm rõ trong '{Path(request_path).name}'. "
+            "Bảng cần có cột nội dung đánh giá và cột ý kiến của chủ đầu tư "
+            "(yêu cầu làm rõ). Lưu ý bảng làm rõ HSYC — nhà thầu hỏi, chủ đầu tư "
+            "và tư vấn thiết kế trả lời — có cấu trúc khác và chưa hỗ trợ. "
+            f"Tiêu đề đọc được: {describe_headers(request_path)}"
+        )
     responses = parse_rfi_file(response_path)
     used: set[int] = set()
     tracked: list[TrackedRfi] = []

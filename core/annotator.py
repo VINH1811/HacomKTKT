@@ -109,6 +109,39 @@ def _comment_text(row: ComparedItem, max_chars: int = 6000) -> str:
     return text[:max_chars]
 
 
+# Bảng khối lượng thật dùng rất nhiều ô gộp. Ô KHÔNG phải góc trên trái của vùng
+# gộp là MergedCell: gán ghi chú thì lỗi cứng, còn gán màu thì chạy được nhưng
+# Excel hiển thị theo ô neo nên MÀU KHÔNG HIỆN RA — cảnh báo mất hút mà không ai
+# biết. Vì vậy mọi đánh dấu phải chuyển về ô neo của vùng gộp.
+def _merge_anchor_map(ws) -> dict[tuple[int, int], tuple[int, int]]:
+    # Đệm gắn thẳng vào worksheet chứ không dùng dict khóa theo id(): id có thể
+    # được cấp lại cho worksheet khác sau khi thu gom rác, dẫn tới đánh dấu nhầm
+    # file khi máy chủ xử lý nhiều hồ sơ liên tiếp.
+    cached = getattr(ws, "_hsmt_merge_anchors", None)
+    if cached is not None:
+        return cached
+    mapping: dict[tuple[int, int], tuple[int, int]] = {}
+    for rng in ws.merged_cells.ranges:
+        anchor = (rng.min_row, rng.min_col)
+        for row in range(rng.min_row, rng.max_row + 1):
+            for col in range(rng.min_col, rng.max_col + 1):
+                if (row, col) != anchor:
+                    mapping[(row, col)] = anchor
+    try:
+        ws._hsmt_merge_anchors = mapping
+    except AttributeError:
+        pass  # openpyxl đổi sang __slots__ thì chịu chậm, không được sai
+    return mapping
+
+
+def _markable_cell(ws, row: int, col: int):
+    """Ô thật sự nhận được màu và ghi chú tại vị trí này."""
+    anchor = _merge_anchor_map(ws).get((row, col))
+    if anchor is not None:
+        row, col = anchor
+    return ws.cell(row, col)
+
+
 def _append_comment(cell, text: str) -> None:
     if cell.comment and cell.comment.text:
         text = cell.comment.text + "\n\n--- HSMT Enterprise AI ---\n" + text
@@ -669,7 +702,7 @@ def annotate_bidder_workbook(
                     col = fields.get(key) if key else None
                     if not col:
                         continue  # không xác định được ô -> để AI_KIEM_TRA liệt kê
-                    cell = ws.cell(row_number, col)
+                    cell = _markable_cell(ws, row_number, col)
                     cell.fill = fill
                     _append_comment(cell, f"{diff.field}: {diff.message}"[:2000])
 
@@ -683,7 +716,8 @@ def annotate_bidder_workbook(
             if sheet_name not in wb.sheetnames or not cell_ref:
                 continue
             ws = wb[sheet_name]
-            target = ws[cell_ref]
+            probe = ws[cell_ref]
+            target = _markable_cell(ws, probe.row, probe.column)
             target.fill = _FILL[severity]
             target.font = Font(
                 name="Arial", size=target.font.sz, bold=True,

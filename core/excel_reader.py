@@ -52,6 +52,12 @@ _FLOOR_COLUMN = re.compile(r"\btang\s*(?:\d+|ham|h\b)", re.I)
 _FORMULA_ERROR = re.compile(r"#(?:REF!|DIV/0!|VALUE!|NAME\?|N/A|NUM!|NULL!)", re.I)
 _ROMAN = re.compile(r"^(?:[IVXLCDM]+)(?:[.\-]|$)", re.I)
 _ALPHA = re.compile(r"^[A-Z](?:[.\-]|$)", re.I)
+# Dòng tổng của bảng, tên đã bỏ dấu và thường hoá. Liệt kê ĐÚNG các cách viết
+# thay vì khớp tiền tố "tong", để "tổng thầu phụ" hay "tổng đài" — vốn là hạng
+# mục thật — không bị loại khỏi phần đối chiếu.
+_TOTAL_LINE = re.compile(
+    r"^tong(?:\s+(?:cong|tien|so|muc|gia tri|truoc thue|sau thue))?$"
+)
 _NUM_SECTION = re.compile(r"^\d+(?:\.\d+)*(?:[.\-]|$)")
 
 
@@ -510,10 +516,19 @@ def load_workbook_items(
             bid_amount = safe_amount(bid_qty, unit_price_total, raw_bid_amount)
 
             normalized_stt = normalize_stt(stt)
+            # Dòng tổng cộng thường chỉ ghi "TỔNG :" chứ không đủ chữ "tổng cộng".
+            # Trước đây bị coi là hạng mục thật rồi báo thành "phát sinh ngoài
+            # Phụ lục 01" với giá trị bằng cả gói thầu. Khớp theo TỪ đầu tiên nên
+            # "hệ thống", "tổng thầu phụ"... không bị nhận nhầm.
+            normalized_label = normalize_name(name)
             summary = (
                 not unit
                 and not stt
-                and any(token in normalize_name(name) for token in ("tong cong", "tong truoc thue", "thue vat", "tong sau thue"))
+                and (
+                    _TOTAL_LINE.match(normalized_label)
+                    or any(token in normalized_label
+                           for token in ("tong cong", "tong truoc thue", "thue vat", "tong sau thue"))
+                )
                 and (raw_ref_amount is not None or raw_bid_amount is not None)
             )
             # Tiêu đề mục cấp cao (STT dạng "A", "I", "II"...) mang một subtotal ở
