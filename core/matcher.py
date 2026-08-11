@@ -318,16 +318,63 @@ def _load_exclusive_groups() -> tuple[tuple[str, ...], ...]:
 _EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = _load_exclusive_groups()
 
 
+# Biến thể của CÙNG một vật liệu, quy về một tên. Thiếu bảng này thì "ống nhựa
+# uPVC" và "ống nhựa PVC" bị coi là hai loại khác nhau nên không ghép được với
+# nhau — lỗi thấy rõ ở hồ sơ cấp thoát nước và hạ tầng, nơi hai cách viết dùng
+# lẫn lộn. Ngành khác khai báo thêm qua HSMT_MATERIAL_ALIASES="cpvc=pvc,ss=inox".
+_DEFAULT_MATERIAL_ALIASES = {
+    "upvc": "pvc",
+    "hdpe": "pe", "mdpe": "pe", "ldpe": "pe",
+}
+
+
+def _load_material_aliases() -> dict[str, str]:
+    aliases = dict(_DEFAULT_MATERIAL_ALIASES)
+    for pair in os.getenv("HSMT_MATERIAL_ALIASES", "").split(","):
+        if "=" not in pair:
+            continue
+        source, target = pair.split("=", 1)
+        if source.strip() and target.strip():
+            aliases[source.strip().lower()] = target.strip().lower()
+    return aliases
+
+
+_MATERIAL_ALIASES: dict[str, str] = _load_material_aliases()
+
+
+# Từ chỉ HỌ vật liệu, bị bao hàm bởi tên loại cụ thể. "Ống nhựa uPVC" và "ống
+# uPVC" là một; giữ lại chữ "nhựa" ở một bên sẽ thành hai tập khác nhau và bị
+# chặn oan. Chỉ bỏ từ chung KHI đã có từ cụ thể cùng họ.
+_GENERIC_TERMS: dict[str, frozenset[str]] = {
+    "nhua": frozenset({"pvc", "ppr", "pe"}),
+}
+
+
+def _canonical_terms(terms: set[str]) -> frozenset[str]:
+    """Quy đồng cách viết: gộp biến thể và bỏ từ chỉ họ khi đã có loại cụ thể."""
+    mapped = {_MATERIAL_ALIASES.get(term, term) for term in terms}
+    for generic, specifics in _GENERIC_TERMS.items():
+        if generic in mapped and mapped & specifics:
+            mapped.discard(generic)
+    return frozenset(mapped)
+
+
 def _group_tokens(text: str, group: tuple[str, ...]) -> frozenset[str]:
     """Các thuộc tính của một nhóm xuất hiện trong mô tả (đã chuẩn hóa, bỏ dấu)."""
-    return frozenset(term for term in group if term in text)
+    return _canonical_terms({term for term in group if term in text})
 
 
 def _has_type_conflict(a: ItemRecord, b: ItemRecord) -> bool:
-    """True khi hai hạng mục nêu thuộc tính KHÁC NHAU trong cùng một nhóm loại trừ.
+    """True khi hai hạng mục nêu thuộc tính LOẠI TRỪ NHAU trong cùng một nhóm.
 
     Chỉ kết luận khi CẢ HAI bên đều có nêu — một bên bỏ trống thì coi như không
     xác định được, không phạt, để tránh chặn nhầm các mô tả viết tắt.
+
+    Đã thử nới điều kiện này (chặn khi hai tập rời nhau, hoặc khi không bên nào
+    là tập con của bên kia) rồi đo trên hồ sơ thật: cả hai cách đều sinh thêm
+    hơn 50 cặp ghép sai rành rành ("Đèn báo pha" ghép với "Vỏ tủ trong nhà").
+    Nới ở đây không an toàn — khác biệt về cách viết được xử lý ở bước quy đồng
+    từ vựng (_canonical_terms) thay vì bằng cách hạ điều kiện.
     """
     left = strip_accents(normalize_name(_combined_text(a, include_sheet=False)))
     right = strip_accents(normalize_name(_combined_text(b, include_sheet=False)))
