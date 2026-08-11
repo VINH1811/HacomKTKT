@@ -57,6 +57,10 @@ _HEADER_TERMS = (
     # Biến thể viết ngắn/khác thuật ngữ thường gặp ở file ngoài mẫu quen thuộc.
     "so luong", "số lượng", "hang muc", "hạng mục", "dv tinh", "đv tính",
     "noi dung", "nội dung", "so thu tu", "số thứ tự",
+    # Tiêu đề tiếng Anh: hồ sơ của nhà thầu nước ngoài dùng BOQ tiếng Anh. Thiếu
+    # các từ này thì dòng tiêu đề không đủ điểm để được nhận là bảng khối lượng,
+    # và cả sheet bị bỏ qua dù ánh xạ cột đã hiểu được từng cột.
+    "description", "unit price", "quantity", "amount", "unit", "item name",
 )
 
 _FLOOR_COLUMN = re.compile(r"\btang\s*(?:\d+|ham|h\b)", re.I)
@@ -275,8 +279,16 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         # mapping của các file đúng mẫu; loại trừ từ số liệu để không nhận nhầm.
         if text in {"tt", "so tt"} or "so thu tu" in text:
             candidates["stt"].append((90, col)); continue
-        if "dv tinh" in text or text == "dv":
+        if "dv tinh" in text or text == "dv" or re.fullmatch(r"d\W*v\W*t", text):
             candidates["unit"].append((80, col)); continue
+        # Viết tắt gộp: KLNT = khối lượng nhà thầu, KLDT = khối lượng dự thầu.
+        if re.search(r"\b(klnt|kldt)\b", text):
+            candidates["bid_quantity"].append((85, col)); continue
+        # "Giá trị", "Tổng tiền" là cách gọi khác của thành tiền. Ưu tiên thấp để
+        # không lấn cột "Thành tiền" thật khi cả hai cùng có mặt.
+        if text in {"gia tri", "tong tien", "tong gia tri", "gia tri hop dong"}:
+            field = "bid_amount" if role is DocumentRole.HSDT else "reference_amount"
+            candidates[field].append((40, col)); continue
         if "so luong" in text or re.search(r"\bsl\b", text):
             field = "bid_quantity" if role is DocumentRole.HSDT else "reference_quantity"
             candidates[field].append((45, col)); continue
@@ -285,6 +297,36 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
             candidates["item_name"].append((60, col)); continue
         if text == "gia" or text == "gia chao" or text == "don gia chao":
             candidates["unit_price_total"].append((55, col)); continue
+
+        # Tiêu đề tiếng Anh (hồ sơ của nhà thầu nước ngoài). Ưu tiên THẤP NHẤT để
+        # không bao giờ lấn tiêu đề tiếng Việt; cụm dài xét trước cụm ngắn để
+        # "unit price" không bị "unit" giành mất.
+        if re.search(r"\b(unit\s*price|unit\s*rate|\brate\b)\b", text):
+            candidates["unit_price_total"].append((20, col)); continue
+        if re.search(r"\b(amount|total\s*price|total\s*cost)\b", text):
+            field = "bid_amount" if role is DocumentRole.HSDT else "reference_amount"
+            candidates[field].append((20, col)); continue
+        if re.search(r"\b(description|item\s*name|work\s*item)\b", text):
+            candidates["item_name"].append((20, col)); continue
+        if re.search(r"\b(unit|uom)\b", text):
+            candidates["unit"].append((20, col)); continue
+        if re.search(r"\b(qty|quantity)\b", text):
+            field = "bid_quantity" if role is DocumentRole.HSDT else "reference_quantity"
+            candidates[field].append((20, col)); continue
+
+    # Không có cột tên hạng mục nào thì mượn cột vật tư: nhiều bảng đặt tên
+    # "Tên vật tư" hay "Danh mục vật tư" cho chính cột mô tả công việc. Thiếu
+    # bước này, cả sheet đọc ra 0 hạng mục chỉ vì cách gọi tên cột.
+    if not candidates.get("item_name") and candidates.get("material"):
+        best = max(candidates["material"], key=lambda pair: (pair[0], -pair[1]))
+        # Chuyển hẳn cột sang item_name, không để hai trường cùng tranh một cột
+        # (bộ phân giải xét theo thứ tự chèn nên material sẽ giành mất).
+        remaining = [pair for pair in candidates["material"] if pair[1] != best[1]]
+        if remaining:
+            candidates["material"] = remaining
+        else:
+            del candidates["material"]
+        candidates["item_name"].append((30, best[1]))
 
     used_cols: set[int] = set()
     for field, values in candidates.items():
