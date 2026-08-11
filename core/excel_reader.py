@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Optional
 
+from .env_config import env_int
 from .excel_io import list_sheets_fast, read_workbook_matrices, scan_xlsx_issues
 from .models import DocumentRole, ItemRecord, RowType, WorkbookData
 from .number_parser import math_error, parse_number, safe_amount
@@ -32,10 +34,19 @@ COLUMN_PATTERNS: dict[str, list[tuple[str, int]]] = {
     "note": [("ghi chu", 10), ("ghi chú", 10), ("remark", 7)],
 }
 
+# Sheet không chứa bảng khối lượng. So khớp CHÍNH XÁC theo tên đã chuẩn hoá, nên
+# "Tổng hợp khối lượng điện" vẫn được đọc bình thường. Ngành khác có sheet phụ
+# tên khác thì khai báo thêm qua HSMT_SKIP_SHEETS (cách nhau bằng dấu phẩy).
 SKIP_SHEETS = {
     "tong hop", "tổng hợp", "dieu khoan", "điều khoản", "bia", "bìa",
     "muc luc", "mục lục", "chart", "dashboard",
-}
+} | {s.strip() for s in os.getenv("HSMT_SKIP_SHEETS", "").split(",") if s.strip()}
+
+# Sheet bị bỏ qua mà lại rất nhiều dòng thì nhiều khả năng chứa bảng khối lượng
+# thật — phải báo thay vì lặng lẽ đánh rơi cả sheet. Đo trên hồ sơ thật: sheet
+# tổng hợp/bìa hợp lệ chỉ 25–32 dòng, còn bảng khối lượng tới hàng nghìn dòng,
+# nên ngưỡng nằm giữa hai vùng đó.
+_SKIP_WARN_MIN_ROWS = env_int("HSMT_SKIP_SHEET_WARN_ROWS", 150, 1, 1_000_000)
 
 _HEADER_TERMS = (
     "stt", "dien giai", "diễn giải", "noi dung cong viec", "nội dung công việc",
@@ -236,7 +247,7 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         if "ghi chu" in text:
             candidates["note"].append((70 if col < 10 else 60, col)); continue
 
-        # Generic files without the Hacom multi-level header.
+        # Generic files without the multi-level grouped header.
         if "ma hieu" in text or "ma cong tac" in text:
             candidates["item_code"].append((70, col)); continue
         if (("don gia" in text or re.search(r"\b(dgth|dg)\b", text))
@@ -393,6 +404,7 @@ def load_workbook_items(
     sheet_info: list[dict[str, Any]] = []
     totals: dict[str, float] = defaultdict(float)
     skipped_normalized = {normalize_name(value) for value in SKIP_SHEETS}
+    skipped_with_data: list[str] = []
 
     if scan.issues:
         formula_count = sum(issue.kind == "FORMULA_ERROR" for issue in scan.issues)
@@ -414,6 +426,8 @@ def load_workbook_items(
         if selected_sheets is not None and sheet.name not in selected_sheets:
             continue
         if selected_sheets is None and sheet_norm in skipped_normalized:
+            if len(sheet.rows) >= _SKIP_WARN_MIN_ROWS:
+                skipped_with_data.append(f"{sheet.name} ({len(sheet.rows)} dòng)")
             continue
         if not sheet.rows:
             continue
@@ -696,6 +710,13 @@ def load_workbook_items(
         from .internal_consistency import annotate_price_inconsistencies
 
         warnings.extend(annotate_price_inconsistencies(items))
+
+    if skipped_with_data:
+        warnings.append(
+            "Đã BỎ QUA các sheet sau vì tên nằm trong danh sách sheet phụ, nhưng chúng "
+            f"vẫn có nhiều dòng: {'; '.join(skipped_with_data)}. Nếu đây thật sự là bảng "
+            "khối lượng, hãy đổi tên sheet hoặc khai báo lại HSMT_SKIP_SHEETS."
+        )
 
     if not items:
         warnings.append("Không đọc được hạng mục dữ liệu nào từ workbook")

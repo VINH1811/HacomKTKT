@@ -163,7 +163,7 @@ def load_pl2_requirements(
     """Load official PL02 requirements with Calamine-first reading.
 
     Mặc định KHÔNG lọc sheet theo tên dự án (dùng được cho mọi dự án). Có thể
-    bật lọc bằng biến môi trường HSMT_PL2_PROJECT_KEYWORDS (vd "hacom,mall")
+    bật lọc bằng biến môi trường HSMT_PL2_PROJECT_KEYWORDS (vd "trung tam,thuong mai")
     hoặc truyền project_keywords trực tiếp.
     """
     path = Path(path)

@@ -1,4 +1,4 @@
-"""PriceAdvisor — LLM-powered RAG price suggestion module for HacomKTKT.
+"""PriceAdvisor — LLM-powered RAG price suggestion module.
 
 This package adds AI-based price suggestions to the existing tender
 comparison workflow.  It is disabled by default and has zero impact on

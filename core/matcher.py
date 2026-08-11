@@ -13,6 +13,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 
 from .config import EnterpriseConfig
+from .env_config import env_float, env_groups
 from .models import ItemRecord, MatchKind, MatchResult, RowType, WorkbookData
 from .text_normalizer import normalize_name, strip_accents, token_set
 
@@ -303,13 +304,6 @@ _DEFAULT_EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = (
 )
 
 
-def _env_float(name: str, default: float, low: float, high: float) -> float:
-    try:
-        return max(low, min(high, float(os.getenv(name, str(default)))))
-    except (TypeError, ValueError):
-        return default
-
-
 def _load_exclusive_groups() -> tuple[tuple[str, ...], ...]:
     """Nhóm thuộc tính loại trừ nhau, mở rộng được cho ngành khác.
 
@@ -318,13 +312,7 @@ def _load_exclusive_groups() -> tuple[tuple[str, ...], ...]:
     cách nhau bằng dấu chấm phẩy, các từ trong nhóm cách nhau bằng dấu phẩy:
         HSMT_EXCLUSIVE_GROUPS="be tong,nhua duong,cap phoi;m250,m300,m350"
     """
-    extra: list[tuple[str, ...]] = []
-    raw = os.getenv("HSMT_EXCLUSIVE_GROUPS", "")
-    for chunk in raw.split(";"):
-        terms = tuple(t.strip().lower() for t in chunk.split(",") if t.strip())
-        if len(terms) > 1:
-            extra.append(terms)
-    return _DEFAULT_EXCLUSIVE_GROUPS + tuple(extra)
+    return _DEFAULT_EXCLUSIVE_GROUPS + env_groups("HSMT_EXCLUSIVE_GROUPS")
 
 
 _EXCLUSIVE_GROUPS: tuple[tuple[str, ...], ...] = _load_exclusive_groups()
@@ -357,7 +345,7 @@ def _has_type_conflict(a: ItemRecord, b: ItemRecord) -> bool:
 # đổi mã" thay vì "thêm mới". Đo trên hồ sơ thật: mọi cặp ghép cấu trúc đúng đều
 # có điểm giống tên >= 0.90, còn cặp gán bừa chỉ 0.35 — ngưỡng dưới đây nằm giữa
 # hai vùng đó nên chặn được cặp sai mà không đụng cặp đúng.
-_STRUCTURE_MIN_LEXICAL = _env_float("HSMT_STRUCTURE_MIN_LEXICAL", 0.55, 0.0, 1.0)
+_STRUCTURE_MIN_LEXICAL = env_float("HSMT_STRUCTURE_MIN_LEXICAL", 0.55, 0.0, 1.0)
 
 
 def _structure_key_is_stale(

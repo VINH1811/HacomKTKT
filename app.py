@@ -31,13 +31,19 @@ from security import configure_offline_environment, deny_external_network
 configure_offline_environment()
 
 from core.config import EnterpriseConfig
-from core.dossier_check import DEFAULT_CHECKLIST, evaluate_dossier, export_dossier_report
+from core.dossier_check import (
+    DEFAULT_CHECKLIST,
+    evaluate_dossier,
+    export_dossier_report,
+    load_checklist,
+)
 from core.hsmt_checklist import (
     SUPPORTED_SUFFIXES as HSMT_SUPPORTED_SUFFIXES,
     build_from_file as build_hsmt_checklist,
     to_checklist_items as hsmt_to_checklist_items,
 )
 from core.excel_io import diagnose_excel_file
+from core.bidder_name import guess_bidder_name, strip_shared_tokens
 from core.models import CompareThresholds, UserFacingError
 from core.pipeline import compare_bidder_files, compare_tender_files
 from core.reporter import export_consolidated_summary
@@ -121,48 +127,10 @@ def _sanitize(name: str, fallback: str) -> str:
     return clean[:180] or fallback
 
 
-# Chỉ chứa thuật ngữ đấu thầu CHUNG — KHÔNG gắn cứng tên dự án/gói thầu cụ thể.
-# Tên dự án dùng chung được loại tự động bằng _strip_shared_tokens khi có nhiều file.
-_BIDDER_NOISE = re.compile(
-    r"ho\s*so|chao\s*gia|bang\s*chao\s*gia|chi\s*tiet\s*gia|tong\s*hop|noi\s*dung|phan\s*hoi|"
-    r"lam\s*ro|\bhscg\b|\bhsyc\b|\bhsdt\b|\bhsmt\b|\bboq\b|\bmep\b|\bme\b|"
-    r"rev\s*\d+|\btskt\b|final|\bv\d\b|\bthau\b|goi\s*thau|danh\s*gia|\bpl\s*0?\d\b|\brfi\b|so\s*sanh",
-    re.IGNORECASE,
-)
-
-
-def _guess_bidder_name(filename: str) -> str:
-    """Tách tên nhà thầu từ tên file (bỏ ngày, chỉ số, từ kỹ thuật). Fallback khi
-    giao diện không gửi tên — logic giống hệt hàm guessBidderName ở web/app.js."""
-    s = re.sub(r"\.[a-z0-9]+$", "", filename or "", flags=re.IGNORECASE).replace("_", " ")
-    s = re.sub(r"\(.*?\)", " ", s)
-    s = re.sub(r"\b\d{1,4}[.\-/]\d{1,2}(?:[.\-/]\d{1,4})?\b", " ", s)
-    s = re.sub(r"\b\d{5,8}\b", " ", s)
-    s = re.sub(r"^\s*\d+\s*[.\-)]\s*", "", s)
-    s = _BIDDER_NOISE.sub(" ", s)
-    s = re.sub(r"\s+", " ", s).strip(" -_.+")
-    s = re.sub(r"^\d+\s+", "", s)
-    s = re.sub(r"\s+\d+$", "", s).strip()
-    if s and s == s.upper() and " " not in s:
-        s = s[:1] + s[1:].lower()
-    return s
-
-
-def _strip_shared_tokens(names: list[str]) -> list[str]:
-    """Bỏ các token xuất hiện ở MỌI tên (tên dự án/gói thầu dùng chung), giữ phần
-    khác biệt = tên nhà thầu. Tổng quát cho mọi dự án, không gắn cứng."""
-    toks = [str(n or "").split() for n in names]
-    if len(toks) < 2:
-        return names
-    low = [[t.lower() for t in ts] for ts in toks]
-    shared = {t for t in low[0] if all(t in lst for lst in low)}
-    if not shared:
-        return names
-    result = []
-    for ts in toks:
-        kept = [t for t in ts if t.lower() not in shared]
-        result.append(" ".join(kept) if kept else " ".join(ts))
-    return result
+# Logic đoán tên nhà thầu nằm ở core/bidder_name.py để script xử lý dữ liệu
+# dùng chung, khỏi phải chép lại rồi gắn cứng tên từng nhà thầu.
+_guess_bidder_name = guess_bidder_name
+_strip_shared_tokens = strip_shared_tokens
 
 
 async def _save_upload(
@@ -575,10 +543,15 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                 # Đánh giá tính đầy đủ hồ sơ: mỗi file ZIP là hồ sơ một nhà thầu.
                 # Có HSMT thì checklist dựng theo yêu cầu của chính gói thầu đó,
                 # không có thì dùng bộ 12 đầu mục mặc định.
-                checklist = DEFAULT_CHECKLIST
-                checklist_source = {"origin": "Checklist mặc định (12 đầu mục)",
-                                    "meta": [("Nguồn", "Bộ mặc định của hệ thống")],
-                                    "evidences": []}
+                checklist = load_checklist()
+                custom = checklist is not DEFAULT_CHECKLIST
+                checklist_source = {
+                    "origin": (f"Checklist khai báo riêng ({len(checklist)} đầu mục)" if custom
+                               else f"Checklist mặc định ({len(checklist)} đầu mục)"),
+                    "meta": [("Nguồn", os.getenv("HSMT_DOSSIER_CHECKLIST", "") if custom
+                              else "Bộ mặc định của hệ thống")],
+                    "evidences": [],
+                }
                 hsmt = request.get("hsmt")
                 if hsmt:
                     _update(job_id, progress=10, message="Đang đọc hồ sơ mời thầu")

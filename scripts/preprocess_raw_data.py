@@ -1,14 +1,62 @@
+"""Gom bảng chào giá thô thành một bảng giá sạch để nạp vào CSDL giá.
+
+Không gắn cứng dự án, nhà thầu hay đường dẫn nào: thư mục nguồn và siêu dữ liệu
+đều truyền qua tham số dòng lệnh, tên nhà thầu đoán bằng core.bidder_name dùng
+chung với web.
+
+    python scripts/preprocess_raw_data.py <thư_mục_chào_giá> [-o data/cleaned_prices.xlsx]
+        [--project "Tên dự án"] [--project-type "..."] [--year 2025] [--region "Miền Bắc"]
+"""
+
+import argparse
 import os
 import re
+import sys
 from pathlib import Path
-import pandas as pd
+
 import openpyxl
+import pandas as pd
 
-print("=== KHỞI CHẠY TIỀN XỬ LÝ DỮ LIỆU BÁO GIÁ THÔ (BẢN TỐI ƯU SỬA LỖI CHARTSHEET) ===")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from core.bidder_name import (  # noqa: E402
+    guess_bidder_from_column,
+    guess_bidder_name,
+    strip_shared_tokens,
+)
 
-base_dir = Path(r"c:\KHMT\HacomHolding\5. Tong hop chao gia 11.12.2025-20260628T172908Z-3-001\5. Tong hop chao gia 11.12.2025")
-output_dir = Path(r"c:\KHMT\HacomHolding\HacomKTKT\data")
-output_file = output_dir / "cleaned_prices.xlsx"
+# Khoảng đơn giá hợp lệ: dưới cận dưới thường là số lượng/thứ tự bị đọc nhầm,
+# trên cận trên thường là dòng tổng cộng. Chỉnh được cho ngành có đơn giá khác.
+DEFAULT_MIN_PRICE = 500.0
+DEFAULT_MAX_PRICE = 5_000_000_000.0
+
+# Sheet không chứa bảng khối lượng. Bổ sung qua HSMT_SKIP_SHEETS (cách nhau dấu phẩy).
+SKIP_SHEETS = {"tổng hợp", "tong hop", "cover", "trang bìa", "trang bia"} | {
+    s.strip().lower() for s in os.getenv("HSMT_SKIP_SHEETS", "").split(",") if s.strip()
+}
+
+_parser = argparse.ArgumentParser(description=__doc__,
+                                  formatter_class=argparse.RawDescriptionHelpFormatter)
+_parser.add_argument("source", help="thư mục chứa các file chào giá (.xlsx)")
+_parser.add_argument("-o", "--output", default="data/cleaned_prices.xlsx",
+                     help="tệp Excel kết quả (mặc định: data/cleaned_prices.xlsx)")
+_parser.add_argument("--project", default="", help="tên dự án ghi vào từng bản ghi")
+_parser.add_argument("--project-type", default="", help="loại công trình")
+_parser.add_argument("--year", type=int, default=None, help="năm của mặt bằng giá")
+_parser.add_argument("--region", default="", help="vùng miền của mặt bằng giá")
+_parser.add_argument("--min-price", type=float, default=DEFAULT_MIN_PRICE)
+_parser.add_argument("--max-price", type=float, default=DEFAULT_MAX_PRICE)
+_args = _parser.parse_args()
+
+base_dir = Path(_args.source).expanduser().resolve()
+output_file = Path(_args.output).expanduser().resolve()
+output_dir = output_file.parent
+
+if not base_dir.is_dir():
+    _parser.error(f"Không thấy thư mục nguồn: {base_dir}")
+
+print("=== TIỀN XỬ LÝ DỮ LIỆU BÁO GIÁ THÔ ===")
+print(f"Nguồn : {base_dir}")
+print(f"Kết quả: {output_file}")
 
 os.makedirs(output_dir, exist_ok=True)
 
@@ -61,6 +109,18 @@ if not xlsx_files:
     print(f"ERROR: Không tìm thấy file Excel nào trong {base_dir}")
     exit(1)
 
+# Tên nhà thầu theo file: đoán cho TOÀN BỘ file rồi mới bỏ phần dùng chung, nhờ
+# vậy tên dự án lặp ở mọi file tự rụng — xử lý từng file riêng thì không thấy được.
+# Quét cả thư mục thường lẫn file khác (bảng tổng hợp, file kết quả) nên tên dự
+# án không xuất hiện ở đủ 100% tên file — dùng ngưỡng đa số thay vì tuyệt đối.
+_file_bidders = dict(zip(
+    xlsx_files,
+    strip_shared_tokens([guess_bidder_name(f.name) for f in xlsx_files], min_ratio=0.6),
+))
+print("Nhà thầu nhận ra từ tên file:")
+for _f, _name in _file_bidders.items():
+    print(f"  {_name or '(không rõ)':<28} <- {_f.name[:58]}")
+
 for file_path in xlsx_files:
     print(f"\nProcessing file: {file_path.name}")
     try:
@@ -71,7 +131,7 @@ for file_path in xlsx_files:
         
         # Duyệt qua toàn bộ các sheet trong file (Trừ các sheet Tổng hợp)
         for sheet_name in wb.sheetnames:
-            if sheet_name.lower() in ["tổng hợp", "tong hop", "cover", "trang bìa"]:
+            if sheet_name.strip().lower() in SKIP_SHEETS:
                 continue
                 
             ws = wb[sheet_name]
@@ -229,25 +289,13 @@ for file_path in xlsx_files:
                         continue
                     price_val = clean_price(row[price_col_idx])
                     
-                    # Chỉ nhận các giá trị đơn giá từ 500đ đến 5 tỷ
-                    if price_val is not None and 500 <= price_val <= 5000000000:
-                        # Xác định nhà thầu
-                        contractor = "N/A"
-                        col_title_lower = col_title.lower()
-                        file_name_lower = file_path.name.lower()
-                        
-                        if "linh anh" in col_title_lower or "linh anh" in file_name_lower:
-                            contractor = "Linh Anh"
-                        elif "searefico" in col_title_lower or "searefico" in file_name_lower:
-                            contractor = "Searefico"
-                        elif "van khanh" in col_title_lower or "van khanh" in file_name_lower or "vankhanh" in file_name_lower:
-                            contractor = "Van Khanh"
-                        elif "van lang" in col_title_lower or "vlc" in col_title_lower or "van lang" in file_name_lower or "vlc" in file_name_lower:
-                            contractor = "VLC"
-                        elif "tri trung" in col_title_lower or "tri trung" in file_name_lower:
-                            contractor = "Tri Trung"
-                        
-                        # Tạo bản ghi
+                    if price_val is not None and _args.min_price <= price_val <= _args.max_price:
+                        # Tiêu đề cột nêu đích danh nhà thầu thì ưu tiên (một file
+                        # tổng hợp có thể chứa nhiều cột giá của nhiều nhà thầu);
+                        # không có thì lấy tên suy từ tên file.
+                        contractor = (guess_bidder_from_column(col_title)
+                                      or _file_bidders.get(file_path, ""))
+
                         rec = {
                             "item_name": item_name,
                             "item_code": "",
@@ -255,11 +303,11 @@ for file_path in xlsx_files:
                             "unit_price": price_val,
                             "total_price": None,
                             "quantity": None,
-                            "project_name": "Hacom Mall",
-                            "project_type": "Trung tâm thương mại",
-                            "year": 2025,
-                            "region": "Miền Bắc",
-                            "brand": f"{brand} ({contractor})" if brand and contractor and contractor != "N/A" else (brand or contractor),
+                            "project_name": _args.project or base_dir.name,
+                            "project_type": _args.project_type,
+                            "year": _args.year,
+                            "region": _args.region,
+                            "brand": f"{brand} ({contractor})" if brand and contractor else (brand or contractor),
                             "origin": origin,
                             "material_spec": spec,
                             "source_file": f"{file_path.name} | {sheet_name}"

@@ -24,34 +24,17 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from statistics import median
 
+from .env_config import env_float, env_int, env_terms
 from .models import ItemRecord, Severity
 from .text_normalizer import strip_accents
 
-def _env_float(name: str, default: float, low: float, high: float) -> float:
-    try:
-        return max(low, min(high, float(os.getenv(name, str(default)))))
-    except (TypeError, ValueError):
-        return default
-
-
-def _env_int(name: str, default: int, low: int, high: int) -> int:
-    try:
-        return max(low, min(high, int(os.getenv(name, str(default)))))
-    except (TypeError, ValueError):
-        return default
-
-
-def _env_terms(name: str) -> set[str]:
-    """Từ vựng bổ sung do người dùng khai báo, phân tách bằng dấu phẩy."""
-    raw = os.getenv(name, "")
-    return {term.strip().lower() for term in raw.split(",") if term.strip()}
 
 
 # Bỏ qua chênh lệch nhỏ hơn ngưỡng này — thường chỉ là làm tròn khi lập bảng.
-DEFAULT_TOLERANCE_PCT = _env_float("HSMT_PRICE_CONSISTENCY_TOLERANCE", 0.005, 0.0, 1.0)
+DEFAULT_TOLERANCE_PCT = env_float("HSMT_PRICE_CONSISTENCY_TOLERANCE", 0.005, 0.0, 1.0)
 # Nhóm quá lớn thường là hạng mục gộp chung tên ("Đầu vào:", "Đầu ra:") chứ không
 # phải cùng một thứ hàng; liệt kê ra chỉ gây nhiễu.
-MAX_GROUP_SIZE = _env_int("HSMT_PRICE_CONSISTENCY_MAX_GROUP", 40, 2, 10_000)
+MAX_GROUP_SIZE = env_int("HSMT_PRICE_CONSISTENCY_MAX_GROUP", 40, 2, 10_000)
 
 
 @dataclass
@@ -129,7 +112,7 @@ class PriceInconsistency:
 # HSMT_LUMP_SUM_UNITS (danh sách cách nhau bằng dấu phẩy, không dấu).
 _LUMP_SUM_UNITS = {
     "lo", "goi", "he thong", "ht", "tron goi", "tron bo", "hm", "khoan", "tt",
-} | _env_terms("HSMT_LUMP_SUM_UNITS")
+} | env_terms("HSMT_LUMP_SUM_UNITS")
 
 # Mã hiệu thật là mã kỹ thuật (GST852RP, DI-M9102+DB-M01, AF.32317). Chuỗi có
 # dấu tiếng Việt hoặc khoảng trắng thường là ghi chú bị đọc nhầm vào cột mã

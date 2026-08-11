@@ -12,6 +12,8 @@ thẩm định nội dung từng tài liệu.
 
 from __future__ import annotations
 
+import json
+import os
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -39,7 +41,10 @@ class ChecklistItem:
     extensions: tuple[str, ...] = ()   # rỗng = mọi định dạng
 
 
-# Checklist mặc định — xây từ cấu trúc hồ sơ thật của 4 nhà thầu gói Hacom Mall.
+# Checklist dự phòng, dùng thuật ngữ đấu thầu chung. Chỉ áp dụng khi không có
+# hồ sơ mời thầu để dựng checklist riêng cho gói thầu (xem core/hsmt_checklist.py).
+# Gói thầu yêu cầu bộ tài liệu khác thì khai báo tệp JSON qua biến môi trường
+# HSMT_DOSSIER_CHECKLIST thay vì sửa mã — xem load_checklist().
 DEFAULT_CHECKLIST: tuple[ChecklistItem, ...] = (
     ChecklistItem("don_chao_gia", "Đơn chào giá / Đơn dự thầu",
                   (r"don\s*chao\s*gia", r"thu\s*chao\s*gia", r"don\s*du\s*thau")),
@@ -76,6 +81,34 @@ STATUS_OPTIONAL_MISSING = "KHÔNG CÓ (không bắt buộc)"
 
 # Bỏ qua file rác/hệ thống khi quét.
 _IGNORED_NAMES = {"thumbs.db", ".ds_store", "desktop.ini"}
+
+
+def load_checklist() -> tuple[ChecklistItem, ...]:
+    """Checklist dự phòng, ưu tiên tệp JSON khai báo ở HSMT_DOSSIER_CHECKLIST.
+
+    Mỗi phần tử JSON: {"key", "label", "patterns": [...], "min_count", "required",
+    "extensions": [...]}. Tệp hỏng hoặc thiếu trường bắt buộc thì dùng bộ mặc
+    định — chấm thiếu tài liệu vì lỗi cấu hình còn tệ hơn dùng bộ chung.
+    """
+    path = os.getenv("HSMT_DOSSIER_CHECKLIST", "").strip()
+    if not path:
+        return DEFAULT_CHECKLIST
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        items = tuple(
+            ChecklistItem(
+                key=str(entry["key"]),
+                label=str(entry["label"]),
+                patterns=tuple(str(p) for p in entry["patterns"]),
+                min_count=int(entry.get("min_count", 1)),
+                required=bool(entry.get("required", True)),
+                extensions=tuple(str(e).lower() for e in entry.get("extensions", ())),
+            )
+            for entry in raw
+        )
+        return items or DEFAULT_CHECKLIST
+    except Exception:
+        return DEFAULT_CHECKLIST
 
 
 @dataclass

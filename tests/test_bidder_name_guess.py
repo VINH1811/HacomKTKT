@@ -8,6 +8,7 @@ không chỉ gói Hacom Mall đã dùng khi phát triển.
 from __future__ import annotations
 
 import app
+from core.bidder_name import BIDDER_NOISE, guess_bidder_name, strip_shared_tokens
 
 
 def test_guess_strips_generic_tender_terms():
@@ -19,8 +20,16 @@ def test_guess_strips_generic_tender_terms():
 
 def test_no_hardcoded_project_name_in_noise_list():
     # Không được gắn cứng "hacom"/"mall" (hoặc bất kỳ tên dự án nào) trong bộ lọc.
-    assert "hacom" not in app._BIDDER_NOISE.pattern.lower()
-    assert "mall" not in app._BIDDER_NOISE.pattern.lower()
+    # Bộ lọc nay nằm ở core/bidder_name.py để script xử lý dữ liệu dùng chung.
+    pattern = BIDDER_NOISE.pattern.lower()
+    assert "hacom" not in pattern
+    assert "mall" not in pattern
+
+
+def test_app_reuses_the_shared_module():
+    # Web và script phải dùng CÙNG một bộ luật, nếu không sẽ đoán ra hai tên khác nhau.
+    assert app._guess_bidder_name is guess_bidder_name
+    assert app._strip_shared_tokens is strip_shared_tokens
 
 
 def test_shared_token_stripping_isolates_bidder_hacom():

@@ -167,7 +167,7 @@ def _vector_to_postgres(vector: list[float]) -> str:
 # Tách TÊN NHÀ THẦU khỏi cột brand.
 #
 # Dữ liệu lịch sử không có cột nhà thầu riêng: tên nhà thầu bị gộp vào brand
-# theo dạng "Hãng (Nhà thầu)", ví dụ "ACIT (Linh Anh)", "Đệ Nhất / Tiền Phong (VLC)".
+# theo dạng "Hãng (Nhà thầu)", ví dụ "Hãng X (Công ty ABC)", "Hãng Y / Hãng Z (Công ty DEF)".
 # Nhưng trong ngoặc cũng có thể là VIẾT TẮT CỦA HÃNG ("Á Châu (ACIT)"), nên không
 # thể lấy bừa mọi cụm trong ngoặc.
 #

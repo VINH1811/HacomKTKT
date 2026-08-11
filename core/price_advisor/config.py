@@ -2,7 +2,7 @@
 
 All settings are read from environment variables with sensible defaults.
 The module is disabled by default (PRICE_ADVISOR_ENABLED=0) so it has
-zero impact on the existing HacomKTKT system until explicitly turned on.
+zero impact on the rest of the system until explicitly turned on.
 """
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ class PriceAdvisorConfig:
     db_path: Path = Path("data/price_db.sqlite")
     db_host: str = "localhost"
     db_port: int = 5432
-    db_name: str = "hacom_ktkt"
+    db_name: str = "hsmt_price_db"   # tên CSDL chung, không gắn tên khách hàng
     db_user: str = "postgres"
     db_password: str = "postgres"
 
@@ -109,7 +109,7 @@ class PriceAdvisorConfig:
             db_path=Path(os.getenv("PRICE_ADVISOR_DB_PATH", "data/price_db.sqlite")),
             db_host=os.getenv("PRICE_ADVISOR_DB_HOST", "localhost").strip(),
             db_port=_int_env("PRICE_ADVISOR_DB_PORT", 5432, 1, 65535),
-            db_name=os.getenv("PRICE_ADVISOR_DB_NAME", "hacom_ktkt").strip(),
+            db_name=os.getenv("PRICE_ADVISOR_DB_NAME", "hsmt_price_db").strip(),
             db_user=os.getenv("PRICE_ADVISOR_DB_USER", "postgres").strip(),
             db_password=os.getenv("PRICE_ADVISOR_DB_PASSWORD", "postgres").strip(),
             max_similar_results=_int_env("PRICE_ADVISOR_MAX_RESULTS", 5, 1, 20),
