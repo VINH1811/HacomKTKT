@@ -670,7 +670,9 @@ function renderStandaloneResult(jobId, data) {
       metrics: [
         ["Tổng bản cũ (đ)", s.total_old], ["Tổng bản mới (đ)", s.total_new],
         ["Chênh lệch (đ)", s.total_delta], ["Hạng mục thay đổi", s.changed],
-        ["Thêm mới", s.added], ["Đã xoá", s.removed]
+        ["Thêm mới", s.added], ["Đã xoá", s.removed],
+        ["Lệch đơn giá còn lại", (s.price_issue_new || 0) + (s.price_issue_remains || 0)],
+        ["Lệch đơn giá đã sửa", s.price_issue_fixed || 0]
       ]
     },
     rfi: {
@@ -697,9 +699,29 @@ function renderStandaloneResult(jobId, data) {
     .join("");
 
   let details = "";
-  if (kind === "version" && typeof s.total_delta_pct === "number") {
-    const pct = (s.total_delta_pct * 100).toFixed(2);
-    details = `<div class="block-title"><h3>Mức thay đổi tổng thành tiền</h3></div><div class="mode-note ${s.total_delta_pct >= 0 ? "multi" : "single"}">Bản mới ${s.total_delta_pct >= 0 ? "TĂNG" : "GIẢM"} ${Math.abs(pct)}% so với bản cũ.</div>`;
+  if (kind === "version") {
+    if (typeof s.total_delta_pct === "number") {
+      const pct = (s.total_delta_pct * 100).toFixed(2);
+      details = `<div class="block-title"><h3>Mức thay đổi tổng thành tiền</h3></div><div class="mode-note ${s.total_delta_pct >= 0 ? "multi" : "single"}">Bản mới ${s.total_delta_pct >= 0 ? "TĂNG" : "GIẢM"} ${Math.abs(pct)}% so với bản cũ.</div>`;
+    }
+    // Tự mâu thuẫn giá bên trong hồ sơ: sau vòng làm rõ cần biết ngay lỗi cũ
+    // đã sửa chưa và bản mới có phát sinh lỗi nào không.
+    const pending = data.warnings || [];
+    const nNew = s.price_issue_new || 0;
+    const nRemains = s.price_issue_remains || 0;
+    const nFixed = s.price_issue_fixed || 0;
+    if (nNew || nRemains || nFixed) {
+      details += `<div class="block-title"><h3>Tự mâu thuẫn đơn giá bên trong hồ sơ</h3><span>${nNew + nRemains} mục cần xử lý</span></div>`;
+      if (nFixed) {
+        details += `<div class="mode-note multi">Bản mới đã sửa xong ${nFixed} hạng mục từng chào lệch giá.</div>`;
+      }
+      if (!nNew && !nRemains) {
+        details += `<div class="mode-note multi">Bản mới không còn hạng mục nào chào nhiều đơn giá khác nhau.</div>`;
+      }
+      details += pending
+        .map((w) => `<div class="warning-item">${escapeHtml(w)}</div>`)
+        .join("");
+    }
   }
   if (kind === "rfi") {
     const pending = data.pending || [];

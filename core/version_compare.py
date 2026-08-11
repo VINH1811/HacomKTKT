@@ -8,6 +8,9 @@ câu hỏi của chuyên viên chấm thầu: "so với bản trước, nhà th�
 - Báo cáo theo 4 trạng thái: GIỮ NGUYÊN / THAY ĐỔI (kèm từng trường đổi và mức
   chênh) / THÊM MỚI (chỉ có ở bản mới) / ĐÃ XOÁ (chỉ có ở bản cũ).
 - Tổng hợp thành tiền hai bản và mức tăng giảm.
+- Đối chiếu lỗi tự mâu thuẫn giá bên trong từng bản (cùng hạng mục chào nhiều
+  đơn giá): lỗi ở bản cũ ĐÃ SỬA chưa, hay CÒN, hay bản mới MỚI PHÁT SINH thêm.
+  Sau vòng làm rõ, đây là câu hỏi chuyên viên cần trả lời trước khi chấm tiếp.
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ import xlsxwriter
 
 from .config import EnterpriseConfig
 from .excel_reader import load_workbook_items
+from .internal_consistency import PriceInconsistency, find_price_inconsistencies
 from .matcher import match_items_cached
 from .models import DocumentRole, ItemRecord, MatchKind, UserFacingError
 from .text_normalizer import normalize_name
@@ -49,6 +53,11 @@ STATUS_CHANGED = "THAY ĐỔI"
 STATUS_ADDED = "THÊM MỚI"
 STATUS_REMOVED = "ĐÃ XOÁ"
 
+# Trạng thái của lỗi tự mâu thuẫn giá khi đối chiếu hai phiên bản.
+PRICE_ISSUE_FIXED = "ĐÃ SỬA"
+PRICE_ISSUE_REMAINS = "CÒN LỖI"
+PRICE_ISSUE_NEW = "MỚI PHÁT SINH"
+
 
 @dataclass
 class VersionChange:
@@ -72,6 +81,23 @@ class VersionRow:
 
 
 @dataclass
+class PriceIssueRow:
+    """Một hạng mục tự mâu thuẫn giá, soi qua cả hai phiên bản."""
+    status: str                              # ĐÃ SỬA | CÒN LỖI | MỚI PHÁT SINH
+    key_label: str
+    matched_by: str
+    old: Optional[PriceInconsistency]
+    new: Optional[PriceInconsistency]
+
+    @property
+    def current(self) -> PriceInconsistency:
+        """Bản đang còn lỗi; nếu đã sửa thì lấy bản cũ để biết lỗi từng là gì."""
+        issue = self.new or self.old
+        assert issue is not None
+        return issue
+
+
+@dataclass
 class VersionCompareResult:
     bidder: str
     old_label: str
@@ -81,6 +107,7 @@ class VersionCompareResult:
     rows: list[VersionRow]
     total_old: float
     total_new: float
+    price_issues: list[PriceIssueRow] = field(default_factory=list)
 
     @property
     def total_delta(self) -> float:
@@ -88,6 +115,9 @@ class VersionCompareResult:
 
     def count(self, status: str) -> int:
         return sum(1 for row in self.rows if row.status == status)
+
+    def count_price_issues(self, status: str) -> int:
+        return sum(1 for issue in self.price_issues if issue.status == status)
 
 
 def _num(value: Any) -> Optional[float]:
@@ -142,6 +172,52 @@ def _diff_items(old: ItemRecord, new: ItemRecord) -> list[VersionChange]:
 
 def _total_amount(items: list[ItemRecord]) -> float:
     return sum(_num(item.bid_amount) or 0.0 for item in items if item.is_comparable)
+
+
+def _issue_key(issue: PriceInconsistency) -> tuple[str, str]:
+    """Khóa nhận dạng một lỗi lệch giá xuyên suốt hai phiên bản.
+
+    Dùng nhãn đã chuẩn hóa chứ không dùng số dòng, vì giữa hai bản nhà thầu
+    thường chèn/xoá dòng làm số dòng lệch hết.
+    """
+    return (issue.matched_by, normalize_name(issue.key_label))
+
+
+def _compare_price_issues(
+    old_items: list[ItemRecord],
+    new_items: list[ItemRecord],
+) -> list[PriceIssueRow]:
+    """Đối chiếu lỗi tự mâu thuẫn giá giữa hai phiên bản.
+
+    Trả lời đúng câu hỏi của vòng làm rõ: lỗi cũ đã sửa chưa, và bản mới có
+    làm phát sinh lỗi nào không.
+    """
+    old_map = {_issue_key(i): i for i in find_price_inconsistencies(old_items)}
+    new_map = {_issue_key(i): i for i in find_price_inconsistencies(new_items)}
+
+    rows: list[PriceIssueRow] = []
+    for key in old_map.keys() | new_map.keys():
+        old_issue, new_issue = old_map.get(key), new_map.get(key)
+        if new_issue is None:
+            status = PRICE_ISSUE_FIXED
+        elif old_issue is None:
+            status = PRICE_ISSUE_NEW
+        else:
+            status = PRICE_ISSUE_REMAINS
+        source = new_issue or old_issue
+        assert source is not None
+        rows.append(PriceIssueRow(
+            status=status,
+            key_label=source.key_label,
+            matched_by=source.matched_by,
+            old=old_issue,
+            new=new_issue,
+        ))
+
+    # Việc còn phải xử lý lên trước: mới phát sinh, rồi còn lỗi, rồi đã sửa.
+    order = {PRICE_ISSUE_NEW: 0, PRICE_ISSUE_REMAINS: 1, PRICE_ISSUE_FIXED: 2}
+    rows.sort(key=lambda r: (order[r.status], -r.current.spread_pct))
+    return rows
 
 
 def compare_quote_versions(
@@ -208,6 +284,7 @@ def compare_quote_versions(
         rows=rows,
         total_old=_total_amount(old_items),
         total_new=_total_amount(new_items),
+        price_issues=_compare_price_issues(old_items, new_items),
     )
 
 
@@ -219,6 +296,12 @@ _STATUS_FILL = {
     STATUS_CHANGED: "#FCE4D6",
     STATUS_ADDED: "#E2EFDA",
     STATUS_REMOVED: "#F4CCCC",
+}
+
+_PRICE_ISSUE_FILL = {
+    PRICE_ISSUE_NEW: "#F4CCCC",       # đỏ: nhà thầu vừa làm hỏng thêm
+    PRICE_ISSUE_REMAINS: "#FCE4D6",   # cam: đã nhắc mà chưa sửa
+    PRICE_ISSUE_FIXED: "#E2EFDA",     # xanh: đã xử lý xong
 }
 
 
@@ -239,6 +322,9 @@ def export_version_report(result: VersionCompareResult, output_path: str | Path)
     f_status: dict[str, Any] = {}
     for status, color in _STATUS_FILL.items():
         f_status[status] = wb.add_format({"bold": True, "bg_color": color, "valign": "top"})
+    f_status_issue: dict[str, Any] = {}
+    for status, color in _PRICE_ISSUE_FILL.items():
+        f_status_issue[status] = wb.add_format({"bold": True, "bg_color": color, "valign": "top"})
 
     # ---- Sheet Tổng quan ----
     ws = wb.add_worksheet("Tổng quan")
@@ -270,6 +356,22 @@ def export_version_report(result: VersionCompareResult, output_path: str | Path)
     for status in (STATUS_CHANGED, STATUS_ADDED, STATUS_REMOVED, STATUS_UNCHANGED):
         ws.write(r, 0, f"Số hạng mục {status}", f_label)
         ws.write_number(r, 1, result.count(status))
+        r += 1
+
+    # Tự mâu thuẫn giá bên trong từng bản: đây là thứ chuyên viên cần thấy ngay
+    # ở trang đầu, vì nó quyết định có chấp nhận bản chào mới hay phải làm rõ tiếp.
+    if result.price_issues:
+        r += 1
+        ws.write(r, 0, "TỰ MÂU THUẪN ĐƠN GIÁ BÊN TRONG HỒ SƠ", f_label)
+        r += 1
+        for status in (PRICE_ISSUE_NEW, PRICE_ISSUE_REMAINS, PRICE_ISSUE_FIXED):
+            count_ = result.count_price_issues(status)
+            if not count_:
+                continue
+            ws.write(r, 0, f"Số hạng mục {status}", f_status_issue[status])
+            ws.write_number(r, 1, count_)
+            r += 1
+        ws.write(r, 0, "Chi tiết xem sheet 'Lệch đơn giá nội bộ'", f_text)
         r += 1
 
     # Hồ sơ thay đổi theo trường — cho biết ngay thay đổi thuộc loại nào
@@ -357,6 +459,52 @@ def export_version_report(result: VersionCompareResult, output_path: str | Path)
                 det.write(r, 6, str(change.old_value or ""), f_text)
                 det.write(r, 7, str(change.new_value or ""), f_text)
             r += 1
+
+    # ---- Sheet Lệch đơn giá nội bộ ----
+    if result.price_issues:
+        pw = wb.add_worksheet("Lệch đơn giá nội bộ")
+        ph = ["Trạng thái", "Hạng mục", "Ghép theo", "Phạm vi",
+              f"Chênh % {result.old_label}", f"Chênh % {result.new_label}",
+              "Giá thấp nhất", "Giá cao nhất", "Số lần chào", "Chi tiết dòng"]
+        pwidths = [15, 46, 14, 20, 16, 16, 16, 16, 11, 76]
+        for col, (head, width) in enumerate(zip(ph, pwidths)):
+            pw.set_column(col, col, width)
+            pw.write(0, col, head, f_head)
+        pw.freeze_panes(1, 0)
+        pw.autofilter(0, 0, 0, len(ph) - 1)
+
+        r = 1
+        for issue in result.price_issues:
+            cur = issue.current
+            pw.write(r, 0, issue.status, f_status_issue[issue.status])
+            pw.write(r, 1, issue.key_label, f_text)
+            pw.write(r, 2, issue.matched_by, f_text)
+            pw.write(r, 3, "cùng sheet" if cur.same_sheet
+                     else f"{len(cur.sheets)} sheet khác nhau", f_text)
+            if issue.old is not None:
+                pw.write_number(r, 4, issue.old.spread_pct, f_pct)
+            if issue.new is not None:
+                pw.write_number(r, 5, issue.new.spread_pct, f_pct)
+            pw.write_number(r, 6, cur.min_price, f_money)
+            pw.write_number(r, 7, cur.max_price, f_money)
+            pw.write_number(r, 8, len(cur.occurrences))
+            # Dòng đã sửa thì chỉ ra vị trí Ở BẢN CŨ; các dòng còn lỗi chỉ ra
+            # vị trí ở bản mới để chuyên viên mở đúng file đang cần kiểm.
+            detail = "; ".join(
+                f"{o.sheet}!dòng {o.row_number}: {o.unit_price:,.0f}"
+                for o in sorted(cur.occurrences, key=lambda o: (o.sheet, o.row_number))[:8]
+            )
+            if len(cur.occurrences) > 8:
+                detail += f"; ... (+{len(cur.occurrences) - 8} dòng nữa)"
+            pw.write(r, 9, detail, f_text)
+            r += 1
+
+        r += 1
+        pw.write(r, 0, "Ghi chú", f_label)
+        pw.write(r, 1,
+                 f"'{PRICE_ISSUE_NEW}' và '{PRICE_ISSUE_REMAINS}' đọc theo {result.new_label}; "
+                 f"'{PRICE_ISSUE_FIXED}' đọc theo {result.old_label} (bản mới đã hết lỗi này).",
+                 f_text)
 
     wb.close()
     return str(output_path)

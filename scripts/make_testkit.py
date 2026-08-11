@@ -332,6 +332,8 @@ def make_guide():
         ("  Lỗi 8", "Thiếu hạng mục Tủ điều khiển bơm chữa cháy so với Phụ lục 01"),
         ("Khi so sánh phiên bản (file 3 và 5)", ""),
         ("  Kỳ vọng", "Đầu báo khói TĂNG giá · Ống thép và bình chữa cháy ĐÃ SỬA · thêm mới Van báo động"),
+        ("  Kỳ vọng", "Sheet 'Lệch đơn giá nội bộ': đầu báo khói ghi ĐÃ SỬA (bản 2 hết chào 2 giá)"),
+        ("  Mẹo thử", "Chọn file 3 cho CẢ bản cũ lẫn bản mới sẽ ra trạng thái CÒN LỖI"),
         ("Khi theo dõi làm rõ (file 6 và 7)", ""),
         ("  Kỳ vọng", "4 yêu cầu, 3 đã trả lời, 1 CHƯA trả lời (mục doanh thu bình quân)"),
         ("Khi chạy checklist (file 8)", ""),
@@ -342,8 +344,11 @@ def make_guide():
     for i, (a, b) in enumerate(G, 1):
         ws.cell(i, 1, a); ws.cell(i, 2, b)
     ws.cell(1, 1).font = Font(bold=True, size=14, color="1F4E78")
-    for r in (3, 12, 13, 20, 23, 25, 27, 30):
-        ws.cell(r, 1).font = Font(bold=True)
+    # Tô đậm các dòng tiêu đề mục; bám theo nội dung nên thêm bớt dòng không lệch.
+    for i, (a, b) in enumerate(G, 1):
+        if a and not b and not a.startswith("  "):
+            ws.cell(i, 1).font = Font(bold=True)
+    ws.cell(3, 1).font = Font(bold=True)
     ws.column_dimensions["A"].width = 38
     ws.column_dimensions["B"].width = 92
     wb.save(WORK / "0_HUONG_DAN_SU_DUNG.xlsx")

@@ -50,6 +50,9 @@ from core.rfi_tracker import (
 )
 from core.tender_package import compare_pl1_pl2_with_bidders
 from core.version_compare import (
+    PRICE_ISSUE_FIXED as VC_ISSUE_FIXED,
+    PRICE_ISSUE_NEW as VC_ISSUE_NEW,
+    PRICE_ISSUE_REMAINS as VC_ISSUE_REMAINS,
     STATUS_ADDED as VC_ADDED,
     STATUS_CHANGED as VC_CHANGED,
     STATUS_REMOVED as VC_REMOVED,
@@ -483,8 +486,17 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                         "added": vc.count(VC_ADDED),
                         "removed": vc.count(VC_REMOVED),
                         "unchanged": vc.count(VC_UNCHANGED),
+                        "price_issue_new": vc.count_price_issues(VC_ISSUE_NEW),
+                        "price_issue_remains": vc.count_price_issues(VC_ISSUE_REMAINS),
+                        "price_issue_fixed": vc.count_price_issues(VC_ISSUE_FIXED),
                     },
-                    "warnings": [],
+                    # Lỗi tự mâu thuẫn giá còn phải xử lý — hiện thẳng lên web chứ
+                    # không bắt người dùng mở file báo cáo mới thấy.
+                    "warnings": [
+                        f"[{issue.status}] {issue.current.describe()}"
+                        for issue in vc.price_issues
+                        if issue.status in (VC_ISSUE_NEW, VC_ISSUE_REMAINS)
+                    ][:40],
                     "anomalies": [],
                     "files": {},
                 }
