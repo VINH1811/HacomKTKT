@@ -651,10 +651,15 @@ def load_workbook_items(
                 if row_type is RowType.DETAIL:
                     if quantity is None:
                         quality.append("Thiếu khối lượng")
-                    if has_unit_price_column and unit_price_total is None:
-                        quality.append("Thiếu đơn giá tổng hợp")
-                    if has_amount_column and amount is None:
-                        quality.append("Thiếu thành tiền")
+                    # Chi bat loi thieu gia o HO SO CHAO GIA. Bang khoi luong moi
+                    # thau thuong co san tieu de cot don gia de nha thau dien vao,
+                    # bo trong la dung; canh bao o day chi gay hieu nham la nha
+                    # thau thieu gia trong khi ho da chao day du.
+                    if role is DocumentRole.HSDT:
+                        if has_unit_price_column and unit_price_total is None:
+                            quality.append("Thiếu đơn giá tổng hợp")
+                        if has_amount_column and amount is None:
+                            quality.append("Thiếu thành tiền")
                 elif unit and quantity is None:
                     quality.append("Thiếu khối lượng cấu thành")
 

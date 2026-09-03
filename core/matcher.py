@@ -445,7 +445,11 @@ def _structure_key_is_stale(
     if not (ref.item_name or "").strip() or not (cand.item_name or "").strip():
         # Thiếu tên thì không đủ căn cứ phủ nhận; để các tầng sau xử lý.
         return False
-    return lexical < _STRUCTURE_MIN_LEXICAL or _has_type_conflict(ref, cand)
+    # Kem ca kich thuoc: "KT 1350x300" va "KT 350x350" giong nhau toi 0.68 nen
+    # vuot nguong lexical, van bi ghep neu trung sheet + so thu tu.
+    return (lexical < _STRUCTURE_MIN_LEXICAL
+            or _has_type_conflict(ref, cand)
+            or _has_size_conflict(ref, cand))
 
 
 def _lexical_score(a: ItemRecord, b: ItemRecord) -> float:

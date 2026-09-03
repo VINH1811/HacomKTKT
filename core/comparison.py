@@ -242,10 +242,19 @@ def _compare_numeric(
     if base is None and value is None:
         return
     if base is None or value is None:
+        # Noi RO ben nao thieu. "Mot ho so bi thieu du lieu" khien nguoi doc mac
+        # dinh la nha thau thieu, ke ca khi chinh phu luc moi thau bo trong.
+        if base is None:
+            message = (
+                f"{field}: hồ sơ đối chiếu không có số liệu, nhà thầu ghi {value}"
+            )
+            severity = Severity.INFO
+        else:
+            message = f"{field}: nhà thầu không ghi số liệu (hồ sơ đối chiếu: {base})"
+            severity = missing_severity
         _add_difference(
-            row, field, base, value, missing_severity,
-            f"{field}: một hồ sơ bị thiếu dữ liệu ({base} ↔ {value})",
-            score=weight_critical if missing_severity is Severity.CRITICAL else weight_warn,
+            row, field, base, value, severity, message,
+            score=weight_critical if severity is Severity.CRITICAL else weight_warn,
         )
         return
 
