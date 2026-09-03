@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import threading
 from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, replace
@@ -364,6 +365,38 @@ def _group_tokens(text: str, group: tuple[str, ...]) -> frozenset[str]:
     return _canonical_terms({term for term in group if term in text})
 
 
+# Tên hạng mục cơ điện thường CHÍNH LÀ mã kích thước: "KT 1350x300", "D90/40".
+# Với loại tên này, các con số mới là danh tính; chữ cái giống nhau nên điểm so
+# khớp chuỗi rất cao ("KT 1350x300" và "KT 350x350" được 0.68) và bị ghép nhầm,
+# kéo theo so sai khối lượng, thương hiệu, mã hiệu của hai hạng mục khác nhau.
+_SIZE_EXPR = re.compile(
+    r"\d+(?:[.,]\d+)?(?:\s*[x×]\s*\d+(?:[.,]\d+)?)+"   # 1350x300, 600x600x400
+    r"|\bd\s*n?\s*\d+(?:\s*[/\-]\s*\d+)*",            # D90/40, DN100, D110-40
+    re.IGNORECASE,
+)
+_DIGITS = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def _size_tokens(text: str) -> frozenset[str]:
+    """Các con số nằm trong biểu thức kích thước; bỏ qua số lẻ như độ dày 0.58mm."""
+    out: set[str] = set()
+    for match in _SIZE_EXPR.finditer(text):
+        for number in _DIGITS.findall(match.group()):
+            out.add(number.replace(",", "."))
+    return frozenset(out)
+
+
+def _has_size_conflict(a: ItemRecord, b: ItemRecord) -> bool:
+    """True khi hai bên đều nêu kích thước nhưng KHÔNG trùng nhau.
+
+    Đòi hỏi trùng khớp hoàn toàn chứ không chỉ giao nhau: "KT 1200x600" và
+    "KT 600x600" có chung số 600 nhưng là hai loại ống gió khác nhau.
+    """
+    left = _size_tokens(strip_accents(normalize_name(a.item_name or "")))
+    right = _size_tokens(strip_accents(normalize_name(b.item_name or "")))
+    return bool(left) and bool(right) and left != right
+
+
 def _has_type_conflict(a: ItemRecord, b: ItemRecord) -> bool:
     """True khi hai hạng mục nêu thuộc tính LOẠI TRỪ NHAU trong cùng một nhóm.
 
@@ -709,7 +742,7 @@ def _tfidf_shortlist(
             # Chặn ghép mờ giữa hai chủng loại xung khắc (ống thép ↔ ống luồn dây
             # điện, đầu báo khói ↔ đầu báo nhiệt...). Tầng khớp chính xác phía
             # trên không bị ảnh hưởng.
-            if _has_type_conflict(ref, cand):
+            if _has_type_conflict(ref, cand) or _has_size_conflict(ref, cand):
                 continue
 
             proposals.append(
@@ -1035,7 +1068,7 @@ def match_items(
 
                 if score < max(reject_score, 0.68):
                     continue
-                if _has_type_conflict(ref, cand):
+                if _has_type_conflict(ref, cand) or _has_size_conflict(ref, cand):
                     continue
 
                 row_near_proposals.append(
@@ -1229,7 +1262,7 @@ def match_items(
                             continue
                         if score < max(0.52, reject_score - 0.06):
                             continue
-                        if _has_type_conflict(ref, cand):
+                        if _has_type_conflict(ref, cand) or _has_size_conflict(ref, cand):
                             continue
 
                         fuzzy_proposals.append(

@@ -300,9 +300,20 @@ def _compare_text(
         return
     similarity = _text_similarity(left, right)
     if not left or not right:
+        # Nói RO ben nao de trong. "Mot ho so de trong" khien nguoi doc mac dinh
+        # la nha thau thieu, trong khi phan lon truong hop la phu luc moi thau
+        # khong ghi con nha thau ghi them - do khong phai sai sot cua nha thau.
+        if not left:
+            message = (
+                f"{field}: hồ sơ đối chiếu để trống, nhà thầu có khai "
+                f"({right[:60]}) — thông tin bổ sung, không phải thiếu sót"
+            )
+            severity = Severity.INFO
+        else:
+            message = f"{field}: nhà thầu để trống (hồ sơ đối chiếu ghi: {left[:60]})"
+            severity = missing_severity
         _add_difference(
-            row, field, left, right, missing_severity,
-            f"{field}: một hồ sơ để trống",
+            row, field, left, right, severity, message,
             similarity=similarity, score=weight_review,
         )
     elif similarity < critical_score:
