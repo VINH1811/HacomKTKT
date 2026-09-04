@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .column_inference import find_quantity_price_amount, find_unit_column
+from .column_synonyms import guess_field
 from .env_config import env_int
 from .excel_io import list_sheets_fast, read_workbook_matrices, scan_xlsx_issues
 from .models import DocumentRole, ItemRecord, RowType, WorkbookData
@@ -349,6 +350,23 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         score, col = max(values, key=lambda pair: (pair[0], -pair[1]))
         if col not in used_cols:
             fixed[col] = field
+            used_cols.add(col)
+
+    # Lop do CUOI CUNG: cot nao van chua co vai tro thi doan theo viet tat va do
+    # gan giong ("DVT" = Don vi tinh, "DGTH" = Don gia tong hop, "TT" = Thanh
+    # tien). Chay SAU buoc phan giai nen khong bao gio lan cac luat tu khoa.
+    guessable = ("stt", "item_code", "item_name", "unit", "bid_quantity",
+                 "reference_quantity", "unit_price_total", "bid_amount",
+                 "material", "brand", "origin", "note")
+    for col, raw in enumerate(flat_headers):
+        if col in used_cols or not str(raw or "").strip():
+            continue
+        remaining = tuple(f for f in guessable if f not in fixed.values())
+        if not remaining:
+            break
+        guessed = guess_field(raw, remaining)
+        if guessed is not None:
+            fixed[col] = guessed[0]
             used_cols.add(col)
 
     technical: dict[int, str] = {}
