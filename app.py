@@ -897,6 +897,30 @@ def _internal_history(similar_items, unit: str) -> dict[str, Any]:
     }
 
 
+def _statistical_price(similar_items, unit: str):
+    """Khoảng giá tính thuần bằng thống kê từ CSDL giá nội bộ.
+
+    Không cần LLM, nên dùng được cả khi máy chủ AI không kết nối được. Trả về
+    (trạng thái, giá thấp, giá cao, độ tin cậy, lập luận).
+    """
+    wanted = (unit or "").strip().lower()
+    prices = [
+        float(item.record.unit_price) for item in similar_items
+        if item.record.unit_price is not None
+        and (item.record.unit or "").strip().lower() == wanted
+    ]
+    if not prices:
+        return "needs_review", None, None, 0.0, "Không có mẫu tham chiếu nào khớp đơn vị tính."
+    eps = 0.05
+    return (
+        "validated",
+        min(prices) * (1 - eps),
+        max(prices) * (1 + eps),
+        0.8,
+        f"Tính toán bằng thuật toán thống kê trên {len(prices)} báo giá tham chiếu khớp ĐVT.",
+    )
+
+
 @app.post("/api/price-advisor/predict")
 def pa_predict_api(req: PAPredictRequest):
     pa_config = PriceAdvisorConfig.from_env()
@@ -937,27 +961,9 @@ def pa_predict_api(req: PAPredictRequest):
         )
         
         if req.backend == "deterministic":
-            # Filter matches by unit (case-insensitive)
-            filtered = [item for item in similar_items if item.record.unit.strip().lower() == req.unit.strip().lower()]
-            prices = [item.record.unit_price for item in filtered if item.record.unit_price is not None]
-            
-            if prices:
-                min_p = float(min(prices))
-                max_p = float(max(prices))
-                mean_p = float(sum(prices) / len(prices))
-                eps = 0.05
-                price_low = min_p * (1 - eps)
-                price_high = max_p * (1 + eps)
-                confidence = 0.8
-                reasoning = f"Tính toán bằng thuật toán thống kê Python (Deterministic) trên {len(prices)} báo giá tham chiếu khớp ĐVT."
-                status = "validated"
-            else:
-                price_low = None
-                price_high = None
-                confidence = 0.0
-                reasoning = "Không có mẫu tham chiếu nào khớp đơn vị tính."
-                status = "needs_review"
-                
+            status, price_low, price_high, confidence, reasoning = _statistical_price(
+                similar_items, req.unit)
+
             return {
                 "status": status,
                 "price_low": price_low,
@@ -1018,13 +1024,30 @@ def pa_predict_api(req: PAPredictRequest):
             # Validate suggestion against similar items
             suggestion = pa._validator.validate(suggestion, similar_items)
             
+            # AI khong goi duoc thi VAN con phep tinh thong ke tren CSDL gia
+            # noi bo. Tra ve bang trong khien nguoi dung khong lam gi duoc, trong
+            # khi du lieu tham chieu van nam san day.
+            status_value = suggestion.status.value
+            price_low, price_high = suggestion.min_price, suggestion.max_price
+            confidence, reasoning = suggestion.confidence, suggestion.reasoning
+            if suggestion.status is SuggestionStatus.FAILED:
+                fb_status, fb_low, fb_high, fb_conf, fb_reason = _statistical_price(
+                    similar_items, req.unit)
+                if fb_low is not None:
+                    status_value, price_low, price_high = fb_status, fb_low, fb_high
+                    confidence = fb_conf
+                    reasoning = (
+                        f"{fb_reason} Đây là kết quả THỐNG KÊ, chưa qua thẩm định của AI "
+                        f"vì không gọi được mô hình ({suggestion.error_message})."
+                    )
+
             return {
-                "status": suggestion.status.value,
-                "price_low": suggestion.min_price,
-                "price_high": suggestion.max_price,
+                "status": status_value,
+                "price_low": price_low,
+                "price_high": price_high,
                 "suggested_price": suggestion.suggested_price,
-                "confidence": suggestion.confidence,
-                "reasoning": suggestion.reasoning,
+                "confidence": confidence,
+                "reasoning": reasoning,
                 # Lý do thất bại THẬT (LLM không gọi được, trả JSON hỏng...). Thiếu
                 # trường này thì giao diện chỉ còn câu chung chung đổ lỗi cho dữ
                 # liệu tham chiếu, người dùng không biết đường sửa.
