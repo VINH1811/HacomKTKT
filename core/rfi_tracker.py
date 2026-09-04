@@ -1,7 +1,7 @@
 """RFI Tracker — theo dõi vòng LÀM RÕ hồ sơ chào giá (HSCG).
 
 Chủ đầu tư gửi mỗi nhà thầu một file "Nội dung làm rõ HSCG" (sheet PL 1 đánh giá
-hợp lệ/năng lực, PL 2 kỹ thuật) trong đó cột "Ý kiến CĐT" là các YÊU CẦU làm rõ.
+hợp lệ/năng lực, PL 2 kỹ thuật) trong đó cột yêu cầu làm rõ của CĐT ("Ý kiến CĐT", "CĐT yêu cầu làm rõ"...) là các YÊU CẦU.
 Nhà thầu phản hồi bằng chính file đó với cột "Nhà thầu trả lời làm rõ" được điền.
 
 Tracker ghép từng yêu cầu trong file CĐT với dòng tương ứng trong file phản hồi
@@ -26,13 +26,34 @@ STATUS_ANSWERED = "ĐÃ TRẢ LỜI"
 STATUS_UNANSWERED = "CHƯA TRẢ LỜI"
 STATUS_NOT_FOUND = "KHÔNG THẤY TRONG PHẢN HỒI"
 
-# Từ khóa nhận diện cột trong header (đã bỏ dấu, chữ thường).
-_COL_KEYS = {
-    "stt": ("stt",),
-    "content": ("noi dung danh gia", "noi dung"),
-    "requirement": ("yeu cau",),
-    "cdt_request": ("y kien cdt", "y kien chu dau tu"),
-    "response": ("tra loi lam ro", "nha thau tra loi", "phan hoi"),
+# Tu khoa nhan dien cot, kem DO UU TIEN. Uu tien cao thang khi hai khoa cung
+# khop mot cot: "CDT YEU CAU LAM RO" phai ve cot yeu cau lam ro cua chu dau tu,
+# khong duoc de khoa "yeu cau" (uu tien thap) giu mat.
+_COL_KEYS: dict[str, tuple[tuple[str, int], ...]] = {
+    "stt": (("stt", 100), ("so tt", 95), ("tt", 40)),
+    "content": (
+        ("noi dung danh gia", 100), ("noi dung ho so yeu cau", 95),
+        ("noi dung hsyc", 95), ("noi dung cong viec", 80), ("noi dung", 55),
+    ),
+    "requirement": (
+        ("yeu cau cua hsyc", 95), ("yeu cau hsyc", 95), ("yeu cau", 45),
+    ),
+    "declaration": (
+        ("noi dung ho so chao gia", 95), ("nha thau ke khai", 95),
+        ("ho so chao gia", 80), ("ke khai", 70),
+    ),
+    "cdt_request": (
+        ("y kien cdt", 100), ("y kien chu dau tu", 100),
+        ("cdt yeu cau lam ro", 100), ("chu dau tu yeu cau lam ro", 100),
+        ("yeu cau lam ro", 90), ("noi dung lam ro", 85), ("cdt yeu cau", 80),
+    ),
+    "response": (
+        ("nha thau tra loi lam ro", 100), ("nha thau tra loi", 100),
+        ("tra loi lam ro", 100), ("nha thau phan hoi", 100),
+        ("noi dung phan hoi", 95), ("noi dung bo sung", 90),
+        ("nha thau giai trinh", 90), ("giai trinh", 80),
+        ("phan hoi", 75), ("tra loi", 70), ("bo sung", 65),
+    ),
 }
 
 
@@ -82,15 +103,32 @@ class RfiTrackResult:
 
 
 def _find_header(rows: list[tuple], max_scan: int = 12) -> tuple[Optional[int], dict[str, int]]:
-    """Tìm dòng header và ánh xạ cột theo từ khóa; trả về (chỉ số dòng, {khóa: cột})."""
+    """Tim dong header va anh xa cot; tra ve (chi so dong, {khoa: cot}).
+
+    Gan theo DO UU TIEN va moi cot chi thuoc mot khoa. Truoc day moi khoa lay
+    cot dau tien khop tu khoa cua no, nen "NOI DUNG HO SO YEU CAU" vua bi khoa
+    noi dung vua bi khoa yeu cau giu, con "CDT YEU CAU LAM RO" thi khong khoa
+    nao nhan -> khong tim ra bang lam ro va bo qua ca file.
+    """
     for idx, row in enumerate(rows[:max_scan]):
         folded = [_fold(c) for c in row]
-        mapping: dict[str, int] = {}
-        for key, keywords in _COL_KEYS.items():
+        # (uu tien, do dai tu khoa, khoa, cot) — tu khoa dai hon cu the hon.
+        claims: list[tuple[int, int, str, int]] = []
+        for key, patterns in _COL_KEYS.items():
             for col, cell in enumerate(folded):
-                if cell and any(kw in cell for kw in keywords):
-                    mapping[key] = col
-                    break
+                if not cell:
+                    continue
+                for keyword, priority in patterns:
+                    if keyword in cell:
+                        claims.append((priority, len(keyword), key, col))
+                        break
+        mapping: dict[str, int] = {}
+        used: set[int] = set()
+        for _priority, _length, key, col in sorted(claims, key=lambda c: (-c[0], -c[1], c[3])):
+            if key in mapping or col in used:
+                continue
+            mapping[key] = col
+            used.add(col)
         if "cdt_request" in mapping and "content" in mapping:
             return idx, mapping
     return None, {}
@@ -164,9 +202,14 @@ def track_rfi(
         # không phải làm rõ gì, trong khi thật ra hệ thống không đọc được bảng.
         raise UserFacingError(
             f"Không tìm thấy bảng làm rõ trong '{Path(request_path).name}'. "
-            "Bảng cần có cột nội dung đánh giá và cột ý kiến của chủ đầu tư "
-            "(yêu cầu làm rõ). Lưu ý bảng làm rõ HSYC — nhà thầu hỏi, chủ đầu tư "
-            "và tư vấn thiết kế trả lời — có cấu trúc khác và chưa hỗ trợ. "
+            "Bảng phải có ĐỦ hai cột: (1) cột nội dung đánh giá — tiêu đề chứa "
+            "'Nội dung đánh giá' hoặc 'Nội dung hồ sơ yêu cầu'; và (2) cột yêu cầu "
+            "làm rõ của chủ đầu tư — tiêu đề chứa 'Ý kiến CĐT', 'CĐT yêu cầu làm rõ' "
+            "hoặc 'Yêu cầu làm rõ'. "
+            "Cột phản hồi của nhà thầu nhận các tiêu đề: 'Nhà thầu trả lời làm rõ', "
+            "'Nhà thầu phản hồi', 'Nội dung bổ sung', 'Giải trình'. "
+            "Lưu ý bảng làm rõ HSYC — nhà thầu hỏi, chủ đầu tư và tư vấn thiết kế "
+            "trả lời — có cấu trúc khác và chưa hỗ trợ. "
             f"Tiêu đề đọc được: {describe_headers(request_path)}"
         )
     responses = parse_rfi_file(response_path)
