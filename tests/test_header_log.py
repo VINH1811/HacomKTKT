@@ -119,3 +119,33 @@ def test_can_be_switched_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     finally:
         monkeypatch.delenv("HSMT_HEADER_LOG", raising=False)
         importlib.reload(hl)
+
+
+# --------------------------------------- chỉ ghi tiêu đề THỰC SỰ chưa hiểu
+
+def test_ignore_hook_bo_qua_tieu_de_nhom_cha(tmp_path):
+    """Tên nhóm cha ("NHÀ THẦU X") không phải cột dữ liệu, đừng ghi vào nhật ký."""
+    log = tmp_path / "nk.jsonl"
+    record_unknown_headers(
+        workbook="a.xlsx", sheet="S", flat_headers=["CÔNG TY ABC", "Cột lạ"],
+        mapped_columns=set(), rows=[["x", "y"]], log_path=str(log),
+        ignore=lambda raw: raw.startswith("CÔNG TY"),
+    )
+    ghi = _read(log)
+    assert [c["tieu_de"] for c in ghi[0]["cot_chua_nhan_ra"]] == ["Cột lạ"]
+
+
+def test_cot_khop_luat_nhung_thua_khong_bi_ghi_la_la():
+    """Mỗi vai trò chỉ chọn được một cột. Cột "Ghi chú" thứ hai vẫn được LUẬT
+    nhận ra, chỉ là thua khi tranh vai trò — ghi nó vào nhật ký sẽ khiến người
+    vận hành khai nhầm nó thành một vai trò khác."""
+    from core.excel_reader import map_columns
+    from core.models import DocumentRole
+
+    flat = ["STT", "Tên hạng mục", "ĐVT", "Khối lượng", "Đơn giá", "Ghi chú", "Ghi chú"]
+    nhan_ra: set[int] = set()
+    fixed, _tech = map_columns(flat, DocumentRole.HSDT, nhan_ra)
+
+    assert list(fixed.values()).count("note") == 1        # chỉ một cột thắng
+    assert {5, 6} <= nhan_ra                              # nhưng cả hai đều được nhận ra
+    assert set(fixed) <= nhan_ra

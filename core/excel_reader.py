@@ -198,11 +198,29 @@ def _has(text: str, *parts: str) -> bool:
     return all(normalize_name(part) in norm for part in parts)
 
 
-def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, str], dict[int, str]]:
+# Tiêu đề chỉ là tên NHÓM cha (tên nhà thầu, tên nhóm cột), không phải tên một
+# cột dữ liệu. Không nhận vai trò và cũng không đáng ghi vào nhật ký tiêu đề.
+_GROUP_HEADERS = (
+    "cong ty", "lien danh", "khoi luong moi thau", "thong tin ve vat lieu chinh",
+    "don gia chua bao gom vat", "thanh tien boq",
+)
+
+
+def _is_group_header(text: str) -> bool:
+    return any(text == value or text.endswith(value) for value in _GROUP_HEADERS)
+
+
+def map_columns(flat_headers: list[str], role: DocumentRole,
+                recognised: Optional[set[int]] = None) -> tuple[dict[int, str], dict[int, str]]:
     """Return fixed field mapping and dynamic technical columns.
 
     Multiple quantity/amount columns are retained explicitly. This is essential
     for real bidding sheets where KL mời thầu and KL nhà thầu chào coexist.
+
+    `recognised` (tuỳ chọn) nhận về MỌI cột mà một luật từ khoá nào đó bắt được,
+    kể cả cột thua khi tranh vai trò — mỗi vai trò chỉ chọn được một cột. Nhật ký
+    tiêu đề cần tập này: thiếu nó, cột "Ghi chú" thứ hai bị ghi là "chưa nhận ra"
+    và người vận hành sẽ khai nhầm nó thành một vai trò khác.
     """
     fixed: dict[int, str] = {}
     candidates: dict[str, list[tuple[int, int]]] = defaultdict(list)
@@ -346,6 +364,9 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
             del candidates["material"]
         candidates["item_name"].append((30, best[1]))
 
+    if recognised is not None:
+        recognised.update(col for values in candidates.values() for _, col in values)
+
     used_cols: set[int] = set()
     for field, values in candidates.items():
         score, col = max(values, key=lambda pair: (pair[0], -pair[1]))
@@ -366,20 +387,29 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         if not remaining:
             break
         guessed = guess_field(raw, remaining)
+        if guessed is None:
+            # Tiêu đề nhiều tầng bị ghép lại ("MÃ HÀNG CODE | TỦ ĐIỆN A1-...")
+            # thì cả chuỗi không giống tên cột nào. Xét thêm từng tầng, bỏ tầng
+            # chỉ là tên nhóm cha để không gán nhầm cột con cho vai trò của nhóm.
+            for phan in str(raw or "").split("|"):
+                phan = phan.strip()
+                if not phan or len(phan.split()) > 6:
+                    continue
+                if _is_group_header(strip_accents(normalize_text(phan))):
+                    continue
+                guessed = guess_field(phan, remaining)
+                if guessed is not None:
+                    break
         if guessed is not None:
             fixed[col] = guessed[0]
             used_cols.add(col)
 
     technical: dict[int, str] = {}
-    noise = (
-        "cong ty", "lien danh", "khoi luong moi thau", "thong tin ve vat lieu chinh",
-        "don gia chua bao gom vat", "thanh tien boq",
-    )
     for col, raw in enumerate(flat_headers):
         if col in fixed:
             continue
         text = strip_accents(normalize_text(raw))
-        if not text or any(text == value or text.endswith(value) for value in noise):
+        if not text or _is_group_header(text):
             continue
         # Cột chia theo tầng: nhận diện chung "tầng <số>" hoặc "tầng hầm" thay vì
         # liệt kê cứng tên tầng của một công trình cụ thể.
@@ -512,7 +542,8 @@ def load_workbook_items(
         buffer_rows = sheet.rows[:90]
         try:
             start, end, flat_headers = detect_header(buffer_rows)
-            mapping, technical_columns = map_columns(flat_headers, role)
+            recognised: set[int] = set()
+            mapping, technical_columns = map_columns(flat_headers, role, recognised)
         except ValueError as exc:
             warnings.append(f"Sheet '{sheet.name}': {exc}")
             continue
@@ -521,10 +552,12 @@ def load_workbook_items(
         # so tay tu khoa. Chay lang le o phia may chu, khong hien gi len giao dien.
         record_unknown_headers(
             workbook=str(path), sheet=sheet.name, flat_headers=flat_headers,
-            # Cot ky thuat dong (khoi luong theo tang...) da duoc nhan dien roi,
-            # ghi vao nhat ky chi lam nhieu.
-            mapped_columns=set(mapping) | set(technical_columns),
+            # Loai het cot da hieu: cot duoc chon, cot ky thuat dong (khoi luong
+            # theo tang...), va ca cot KHOP LUAT nhung thua khi tranh vai tro —
+            # ghi chung vao nhat ky se lam nguoi van hanh khai nham vai tro.
+            mapped_columns=set(mapping) | set(technical_columns) | recognised,
             rows=sheet.rows[end + 1:],
+            ignore=lambda raw: _is_group_header(strip_accents(normalize_text(raw))),
         )
 
         if "item_name" not in mapping.values():

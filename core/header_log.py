@@ -24,7 +24,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from .env_config import env_bool, env_int
 from .number_parser import parse_number
@@ -99,6 +99,7 @@ def record_unknown_headers(
     mapped_columns: Iterable[int],
     rows: Iterable[list[Any]],
     log_path: Optional[str] = None,
+    ignore: Optional[Callable[[str], bool]] = None,
 ) -> None:
     """Ghi lại các cột có tiêu đề nhưng không khóa nào nhận.
 
@@ -109,10 +110,11 @@ def record_unknown_headers(
     try:
         mapped = set(mapped_columns)
         data = list(rows)
+        bo_qua = ignore or (lambda _text: False)
         entries = []
         for column, raw in enumerate(flat_headers):
             header = str(raw or "").replace("\n", " ").strip()
-            if column in mapped or not header:
+            if column in mapped or not header or bo_qua(header):
                 continue
             entries.append({
                 "cot": column + 1,

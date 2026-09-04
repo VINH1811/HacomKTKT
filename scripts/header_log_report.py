@@ -69,6 +69,6 @@ for header, times in count.most_common(args.so_luong):
 if count:
     print()
     print("Khai vào .env để hệ thống nhận ra lần sau, ví dụ:")
-    print('  HSMT_COLUMN_SYNONYMS="unit_price_total=' + count.most_common(1)[0][0] + '"')
+    print('  HSMT_COLUMN_SYNONYMS="<vai_tro>=' + count.most_common(1)[0][0] + '"')
     print("Vai trò dùng được: stt, item_code, item_name, unit, bid_quantity,")
     print("reference_quantity, unit_price_total, bid_amount, material, brand, origin, note")
