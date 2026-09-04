@@ -7,6 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Optional
 
+from .column_inference import find_quantity_price_amount, find_unit_column
 from .env_config import env_int
 from .excel_io import list_sheets_fast, read_workbook_matrices, scan_xlsx_issues
 from .models import DocumentRole, ItemRecord, RowType, WorkbookData
@@ -507,7 +508,52 @@ def load_workbook_items(
         # đối chiếu và báo lại nếu hồ sơ dùng cách viết chưa được nhận diện.
         # Chỉ xét hồ sơ chào giá: bảng khối lượng mời thầu vốn không có cột đơn
         # giá hay cột nhà thầu chào, thiếu là đúng chứ không phải sai sót.
+        # Tiêu đề viết theo cách chưa từng gặp thì cột bị bỏ sót. Trước khi báo
+        # thua, thử suy ra từ chính số liệu: khối lượng × đơn giá = thành tiền là
+        # quan hệ luôn đúng bất kể tiêu đề viết thế nào.
         if role is DocumentRole.HSDT:
+            by_field = {field: col for col, field in mapping.items()}
+            missing = [f for f in ("bid_quantity", "unit_price_total", "bid_amount")
+                       if f not in by_field]
+            if missing:
+                found = find_quantity_price_amount(
+                    sheet.rows[end:], len(flat_headers),
+                    known_quantity=by_field.get("bid_quantity"),
+                    known_price=by_field.get("unit_price_total"),
+                    known_amount=by_field.get("bid_amount"),
+                    exclude=set(mapping) - {by_field.get(f) for f in
+                                            ("bid_quantity", "unit_price_total", "bid_amount")},
+                )
+                if found:
+                    (q_col, p_col, a_col), hits, total = found
+                    filled = []
+                    for field, col in (("bid_quantity", q_col),
+                                       ("unit_price_total", p_col),
+                                       ("bid_amount", a_col)):
+                        if field in by_field or col in mapping:
+                            continue
+                        mapping[col] = field
+                        technical_columns.pop(col, None)
+                        filled.append(f"{field} = cột {col + 1}")
+                    if filled:
+                        warnings.append(
+                            f"Sheet '{sheet.name}': tiêu đề không nêu rõ nên đã SUY RA cột từ "
+                            f"số liệu ({', '.join(filled)}) — {hits}/{total} dòng thỏa "
+                            f"khối lượng × đơn giá = thành tiền. Hãy đối chiếu lại nếu thấy sai."
+                        )
+
+            # Cột đơn vị tính không có quan hệ toán học, nhưng thuộc tập đóng nhỏ.
+            if "unit" not in set(mapping.values()):
+                unit_col = find_unit_column(sheet.rows[end:], len(flat_headers),
+                                            exclude=set(mapping))
+                if unit_col is not None:
+                    mapping[unit_col] = "unit"
+                    technical_columns.pop(unit_col, None)
+                    warnings.append(
+                        f"Sheet '{sheet.name}': đã SUY RA cột đơn vị tính = cột {unit_col + 1} "
+                        f"theo giá trị trong cột (m, m2, cái, bộ...)."
+                    )
+
             mapped_fields = set(mapping.values())
             for field, label in (("unit_price_total", "đơn giá"),
                                  ("bid_quantity", "khối lượng nhà thầu chào")):
