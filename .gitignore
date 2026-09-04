@@ -28,3 +28,6 @@ reports/test_reports/
 
 # Cấu hình phiên làm việc của công cụ hỗ trợ
 .claude/
+
+# Nhat ky tieu de la — du lieu van hanh, khong dua vao ma nguon
+runtime/header_log.jsonl*

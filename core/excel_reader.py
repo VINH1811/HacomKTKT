@@ -10,6 +10,7 @@ from typing import Any, Optional
 from .column_inference import find_quantity_price_amount, find_unit_column
 from .column_synonyms import guess_field
 from .env_config import env_int
+from .header_log import record_unknown_headers
 from .excel_io import list_sheets_fast, read_workbook_matrices, scan_xlsx_issues
 from .models import DocumentRole, ItemRecord, RowType, WorkbookData
 from .number_parser import math_error, parse_number, safe_amount
@@ -516,6 +517,16 @@ def load_workbook_items(
             warnings.append(f"Sheet '{sheet.name}': {exc}")
             continue
 
+        # Ghi lai cac cot co tieu de ma khong khoa nao nhan, de dinh ky mo rong
+        # so tay tu khoa. Chay lang le o phia may chu, khong hien gi len giao dien.
+        record_unknown_headers(
+            workbook=str(path), sheet=sheet.name, flat_headers=flat_headers,
+            # Cot ky thuat dong (khoi luong theo tang...) da duoc nhan dien roi,
+            # ghi vao nhat ky chi lam nhieu.
+            mapped_columns=set(mapping) | set(technical_columns),
+            rows=sheet.rows[end + 1:],
+        )
+
         if "item_name" not in mapping.values():
             warnings.append(f"Sheet '{sheet.name}': không xác định được cột tên hạng mục")
             continue
@@ -535,7 +546,7 @@ def load_workbook_items(
                        if f not in by_field]
             if missing:
                 found = find_quantity_price_amount(
-                    sheet.rows[end:], len(flat_headers),
+                    sheet.rows[end + 1:], len(flat_headers),
                     known_quantity=by_field.get("bid_quantity"),
                     known_price=by_field.get("unit_price_total"),
                     known_amount=by_field.get("bid_amount"),
@@ -562,7 +573,7 @@ def load_workbook_items(
 
             # Cột đơn vị tính không có quan hệ toán học, nhưng thuộc tập đóng nhỏ.
             if "unit" not in set(mapping.values()):
-                unit_col = find_unit_column(sheet.rows[end:], len(flat_headers),
+                unit_col = find_unit_column(sheet.rows[end + 1:], len(flat_headers),
                                             exclude=set(mapping))
                 if unit_col is not None:
                     mapping[unit_col] = "unit"
