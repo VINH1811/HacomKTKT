@@ -76,6 +76,20 @@ _TOTAL_LINE = re.compile(
 _NUM_SECTION = re.compile(r"^\d+(?:\.\d+)*(?:[.\-]|$)")
 
 
+
+def _is_real_code(code: str) -> bool:
+    """Ma hieu that su, khong phai o dien cho co.
+
+    Bang khoi luong hay co cac ma rac nhu "0-0", "0", "-": chung lap lai hang
+    tram dong nen phep kiem "ma hieu trung nhung mo ta khac nhau" bao rop ca
+    file, lam chim cac canh bao that.
+    """
+    text = (code or "").strip()
+    if len(text) < 2:
+        return False
+    return bool(text.strip("0-_./ "))
+
+
 def file_sha256(path: str | Path, chunk_size: int = 1024 * 1024) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -292,7 +306,8 @@ def map_columns(flat_headers: list[str], role: DocumentRole) -> tuple[dict[int, 
         if "so luong" in text or re.search(r"\bsl\b", text):
             field = "bid_quantity" if role is DocumentRole.HSDT else "reference_quantity"
             candidates[field].append((45, col)); continue
-        if any(term in text for term in ("hang muc", "noi dung", "mo ta", "ten cong viec")) and not any(
+        if any(term in text for term in ("hang muc", "noi dung", "mo ta", "ten cong viec",
+                                         "pham vi cong viec")) and not any(
                 bad in text for bad in ("thanh tien", "don gia", "gia tri", "khoi luong", "so luong", "quy cach")):
             candidates["item_name"].append((60, col)); continue
         if text == "gia" or text == "gia chao" or text == "don gia chao":
@@ -728,7 +743,7 @@ def load_workbook_items(
 
     by_code: dict[tuple[str, str], list[ItemRecord]] = defaultdict(list)
     for item in items:
-        if item.is_comparable and item.normalized_code:
+        if item.is_comparable and _is_real_code(item.normalized_code):
             by_code[(normalize_name(item.sheet), item.normalized_code)].append(item)
     for (_, code), duplicated in by_code.items():
         distinct_names = {item.normalized_name for item in duplicated if item.normalized_name}

@@ -303,6 +303,7 @@ def _compare_text(
     missing_severity: Severity = Severity.REVIEW,
     weight_review: float = 5.0,
     weight_warning: float = 10.0,
+    note_when_base_missing: bool = True,
 ) -> None:
     left, right = str(base or "").strip(), str(value or "").strip()
     if not left and not right:
@@ -313,6 +314,11 @@ def _compare_text(
         # la nha thau thieu, trong khi phan lon truong hop la phu luc moi thau
         # khong ghi con nha thau ghi them - do khong phai sai sot cua nha thau.
         if not left:
+            # Ho so doi chieu khong quy dinh truong nay thi nha thau ghi them
+            # KHONG phai phat hien. Voi phu luc khong dung ma hieu, ghi chu nay
+            # noi tren gan nhu moi dong va lam chim cac canh bao that.
+            if not note_when_base_missing:
+                return
             message = (
                 f"{field}: hồ sơ đối chiếu để trống, nhà thầu có khai "
                 f"({right[:60]}) — thông tin bổ sung, không phải thiếu sót"
@@ -452,7 +458,8 @@ def build_bidder_rows(
                 weight_review=4.0, weight_warning=10.0,
             )
 
-        _compare_text(row, "Mã hiệu", ref.item_code, cand.item_code, 0.95, 0.60, weight_review=3, weight_warning=8)
+        _compare_text(row, "Mã hiệu", ref.item_code, cand.item_code, 0.95, 0.60,
+                          weight_review=3, weight_warning=8, note_when_base_missing=False)
         # So sánh đơn vị theo dạng ĐÃ CHUẨN HÓA: "mét"/"m", "m2"/"m²"... là cùng
         # đơn vị, không được báo lệch. Chỉ khi chuẩn hóa vẫn khác mới đối chiếu.
         if normalize_unit(ref.unit) != normalize_unit(cand.unit):
@@ -486,9 +493,12 @@ def build_bidder_rows(
             row.price_delta_pct = None
             row.amount_delta = None
         else:
-            _compare_text(row, "Vật tư/Quy cách", ref.material, cand.material, t.material_review_score, 0.45, weight_review=4, weight_warning=9)
-            _compare_text(row, "Thương hiệu", ref.brand, cand.brand, 0.80, 0.45, weight_review=4, weight_warning=9)
-            _compare_text(row, "Xuất xứ", ref.origin, cand.origin, 0.85, 0.50, weight_review=3, weight_warning=8)
+            _compare_text(row, "Vật tư/Quy cách", ref.material, cand.material, t.material_review_score, 0.45,
+                          weight_review=4, weight_warning=9, note_when_base_missing=False)
+            _compare_text(row, "Thương hiệu", ref.brand, cand.brand, 0.80, 0.45,
+                          weight_review=4, weight_warning=9, note_when_base_missing=False)
+            _compare_text(row, "Xuất xứ", ref.origin, cand.origin, 0.85, 0.50,
+                          weight_review=3, weight_warning=8, note_when_base_missing=False)
             _compare_numeric(
                 row, "Khối lượng nhà thầu chào", ref.quantity, cand.quantity,
                 t.quantity_warn_pct, t.quantity_critical_pct,
