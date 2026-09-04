@@ -22,6 +22,7 @@ from typing import Any, Optional
 import xlsxwriter
 
 from .config import EnterpriseConfig
+from .env_config import env_float
 from .excel_reader import load_workbook_items
 from .internal_consistency import PriceInconsistency, find_price_inconsistencies
 from .matcher import match_items_cached
@@ -58,6 +59,11 @@ STATUS_SUPPLEMENTED = "BỔ SUNG THÔNG TIN"
 PRICE_ISSUE_FIXED = "ĐÃ SỬA"
 PRICE_ISSUE_REMAINS = "CÒN LỖI"
 PRICE_ISSUE_NEW = "MỚI PHÁT SINH"
+
+# Hai ban lech qua nguong nay ve tien, trong khi so hang muc chenh khong dang ke
+# -> nghi mot ban bi doc thieu.
+COUNT_GAP_LIMIT = env_float("HSMT_VERSION_COUNT_GAP", 0.20, 0.0, 1.0)
+MONEY_GAP_ALERT = env_float("HSMT_VERSION_MONEY_GAP", 0.40, 0.0, 10.0)
 
 
 @dataclass
@@ -113,6 +119,7 @@ class VersionCompareResult:
     total_old: float
     total_new: float
     price_issues: list[PriceIssueRow] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     @property
     def total_delta(self) -> float:
@@ -319,8 +326,31 @@ def compare_quote_versions(
         0 if r.new is not None else 1,
         (r.new or r.old).row_number,
     ))
+    # Hai ban co so hang muc tuong duong ma tong tien lech qua lon thi rat co
+    # the MOT BAN BI DOC THIEU (sheet doi ten, cot don gia khong nhan ra...),
+    # chu khong phai nha thau tang gia. Bao ro con hon dua ra con so ao.
+    warnings: list[str] = []
+    n_old = len([i for i in old_items if i.is_comparable])
+    n_new = len([i for i in new_items if i.is_comparable])
+    total_old_value = _total_amount(old_items)
+    total_new_value = _total_amount(new_items)
+    if n_old and n_new and min(total_old_value, total_new_value) > 0:
+        count_gap = abs(n_new - n_old) / max(n_old, n_new)
+        money_gap = abs(total_new_value - total_old_value) / max(total_old_value, total_new_value)
+        if count_gap <= COUNT_GAP_LIMIT and money_gap >= MONEY_GAP_ALERT:
+            thin = old_label if total_old_value < total_new_value else new_label
+            warnings.append(
+                f"Hai bản có số hạng mục gần bằng nhau ({n_old} và {n_new}) nhưng tổng thành "
+                f"tiền lệch {money_gap:.0%}. Rất có thể {thin} bị ĐỌC THIẾU (nhà thầu đổi tên "
+                f"sheet, hoặc một sheet không nhận ra cột đơn giá) chứ không phải giá thay đổi "
+                f"thật. Xem bảng 'Theo sheet' để biết mất ở đâu."
+            )
+    warnings.extend(w for w in old_wb.warnings if "không nhận ra cột" in w or "BỎ QUA các sheet" in w)
+    warnings.extend(w for w in new_wb.warnings if "không nhận ra cột" in w or "BỎ QUA các sheet" in w)
+
     return VersionCompareResult(
         bidder=bidder,
+        warnings=warnings,
         old_label=old_label,
         new_label=new_label,
         old_path=str(old_path),
@@ -378,11 +408,21 @@ def export_version_report(result: VersionCompareResult, output_path: str | Path)
     ws.set_column(1, 3, 22)
     ws.merge_range(0, 0, 0, 3, f"SO SÁNH PHIÊN BẢN CHÀO GIÁ — {result.bidder}", f_title)
     ws.set_row(0, 26)
+    if result.warnings:
+        f_warn = wb.add_format({"bold": True, "bg_color": "#FCE4D6", "font_color": "#9C0006",
+                                "text_wrap": True, "valign": "top"})
+        ws.write(1, 0, "CẢNH BÁO", f_label)
+        row_warn = 1
+        for message in result.warnings[:10]:
+            ws.merge_range(row_warn, 1, row_warn, 3, message, f_warn)
+            ws.set_row(row_warn, 30)
+            row_warn += 1
+
     meta = [
         (result.old_label, Path(result.old_path).name),
         (result.new_label, Path(result.new_path).name),
     ]
-    r = 2
+    r = 2 + (len(result.warnings[:10]) if result.warnings else 0)
     for label, value in meta:
         ws.write(r, 0, label, f_label)
         ws.write(r, 1, value)

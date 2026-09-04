@@ -497,11 +497,13 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                     },
                     # Lỗi tự mâu thuẫn giá còn phải xử lý — hiện thẳng lên web chứ
                     # không bắt người dùng mở file báo cáo mới thấy.
-                    "warnings": [
+                    # Cảnh báo nghi đọc thiếu phải đứng TRƯỚC: nó quyết định
+                    # mọi con số bên dưới có đáng tin hay không.
+                    "warnings": (list(vc.warnings) + [
                         f"[{issue.status}] {issue.current.describe()}"
                         for issue in vc.price_issues
                         if issue.status in (VC_ISSUE_NEW, VC_ISSUE_REMAINS)
-                    ][:40],
+                    ])[:40],
                     "anomalies": [],
                     "files": {},
                 }
