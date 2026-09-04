@@ -74,8 +74,8 @@ class VersionChange:
     delta: Optional[float] = None
     delta_pct: Optional[float] = None
     # Ban cu bo trong, ban moi dien vao: day la BO SUNG thong tin chu khong phai
-    # sua doi. Gop chung se thoi phong con so "hang muc thay doi" — do Linh Anh
-    # co 1.574 dong chi vi ban moi moi dien cot thuong hieu.
+    # sua doi. Gop chung se thoi phong con so "hang muc thay doi" — mot ho so
+    # that co 1.574 dong chi vi ban moi moi dien cot thuong hieu.
     is_addition: bool = False
 
 
