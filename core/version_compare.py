@@ -52,6 +52,7 @@ STATUS_UNCHANGED = "GIỮ NGUYÊN"
 STATUS_CHANGED = "THAY ĐỔI"
 STATUS_ADDED = "THÊM MỚI"
 STATUS_REMOVED = "ĐÃ XOÁ"
+STATUS_SUPPLEMENTED = "BỔ SUNG THÔNG TIN"
 
 # Trạng thái của lỗi tự mâu thuẫn giá khi đối chiếu hai phiên bản.
 PRICE_ISSUE_FIXED = "ĐÃ SỬA"
@@ -66,6 +67,10 @@ class VersionChange:
     new_value: Any
     delta: Optional[float] = None
     delta_pct: Optional[float] = None
+    # Ban cu bo trong, ban moi dien vao: day la BO SUNG thong tin chu khong phai
+    # sua doi. Gop chung se thoi phong con so "hang muc thay doi" — do Linh Anh
+    # co 1.574 dong chi vi ban moi moi dien cot thuong hieu.
+    is_addition: bool = False
 
 
 @dataclass
@@ -119,6 +124,31 @@ class VersionCompareResult:
     def count_price_issues(self, status: str) -> int:
         return sum(1 for issue in self.price_issues if issue.status == status)
 
+    def by_sheet(self) -> list[dict[str, Any]]:
+        """Thống kê theo từng sheet.
+
+        Tổng cả file chỉ nói được "tăng bao nhiêu"; muốn biết tăng ở ĐÂU thì
+        phải tách theo sheet — hạng mục điện tăng hay phần nước tăng là hai câu
+        chuyện khác nhau khi đàm phán.
+        """
+        stats: dict[str, dict[str, Any]] = {}
+        for row in self.rows:
+            entry = stats.setdefault(row.sheet, {
+                "sheet": row.sheet, "total_old": 0.0, "total_new": 0.0,
+                STATUS_UNCHANGED: 0, STATUS_CHANGED: 0, STATUS_SUPPLEMENTED: 0,
+                STATUS_ADDED: 0, STATUS_REMOVED: 0,
+            })
+            entry[row.status] = entry.get(row.status, 0) + 1
+            if row.old is not None:
+                entry["total_old"] += _num(row.old.bid_amount) or 0.0
+            if row.new is not None:
+                entry["total_new"] += _num(row.new.bid_amount) or 0.0
+        for entry in stats.values():
+            entry["delta"] = entry["total_new"] - entry["total_old"]
+            entry["delta_pct"] = (entry["delta"] / entry["total_old"]) if entry["total_old"] else None
+        # Sheet biến động nhiều tiền nhất lên đầu.
+        return sorted(stats.values(), key=lambda e: -abs(e["delta"]))
+
 
 def _num(value: Any) -> Optional[float]:
     if value is None or value == "":
@@ -166,7 +196,10 @@ def _diff_items(old: ItemRecord, new: ItemRecord) -> list[VersionChange]:
         else:
             if _text_key(old_raw, kind) == _text_key(new_raw, kind):
                 continue
-            changes.append(VersionChange(field=label, old_value=old_raw, new_value=new_raw))
+            changes.append(VersionChange(
+                field=label, old_value=old_raw, new_value=new_raw,
+                is_addition=not str(old_raw or "").strip() and bool(str(new_raw or "").strip()),
+            ))
     return changes
 
 
@@ -242,7 +275,12 @@ def compare_quote_versions(
             )
 
     matches = match_items_cached(old_wb, new_wb, config)
-    old_items, new_items = old_wb.items, new_wb.items
+    # match_items CHI ghep cac hang muc so sanh duoc, va chi so trong ket qua
+    # tro vao danh sach DA LOC. Tra vao danh sach goc thi lech dung bang so dong
+    # nhom/tieu de dung truoc — moi cap ghep deu tro sang hang muc khac, keo theo
+    # so sai thuong hieu, sai chenh lech don gia va sai so hang muc thay doi.
+    old_items = [item for item in old_wb.items if item.is_comparable]
+    new_items = [item for item in new_wb.items if item.is_comparable]
 
     rows: list[VersionRow] = []
     for match in matches:
@@ -257,7 +295,13 @@ def compare_quote_versions(
             status, changes = STATUS_ADDED, []
         else:
             changes = _diff_items(old_item, new_item)
-            status = STATUS_CHANGED if changes else STATUS_UNCHANGED
+            if not changes:
+                status = STATUS_UNCHANGED
+            elif all(c.is_addition for c in changes):
+                # Chi dien them thong tin con thieu, khong sua gi da co.
+                status = STATUS_SUPPLEMENTED
+            else:
+                status = STATUS_CHANGED
         rows.append(VersionRow(
             status=status,
             sheet=shown.sheet,
@@ -296,6 +340,8 @@ _STATUS_FILL = {
     STATUS_CHANGED: "#FCE4D6",
     STATUS_ADDED: "#E2EFDA",
     STATUS_REMOVED: "#F4CCCC",
+    # Chỉ điền thêm thông tin còn thiếu — nhẹ hơn "thay đổi", tô xanh nhạt.
+    STATUS_SUPPLEMENTED: "#DDEBF7",
 }
 
 _PRICE_ISSUE_FILL = {
@@ -409,6 +455,37 @@ def export_version_report(result: VersionCompareResult, output_path: str | Path)
             ws.write_number(r, 2, change.new_value or 0.0, f_money)
             ws.write_number(r, 3, change.delta or 0.0, f_money_b)
             r += 1
+
+    # ---- Sheet Theo sheet ----
+    # Tổng cả file chỉ nói "tăng bao nhiêu"; muốn biết tăng Ở ĐÂU thì phải tách
+    # theo sheet. Bảng này cũng làm lộ ngay việc nhà thầu ĐỔI TÊN SHEET giữa hai
+    # bản — khi đó một sheet mất trắng còn sheet kia phình lên, dễ bị đọc nhầm
+    # thành tăng giá đột biến.
+    ws_sheet = wb.add_worksheet("Theo sheet")
+    sheet_headers = ["Sheet", f"Tổng {result.old_label}", f"Tổng {result.new_label}",
+                     "Chênh lệch", "Chênh (%)", "Giữ nguyên", "Thay đổi",
+                     "Bổ sung thông tin", "Thêm mới", "Đã xoá"]
+    for col, (head, width) in enumerate(zip(sheet_headers, [30, 20, 20, 18, 11, 11, 11, 17, 11, 10])):
+        ws_sheet.set_column(col, col, width)
+        ws_sheet.write(0, col, head, f_head)
+    ws_sheet.freeze_panes(1, 0)
+    ws_sheet.autofilter(0, 0, 0, len(sheet_headers) - 1)
+    r = 1
+    for entry in result.by_sheet():
+        ws_sheet.write(r, 0, entry["sheet"], f_text)
+        ws_sheet.write_number(r, 1, entry["total_old"], f_money)
+        ws_sheet.write_number(r, 2, entry["total_new"], f_money)
+        ws_sheet.write_number(r, 3, entry["delta"], f_money_b)
+        if entry["delta_pct"] is not None:
+            ws_sheet.write_number(r, 4, entry["delta_pct"], f_pct)
+        for col, status in enumerate((STATUS_UNCHANGED, STATUS_CHANGED, STATUS_SUPPLEMENTED,
+                                      STATUS_ADDED, STATUS_REMOVED), start=5):
+            ws_sheet.write_number(r, col, entry.get(status, 0))
+        r += 1
+    ws_sheet.write(r + 1, 0, "Lưu ý", f_label)
+    ws_sheet.write(r + 1, 1,
+                   "Một sheet về 0 và một sheet khác phình lên thường là do nhà thầu ĐỔI TÊN "
+                   "sheet giữa hai bản, không phải bỏ hạng mục rồi chào thêm.", f_text)
 
     # ---- Sheet Thay đổi chi tiết ----
     det = wb.add_worksheet("Thay đổi chi tiết")

@@ -671,6 +671,7 @@ function renderStandaloneResult(jobId, data) {
         ["Tổng bản cũ (đ)", s.total_old], ["Tổng bản mới (đ)", s.total_new],
         ["Chênh lệch (đ)", s.total_delta], ["Hạng mục thay đổi", s.changed],
         ["Thêm mới", s.added], ["Đã xoá", s.removed],
+        ["Bổ sung thông tin", s.supplemented || 0],
         ["Lệch đơn giá còn lại", (s.price_issue_new || 0) + (s.price_issue_remains || 0)],
         ["Lệch đơn giá đã sửa", s.price_issue_fixed || 0]
       ]
@@ -704,6 +705,21 @@ function renderStandaloneResult(jobId, data) {
       const pct = (s.total_delta_pct * 100).toFixed(2);
       details = `<div class="block-title"><h3>Mức thay đổi tổng thành tiền</h3></div><div class="mode-note ${s.total_delta_pct >= 0 ? "multi" : "single"}">Bản mới ${s.total_delta_pct >= 0 ? "TĂNG" : "GIẢM"} ${Math.abs(pct)}% so với bản cũ.</div>`;
     }
+    // Chi tiết theo sheet: tổng cả file chỉ nói tăng bao nhiêu, không nói ở đâu.
+    const bySheet = (s.by_sheet || []).filter((e) => Math.abs(e.delta) > 0);
+    if (bySheet.length) {
+      details += `<div class="block-title"><h3>Thay đổi theo từng sheet</h3><span>${bySheet.length} sheet</span></div>`
+        + `<div class="table-wrap"><table><thead><tr><th>Sheet</th><th>Tổng bản cũ</th><th>Tổng bản mới</th><th>Chênh lệch</th><th>%</th></tr></thead><tbody>`
+        + bySheet.slice(0, 20).map((e) => {
+            const pct = e.delta_pct === null || e.delta_pct === undefined
+              ? "—" : `${(e.delta_pct * 100).toFixed(1)}%`;
+            return `<tr><td>${escapeHtml(e.sheet)}</td><td>${formatNumber(e.total_old)}</td>`
+              + `<td>${formatNumber(e.total_new)}</td><td>${formatNumber(e.delta)}</td><td>${pct}</td></tr>`;
+          }).join("")
+        + `</tbody></table></div>`
+        + `<div class="mode-note single">Một sheet về 0 và một sheet khác phình lên thường là do nhà thầu ĐỔI TÊN sheet giữa hai bản, không phải bỏ hạng mục rồi chào thêm.</div>`;
+    }
+
     // Tự mâu thuẫn giá bên trong hồ sơ: sau vòng làm rõ cần biết ngay lỗi cũ
     // đã sửa chưa và bản mới có phát sinh lỗi nào không.
     const pending = data.warnings || [];

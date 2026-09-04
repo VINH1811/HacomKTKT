@@ -65,6 +65,7 @@ from core.version_compare import (
     STATUS_ADDED as VC_ADDED,
     STATUS_CHANGED as VC_CHANGED,
     STATUS_REMOVED as VC_REMOVED,
+    STATUS_SUPPLEMENTED as VC_SUPPLEMENTED,
     STATUS_UNCHANGED as VC_UNCHANGED,
     compare_quote_versions,
     export_version_report,
@@ -481,6 +482,15 @@ def _run_job(job_id: str, mode: str, request: dict[str, Any]) -> None:
                         "added": vc.count(VC_ADDED),
                         "removed": vc.count(VC_REMOVED),
                         "unchanged": vc.count(VC_UNCHANGED),
+                        "supplemented": vc.count(VC_SUPPLEMENTED),
+                        # Tách theo sheet: tổng cả file chỉ nói tăng bao nhiêu,
+                        # không nói tăng ở đâu.
+                        "by_sheet": [
+                            {"sheet": e["sheet"], "total_old": e["total_old"],
+                             "total_new": e["total_new"], "delta": e["delta"],
+                             "delta_pct": e["delta_pct"]}
+                            for e in vc.by_sheet()[:20]
+                        ],
                         "price_issue_new": vc.count_price_issues(VC_ISSUE_NEW),
                         "price_issue_remains": vc.count_price_issues(VC_ISSUE_REMAINS),
                         "price_issue_fixed": vc.count_price_issues(VC_ISSUE_FIXED),

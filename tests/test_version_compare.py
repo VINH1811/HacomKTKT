@@ -109,7 +109,7 @@ def test_totals_and_report_export(tmp_path: Path):
     out = tmp_path / "bao_cao.xlsx"
     export_version_report(res, out)
     wb = load_workbook(out)
-    assert set(wb.sheetnames) == {"Tổng quan", "Thay đổi chi tiết"}
+    assert set(wb.sheetnames) == {"Tổng quan", "Theo sheet", "Thay đổi chi tiết"}
     det = wb["Thay đổi chi tiết"]
     statuses = {det.cell(r, 1).value for r in range(2, det.max_row + 1)}
     assert STATUS_CHANGED in statuses
